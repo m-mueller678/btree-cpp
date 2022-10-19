@@ -162,14 +162,8 @@ struct BTreeNode : public BTreeNodeHeader {
    {
       foundOut = false;
 
-      // check prefix
-      int cmp = memcmp(key, getPrefix(), min(keyLength, prefixLength));
-      if (cmp < 0) // key is less than prefix
-         return 0;
-      if (cmp > 0) // key is greater than prefix
-         return count;
-      if (keyLength < prefixLength) // key is equal but shorter than prefix
-         return 0;
+      // skip prefix
+      assert(memcmp(key, getPrefix(), min(keyLength, prefixLength))==0);
       key += prefixLength;
       keyLength -= prefixLength;
 
