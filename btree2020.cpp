@@ -5,8 +5,6 @@
 
 struct BTreeNode;
 
-// maximum page size (in bytes) is 65536
-static const unsigned pageSize = 4096;
 
 struct BTreeNodeHeader {
    static const unsigned underFullSize = pageSize / 4;  // merge nodes below this size
