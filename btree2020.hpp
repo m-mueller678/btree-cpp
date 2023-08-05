@@ -2,16 +2,22 @@
 
 #include <cassert>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
-#include "common.hpp"
+
+// maximum page size (in bytes) is 65536
+static const unsigned pageSize = 4096;
 
 struct BTreeNode;
+union AnyNode;
 
-constexpr uint8_t TAG_LEAF = 0;
-constexpr uint8_t TAG_INNER = 1;
+enum class Tag : uint8_t {
+   Leaf = 0,
+   Inner = 1,
+};
 
 struct BTreeNodeHeader {
-   uint8_t tag;
+   Tag tag;
 
    static const unsigned underFullSize = pageSize / 4;  // merge nodes below this size
 
@@ -20,7 +26,7 @@ struct BTreeNodeHeader {
       uint16_t length;
    };
 
-   BTreeNode* upper = nullptr;  // only used in inner nodes
+   AnyNode* upper = nullptr;  // only used in inner nodes
 
    FenceKeySlot lowerFence = {0, 0};  // exclusive
    FenceKeySlot upperFence = {0, 0};  // inclusive
@@ -34,8 +40,7 @@ struct BTreeNodeHeader {
    uint32_t hint[hintCount];
    uint32_t padding;
 
-   BTreeNodeHeader(bool isLeaf) : tag(isLeaf ? TAG_LEAF : TAG_INNER) {}
-   ~BTreeNodeHeader() {}
+   BTreeNodeHeader(bool isLeaf) : tag(isLeaf ? Tag::Leaf : Tag::Inner) {}
 };
 
 struct BTreeNode : public BTreeNodeHeader {
@@ -69,13 +74,13 @@ struct BTreeNode : public BTreeNodeHeader {
 
    bool requestSpaceFor(unsigned spaceNeeded);
 
-   static BTreeNode* makeLeaf();
-   static BTreeNode* makeInner();
+   static AnyNode* makeLeaf();
+   static AnyNode* makeInner();
 
    uint8_t* getKey(unsigned slotId);
    uint8_t* getPayload(unsigned slotId);
 
-   BTreeNode* getChild(unsigned slotId);
+   AnyNode* getChild(unsigned slotId);
 
    // How much space would inserting a new key of length "keyLength" require?
    unsigned spaceNeeded(unsigned keyLength, unsigned payloadLength);
@@ -128,19 +133,52 @@ struct BTreeNode : public BTreeNodeHeader {
 
    void getSep(uint8_t* sepKeyOut, SeparatorInfo info);
 
-   BTreeNode* lookupInner(uint8_t* key, unsigned keyLength);
+   AnyNode* lookupInner(uint8_t* key, unsigned keyLength);
 
    void destroy();
+
+   AnyNode* any() { return reinterpret_cast<AnyNode*>(this); }
 };
 
 union AnyNode {
-   uint8_t tag;
-   BTreeNode basic;
+   Tag tag;
+   BTreeNode _basic_node;
+
+   AnyNode(BTreeNode basic) : _basic_node(basic) {}
+
+   void destroy()
+   {
+      switch (tag) {
+         case Tag::Leaf:
+         case Tag::Inner:
+            return basic()->destroy();
+      }
+   }
+
+   void dealloc() { delete this; }
+
+   bool isAnyInner()
+   {
+      switch (tag) {
+         case Tag::Leaf:
+            return false;
+         case Tag::Inner:
+            return true;
+         default:
+            abort();
+      }
+   }
+
+   BTreeNode* basic()
+   {
+      assert(tag == Tag::Leaf || tag == Tag::Inner);
+      return reinterpret_cast<BTreeNode*>(this);
+   }
 };
 
 struct BTree {
   private:
-   BTreeNode* root;
+   AnyNode* root;
 
    void splitNode(BTreeNode* node, BTreeNode* parent, uint8_t* key, unsigned keyLength, unsigned payloadLength);
    void ensureSpace(BTreeNode* toSplit, uint8_t* key, unsigned keyLength, unsigned payloadLength);

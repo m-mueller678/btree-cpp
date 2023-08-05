@@ -1,5 +1,6 @@
 #include "btree2020.hpp"
 #include <cassert>
+#include <cstdlib>
 #include <cstring>
 
 static unsigned min(unsigned a, unsigned b)
@@ -40,13 +41,25 @@ uint8_t* BTreeNode::ptr()
 }
 bool BTreeNode::isInner()
 {
-   assert(tag == TAG_INNER || tag == TAG_LEAF);
-   return tag == TAG_INNER;
+   switch (tag) {
+      case Tag::Inner:
+         return true;
+      case Tag::Leaf:
+         return false;
+      default:
+         abort();
+   }
 }
 bool BTreeNode::isLeaf()
 {
-   assert(tag == TAG_INNER || tag == TAG_LEAF);
-   return tag == TAG_LEAF;
+   switch (tag) {
+      case Tag::Inner:
+         return false;
+      case Tag::Leaf:
+         return true;
+      default:
+         abort();
+   }
 }
 uint8_t* BTreeNode::getLowerFence()
 {
@@ -81,13 +94,13 @@ bool BTreeNode::requestSpaceFor(unsigned spaceNeeded)
    return false;
 }
 
-BTreeNode* BTreeNode::makeLeaf()
+AnyNode* BTreeNode::makeLeaf()
 {
-   return new BTreeNode(true);
+   return new AnyNode(BTreeNode(true));
 }
-BTreeNode* BTreeNode::makeInner()
+AnyNode* BTreeNode::makeInner()
 {
-   return new BTreeNode(false);
+   return new AnyNode(BTreeNode(false));
 }
 
 uint8_t* BTreeNode::getKey(unsigned slotId)
@@ -99,10 +112,10 @@ uint8_t* BTreeNode::getPayload(unsigned slotId)
    return ptr() + slot[slotId].offset + slot[slotId].keyLen;
 }
 
-BTreeNode* BTreeNode::getChild(unsigned slotId)
+AnyNode* BTreeNode::getChild(unsigned slotId)
 {
    assert(isInner());
-   return loadUnaligned<BTreeNode*>(getPayload(slotId));
+   return loadUnaligned<AnyNode*>(getPayload(slotId));
 }
 
 // How much space would inserting a new key of length "keyLength" require?
@@ -436,7 +449,7 @@ void BTreeNode::getSep(uint8_t* sepKeyOut, SeparatorInfo info)
    memcpy(sepKeyOut + prefixLength, getKey(info.slot + info.isTruncated), info.length - prefixLength);
 }
 
-BTreeNode* BTreeNode::lookupInner(uint8_t* key, unsigned keyLength)
+AnyNode* BTreeNode::lookupInner(uint8_t* key, unsigned keyLength)
 {
    unsigned pos = lowerBound(key, keyLength);
    if (pos == count)
@@ -451,8 +464,7 @@ void BTreeNode::destroy()
          getChild(i)->destroy();
       upper->destroy();
    }
-   delete this;
-   return;
+   this->any()->dealloc();
 }
 
 BTree::BTree() : root(BTreeNode::makeLeaf()) {}
@@ -465,18 +477,19 @@ BTree::~BTree()
 // point lookup
 uint8_t* BTree::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut)
 {
-   BTreeNode* node = root;
-   while (node->isInner())
-      node = node->lookupInner(key, keyLength);
+   AnyNode* node = root;
+   while (node->isAnyInner())
+      node = node->basic()->lookupInner(key, keyLength);
+   BTreeNode* basicNode = node->basic();
    bool found;
-   unsigned pos = node->lowerBound(key, keyLength, found);
+   unsigned pos = basicNode->lowerBound(key, keyLength, found);
    if (!found)
       return nullptr;
 
    // key found, copy payload
-   assert(pos < node->count);
-   payloadSizeOut = node->slot[pos].payloadLen;
-   return node->getPayload(pos);
+   assert(pos < basicNode->count);
+   payloadSizeOut = basicNode->slot[pos].payloadLen;
+   return basicNode->getPayload(pos);
 }
 
 bool BTree::lookup(uint8_t* key, unsigned keyLength)
@@ -489,9 +502,9 @@ void BTree::splitNode(BTreeNode* node, BTreeNode* parent, uint8_t* key, unsigned
 {
    // create new root if necessary
    if (!parent) {
-      parent = BTreeNode::makeInner();
-      parent->upper = node;
-      root = parent;
+      parent = BTreeNode::makeInner()->basic();
+      parent->upper = node->any();
+      root = parent->any();
    }
 
    // split
@@ -509,11 +522,11 @@ void BTree::splitNode(BTreeNode* node, BTreeNode* parent, uint8_t* key, unsigned
 
 void BTree::ensureSpace(BTreeNode* toSplit, uint8_t* key, unsigned keyLength, unsigned payloadLength)
 {
-   BTreeNode* node = root;
+   AnyNode* node = root;
    BTreeNode* parent = nullptr;
-   while (node->isInner() && (node != toSplit)) {
-      parent = node;
-      node = node->lookupInner(key, keyLength);
+   while (node->isAnyInner() && (node != toSplit->any())) {
+      parent = node->basic();
+      node = parent->lookupInner(key, keyLength);
    }
    splitNode(toSplit, parent, key, keyLength, payloadLength);
 }
@@ -521,41 +534,42 @@ void BTree::ensureSpace(BTreeNode* toSplit, uint8_t* key, unsigned keyLength, un
 void BTree::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
 {
    assert((keyLength + payloadLength) <= BTreeNode::maxKVSize);
-   BTreeNode* node = root;
+   AnyNode* node = root;
    BTreeNode* parent = nullptr;
-   while (node->isInner()) {
-      parent = node;
-      node = node->lookupInner(key, keyLength);
+   while (node->isAnyInner()) {
+      parent = node->basic();
+      node = parent->lookupInner(key, keyLength);
    }
-   if (node->insert(key, keyLength, payload, payloadLength))
+   if (node->basic()->insert(key, keyLength, payload, payloadLength))
       return;
 
    // node is full: split and restart
-   splitNode(node, parent, key, keyLength, payloadLength);
+   splitNode(node->basic(), parent, key, keyLength, payloadLength);
    insert(key, keyLength, payload, payloadLength);
 }
 
 bool BTree::remove(uint8_t* key, unsigned keyLength)
 {
-   BTreeNode* node = root;
+   AnyNode* node = root;
    BTreeNode* parent = nullptr;
    unsigned pos = 0;
-   while (node->isInner()) {
-      parent = node;
-      pos = node->lowerBound(key, keyLength);
-      node = (pos == node->count) ? node->upper : node->getChild(pos);
+   while (node->isAnyInner()) {
+      parent = node->basic();
+      pos = parent->lowerBound(key, keyLength);
+      BTreeNode* basicNode = node->basic();
+      node = (pos == basicNode->count) ? basicNode->upper : basicNode->getChild(pos);
    }
-   if (!node->remove(key, keyLength))
+   if (!node->basic()->remove(key, keyLength))
       return false;  // key not found
 
    // merge if underfull
-   if (node->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
+   if (node->basic()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
       // find neighbor and merge
       if (parent && (parent->count >= 2) && ((pos + 1) < parent->count)) {
-         BTreeNode* right = parent->getChild(pos + 1);
+         BTreeNode* right = parent->getChild(pos + 1)->basic();
          if (right->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
-            if (node->mergeNodes(pos, parent, right))
-               delete node;
+            if (node->basic()->mergeNodes(pos, parent, right))
+               node->dealloc();
          }
       }
    }
