@@ -7,7 +7,12 @@
 
 struct BTreeNode;
 
+constexpr uint8_t TAG_LEAF = 0;
+constexpr uint8_t TAG_INNER = 1;
+
 struct BTreeNodeHeader {
+   uint8_t tag;
+
    static const unsigned underFullSize = pageSize / 4;  // merge nodes below this size
 
    struct FenceKeySlot {
@@ -21,7 +26,6 @@ struct BTreeNodeHeader {
    FenceKeySlot upperFence = {0, 0};  // inclusive
 
    uint16_t count = 0;
-   bool isLeaf;
    uint16_t spaceUsed = 0;
    uint16_t dataOffset = static_cast<uint16_t>(pageSize);
    uint16_t prefixLength = 0;
@@ -30,7 +34,7 @@ struct BTreeNodeHeader {
    uint32_t hint[hintCount];
    uint32_t padding;
 
-   BTreeNodeHeader(bool isLeaf) : isLeaf(isLeaf) {}
+   BTreeNodeHeader(bool isLeaf) : tag(isLeaf ? TAG_LEAF : TAG_INNER) {}
    ~BTreeNodeHeader() {}
 };
 
@@ -55,6 +59,7 @@ struct BTreeNode : public BTreeNodeHeader {
 
    uint8_t* ptr();
    bool isInner();
+   bool isLeaf();
    uint8_t* getLowerFence();
    uint8_t* getUpperFence();
    uint8_t* getPrefix();
@@ -126,6 +131,11 @@ struct BTreeNode : public BTreeNodeHeader {
    BTreeNode* lookupInner(uint8_t* key, unsigned keyLength);
 
    void destroy();
+};
+
+union AnyNode {
+   uint8_t tag;
+   BTreeNode basic;
 };
 
 struct BTree {

@@ -1,2 +1,2 @@
 all:
-	clang++ btree2020.cpp test.cpp
+	clang++ btree2020.cpp test.cpp -o test

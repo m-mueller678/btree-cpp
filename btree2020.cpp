@@ -40,7 +40,13 @@ uint8_t* BTreeNode::ptr()
 }
 bool BTreeNode::isInner()
 {
-   return !isLeaf;
+   assert(tag == TAG_INNER || tag == TAG_LEAF);
+   return tag == TAG_INNER;
+}
+bool BTreeNode::isLeaf()
+{
+   assert(tag == TAG_INNER || tag == TAG_LEAF);
+   return tag == TAG_LEAF;
 }
 uint8_t* BTreeNode::getLowerFence()
 {
@@ -226,7 +232,7 @@ void BTreeNode::compactify()
 {
    unsigned should = freeSpaceAfterCompaction();
    static_cast<void>(should);
-   BTreeNode tmp(isLeaf);
+   BTreeNode tmp(isLeaf());
    tmp.setFences(getLowerFence(), lowerFence.length, getUpperFence(), upperFence.length);
    copyKeyValueRange(&tmp, 0, 0, count);
    tmp.upper = upper;
@@ -238,10 +244,10 @@ void BTreeNode::compactify()
 // merge "this" into "right" via "tmp"
 bool BTreeNode::mergeNodes(unsigned slotId, BTreeNode* parent, BTreeNode* right)
 {
-   if (isLeaf) {
-      assert(right->isLeaf);
+   if (isLeaf()) {
+      assert(right->isLeaf());
       assert(parent->isInner());
-      BTreeNode tmp(isLeaf);
+      BTreeNode tmp(isLeaf());
       tmp.setFences(getLowerFence(), lowerFence.length, right->getUpperFence(), right->upperFence.length);
       unsigned leftGrow = (prefixLength - tmp.prefixLength) * count;
       unsigned rightGrow = (right->prefixLength - tmp.prefixLength) * right->count;
@@ -258,7 +264,7 @@ bool BTreeNode::mergeNodes(unsigned slotId, BTreeNode* parent, BTreeNode* right)
    } else {
       assert(right->isInner());
       assert(parent->isInner());
-      BTreeNode tmp(isLeaf);
+      BTreeNode tmp(isLeaf());
       tmp.setFences(getLowerFence(), lowerFence.length, right->getUpperFence(), right->upperFence.length);
       unsigned leftGrow = (prefixLength - tmp.prefixLength) * count;
       unsigned rightGrow = (right->prefixLength - tmp.prefixLength) * right->count;
@@ -355,15 +361,15 @@ void BTreeNode::splitNode(BTreeNode* parent, unsigned sepSlot, uint8_t* sepKey, 
    // split this node into nodeLeft and nodeRight
    assert(sepSlot > 0);
    assert(sepSlot < (pageSize / sizeof(BTreeNode*)));
-   BTreeNode* nodeLeft = new BTreeNode(isLeaf);
+   BTreeNode* nodeLeft = new BTreeNode(isLeaf());
    nodeLeft->setFences(getLowerFence(), lowerFence.length, sepKey, sepLength);
-   BTreeNode tmp(isLeaf);
+   BTreeNode tmp(isLeaf());
    BTreeNode* nodeRight = &tmp;
    nodeRight->setFences(sepKey, sepLength, getUpperFence(), upperFence.length);
    bool succ = parent->insert(sepKey, sepLength, reinterpret_cast<uint8_t*>(&nodeLeft), sizeof(BTreeNode*));
    static_cast<void>(succ);
    assert(succ);
-   if (isLeaf) {
+   if (isLeaf()) {
       copyKeyValueRange(nodeLeft, 0, 0, sepSlot + 1);
       copyKeyValueRange(nodeRight, 0, nodeLeft->count, count - nodeLeft->count);
    } else {
