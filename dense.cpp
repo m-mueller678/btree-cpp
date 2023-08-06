@@ -56,6 +56,59 @@ struct DenseNode : public DenseNodeHeader {
       updateArrayStart();
    }
 
+   void copyKeyValueRangeToBasic(BTreeNode* dst, unsigned srcStart, unsigned srcEnd)
+   {
+      assert(dst->prefixLength >= prefixLength);
+      assert(dst->count == 0);
+      unsigned npLen = computeNumericPartLen(prefixLength, fullKeyLen);
+      unsigned outSlot = 0;
+      for (unsigned i = srcStart; i < srcEnd; i++) {
+         if (!isSlotPresent(i)) {
+            continue;
+         }
+         NumericPart numericPart = __builtin_bswap32(arrayStart + static_cast<NumericPart>(i));
+         unsigned newKeyLength = fullKeyLen - dst->prefixLength;
+         unsigned space = newKeyLength + valLen;
+         dst->dataOffset -= space;
+         dst->spaceUsed += space;
+         dst->slot[outSlot].offset = dst->dataOffset;
+         dst->slot[outSlot].keyLen = fullKeyLen - dst->prefixLength;
+         dst->slot[outSlot].payloadLen = valLen;
+         memcpy(dst->getPayload(outSlot), getVal(i), valLen);
+         memcpy(dst->getPayload(outSlot) - npLen, reinterpret_cast<uint8_t*>(&numericPart) + sizeof(NumericPart) - npLen, valLen);
+         memcpy(dst->getKey(outSlot), getLowerFence() + dst->prefixLength, fullKeyLen - dst->prefixLength - npLen);
+         outSlot += 1;
+      }
+      dst->count = outSlot;
+      assert((dst->ptr() + dst->dataOffset) >= reinterpret_cast<uint8_t*>(dst->slot + dst->count));
+   }
+
+   bool insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
+   {
+      assert(keyLength >= prefixLength);
+      if (payloadLength != valLen || keyLength != fullKeyLen) {
+         // TODO chek capacity
+         BTreeNode tmp(true);
+         tmp.setFences(getLowerFence(), lowerFenceLen, getUpperFence(), upperFenceLen);
+         copyKeyValueRangeToBasic(&tmp, 0, slotCount);
+         BTreeNode* basicNode = reinterpret_cast<BTreeNode*>(this);
+         *basicNode = tmp;
+         return basicNode->insert(key, keyLength, payload, payloadLength);
+      }
+      KeyError keyIndex = keyToIndex(key + prefixLength, keyLength - prefixLength);
+      switch (keyIndex) {
+         case KeyError::SlightlyTooLarge:
+         case KeyError::FarTooLarge:
+         case KeyError::NotNumericRange:
+            return false;
+         case KeyError::WrongLen:
+            abort();
+      }
+      assert(keyIndex >= 0);
+      setSlotPresent(keyIndex);
+      memcpy(getVal(keyIndex), payload, payloadLength);
+   }
+
    void splitNode(BTreeNode* parent, uint8_t* key, unsigned keyLen)
    {
       assert(keyLen >= prefixLength);
@@ -71,8 +124,8 @@ struct DenseNode : public DenseNodeHeader {
             if (upperFenceLen < fullKeyLen) {
                split_to_self = false;
             } else {
-               // TODO split to two basic nodes
-               abort();
+               // TODO split to two basic nodes instead
+               split_to_self = false;
             }
             break;
          case KeyError::SlightlyTooLarge:
@@ -86,25 +139,14 @@ struct DenseNode : public DenseNodeHeader {
       memcpy(denseLeft, this, sizeof(DenseNode));
       bool succ = parent->insert(full_boundary, fullKeyLen, reinterpret_cast<uint8_t*>(&denseLeft), sizeof(BTreeNode*));
       assert(succ);
-      AnyNode* right = this->any();
       if (split_to_self) {
-         // TODO create new empty node at right
-         //  let new_node = Self::new(
-         //                        FenceData {
-         //                            lower_fence: FenceRef::from_full(full_boundary, left.prefixLength as usize),
-         //                                             upper_fence: left.fences().upper_fence,
-         //                                             prefixLength: left.prefixLength as usize,
-         //                        }
-         //                        .restrip(),
-         //                                             left.fullKeyLen as usize,
-         //                                             left.valLen as usize,
-         //                    );
-         //                    right.write_inner(new_node);
-         abort();
+         this->init(full_boundary, denseLeft->fullKeyLen, denseLeft->getUpperFence(), denseLeft->upperFenceLen, denseLeft->prefixLength,
+                    denseLeft->fullKeyLen, denseLeft->valLen);
       } else {
+         BTreeNode* right = &this->any()->_basic_node;
          // TODO check move constructor semantics
-         right->_basic_node = BTreeNode{true};
-         right->_basic_node.setFences(full_boundary, denseLeft->fullKeyLen, denseLeft->getUpperFence(), denseLeft->upperFenceLen);
+         *right = BTreeNode{true};
+         right->setFences(full_boundary, denseLeft->fullKeyLen, denseLeft->getUpperFence(), denseLeft->upperFenceLen);
       }
       denseLeft->changeUpperFence(full_boundary, fullKeyLen);
    }
@@ -112,7 +154,7 @@ struct DenseNode : public DenseNodeHeader {
    unsigned prefixDiffLen()
    {
       // TODO this gets called a lot?
-      return compute_numeric_prefixLength(prefixLength, fullKeyLen) - prefixLength;
+      return computeNumericPrefixLength(prefixLength, fullKeyLen) - prefixLength;
    }
 
    KeyError keyToIndex(uint8_t* truncatedKey, unsigned truncatedLen)
@@ -137,10 +179,11 @@ struct DenseNode : public DenseNodeHeader {
       }
    }
 
-   static unsigned compute_numeric_prefixLength(unsigned prefixLength, unsigned fullKeyLen)
+   static unsigned computeNumericPartLen(unsigned prefixLength, unsigned fullKeyLen) { return min(maxNumericPartLen, fullKeyLen - prefixLength); }
+
+   static unsigned computeNumericPrefixLength(unsigned prefixLength, unsigned fullKeyLen)
    {
-      unsigned numericPartLen = min(maxNumericPartLen, fullKeyLen - prefixLength);
-      return fullKeyLen - numericPartLen;
+      return fullKeyLen - computeNumericPartLen(prefixLength, fullKeyLen);
    }
 
    void init(uint8_t* lowerFence,
@@ -158,7 +201,7 @@ struct DenseNode : public DenseNodeHeader {
       this->upperFenceLen = upperFenceLen;
       this->prefixLength = prefixLength;
       assert(lowerFenceLen <= fullKeyLen);
-      assert(compute_numeric_prefixLength(prefixLength, fullKeyLen) <= lowerFenceLen);
+      assert(computeNumericPrefixLength(prefixLength, fullKeyLen) <= lowerFenceLen);
       slotCount = computeSlotCount(valLen, lowerFenceOffset());
       zeroMask();
       memcpy(this->getLowerFence(), lowerFence, lowerFenceLen);
@@ -229,7 +272,7 @@ struct DenseNode : public DenseNodeHeader {
       assert(basicNode->count > 0);
       unsigned pre_key_len_1 = basicNode->slot[0].keyLen;
       unsigned fullKeyLen = pre_key_len_1 + basicNode->prefixLength;
-      unsigned numericPrefixLen = compute_numeric_prefixLength(basicNode->prefixLength, fullKeyLen);
+      unsigned numericPrefixLen = computeNumericPrefixLength(basicNode->prefixLength, fullKeyLen);
       if (numericPrefixLen > basicNode->lowerFence.length) {
          // this might be possible to handle, but requires more thought and should be rare.
          return false;
