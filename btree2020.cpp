@@ -3,19 +3,6 @@
 #include <cstdlib>
 #include <cstring>
 
-static unsigned min(unsigned a, unsigned b)
-{
-   return a < b ? a : b;
-}
-
-template <class T>
-static T loadUnaligned(void* p)
-{
-   T x;
-   memcpy(&x, p, sizeof(T));
-   return x;
-}
-
 // Get order-preserving head of key (assuming little endian)
 static uint32_t head(uint8_t* key, unsigned keyLength)
 {

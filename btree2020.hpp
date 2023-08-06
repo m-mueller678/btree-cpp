@@ -8,12 +8,31 @@
 // maximum page size (in bytes) is 65536
 static const unsigned pageSize = 4096;
 
+inline unsigned min(unsigned a, unsigned b)
+{
+   return a < b ? a : b;
+}
+
+inline unsigned max(unsigned a, unsigned b)
+{
+   return a < b ? b : a;
+}
+
+template <class T>
+static T loadUnaligned(void* p)
+{
+   T x;
+   memcpy(&x, p, sizeof(T));
+   return x;
+}
+
 struct BTreeNode;
 union AnyNode;
 
 enum class Tag : uint8_t {
    Leaf = 0,
    Inner = 1,
+   Dense = 2,
 };
 
 struct BTreeNodeHeader {
@@ -145,6 +164,7 @@ union AnyNode {
    BTreeNode _basic_node;
 
    AnyNode(BTreeNode basic) : _basic_node(basic) {}
+   AnyNode() {}
 
    void destroy()
    {
@@ -152,6 +172,8 @@ union AnyNode {
          case Tag::Leaf:
          case Tag::Inner:
             return basic()->destroy();
+         default:
+            abort();
       }
    }
 
