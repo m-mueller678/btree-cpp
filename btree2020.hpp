@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <cstdio>
 
 // maximum page size (in bytes) is 65536
 constexpr unsigned pageSize = 4096;
@@ -18,6 +19,16 @@ inline unsigned max(unsigned a, unsigned b)
 {
    return a < b ? b : a;
 }
+
+#define COUNTER(name,val,freq) {\
+      static uint64_t name##_count=0;\
+      static uint64_t name##_sum=0;\
+      name##_count+=1;\
+      name##_sum+=(val);\
+      if(name##_count % (freq) == 0){  \
+         printf("counter %20s| avg %.3e | sum %.3e | cnt %.3e\n",#name,static_cast<double>(name##_sum)/name##_count,name##_sum,name##_count);\
+      }\
+   }
 
 template <class T>
 static T loadUnaligned(void* p)

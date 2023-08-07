@@ -548,6 +548,7 @@ void BTree::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned 
       parent = node->basic();
       node = parent->lookupInner(key, keyLength);
    }
+   COUNTER(is_basic,node->tag == Tag::Leaf,1<<10)
    if (node->tag == Tag::Leaf) {
       if (node->basic()->insert(key, keyLength, payload, payloadLength))
          return;
