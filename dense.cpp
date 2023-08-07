@@ -331,5 +331,5 @@ void DenseNode::unsetSlotPresent(unsigned i)
 uint8_t* DenseNode::getVal(unsigned i)
 {
    assert(i < slotCount);
-   return ptr() + mask_word_count() * maskBytesPerWord + i * valLen;
+   return ptr() + sizeof(DenseNodeHeader) + mask_word_count() * maskBytesPerWord + i * valLen;
 }
