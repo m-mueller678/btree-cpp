@@ -35,6 +35,7 @@ inline unsigned max(unsigned a, unsigned b)
 
 #define ASSUME(x){ \
    assert(x);      \
+   __builtin_assume(x); \
    }
 
 template <class T>

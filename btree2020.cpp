@@ -493,7 +493,7 @@ uint8_t* BTree::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOu
          return node->dense()->lookup(key,keyLength,payloadSizeOut);
       }
       case Tag::Inner:
-         ASSUME(false)
+         ASSUME(false);
    }
 }
 
