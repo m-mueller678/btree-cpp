@@ -159,6 +159,92 @@ struct BTreeNode : public BTreeNodeHeader {
    AnyNode* any() { return reinterpret_cast<AnyNode*>(this); }
 };
 
+typedef uint32_t NumericPart;
+constexpr unsigned maxNumericPartLen = sizeof(NumericPart);
+
+typedef uint64_t Mask;
+constexpr unsigned maskBytesPerWord = sizeof(Mask);
+constexpr unsigned maskBitsPerWord = 8 * maskBytesPerWord;
+
+struct DenseNodeHeader {
+   Tag tag;
+   uint16_t fullKeyLen;
+   NumericPart arrayStart;
+   uint16_t valLen;
+   uint16_t slotCount;
+   uint16_t lowerFenceLen;
+   uint16_t upperFenceLen;
+   uint16_t prefixLength;
+};
+
+enum KeyError : int {
+   WrongLen = -1,
+   NotNumericRange = -2,
+   SlightlyTooLarge = -3,
+   FarTooLarge = -4,
+};
+
+struct DenseNode : public DenseNodeHeader {
+   union {
+      Mask mask[(pageSize - sizeof(DenseNodeHeader)) / sizeof(Mask)];
+      uint8_t heap[pageSize - sizeof(DenseNodeHeader)];
+   };
+   unsigned lowerFenceOffset();
+   uint8_t* getLowerFence();
+   uint8_t* getUpperFence();
+
+   AnyNode* any();
+
+   uint8_t* getPrefix();
+
+   void restoreKey(uint8_t* prefix, uint8_t* dst, unsigned index);
+
+   void changeUpperFence(uint8_t* fence, unsigned len);
+
+   void copyKeyValueRangeToBasic(BTreeNode* dst, unsigned srcStart, unsigned srcEnd);
+
+   bool insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength);
+
+   void splitNode(BTreeNode* parent, uint8_t* key, unsigned keyLen);
+
+   unsigned prefixDiffLen();
+   KeyError keyToIndex(uint8_t* truncatedKey, unsigned truncatedLen);
+
+   static unsigned computeNumericPartLen(unsigned prefixLength, unsigned fullKeyLen);
+   static unsigned computeNumericPrefixLength(unsigned prefixLength, unsigned fullKeyLen);
+
+   void init(uint8_t* lowerFence,
+             unsigned lowerFenceLen,
+             uint8_t* upperFence,
+             unsigned upperFenceLen,
+             unsigned prefixLength,
+             unsigned fullKeyLen,
+             unsigned valLen);
+
+   unsigned mask_word_count();
+
+   void zeroMask();
+
+   // key is expected to be prefix truncated
+   static NumericPart getNumericPart(uint8_t* key, unsigned len);
+
+   void updateArrayStart();
+
+   uint8_t* ptr();
+
+   static unsigned computeSlotCount(unsigned valLen, unsigned fencesStart);
+
+   bool try_densify(BTreeNode* basicNode);
+
+   bool isSlotPresent(unsigned i);
+
+   void setSlotPresent(unsigned i);
+
+   void unsetSlotPresent(unsigned i);
+
+   uint8_t* getVal(unsigned i);
+};
+
 union AnyNode {
    Tag tag;
    BTreeNode _basic_node;
