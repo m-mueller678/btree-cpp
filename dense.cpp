@@ -202,12 +202,12 @@ void DenseNode::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upper
    this->lowerFenceLen = lowerFenceLen;
    this->upperFenceLen = upperFenceLen;
    assert(lowerFenceLen <= fullKeyLen);
-   assert(computeNumericPrefixLength(prefixLength, fullKeyLen) <= lowerFenceLen);
    slotCount = computeSlotCount(valLen, lowerFenceOffset());
    zeroMask();
    memcpy(this->getLowerFence(), lowerFence, lowerFenceLen);
    memcpy(this->getUpperFence(), upperFence, upperFenceLen);
    this->updatePrefixLength();
+   assert(computeNumericPrefixLength(prefixLength, fullKeyLen) <= lowerFenceLen);
    updateArrayStart();
 }
 
