@@ -225,7 +225,7 @@ NumericPart DenseNode::getNumericPart(uint8_t* key, unsigned len)
       case 2:
          return static_cast<uint32_t>(__builtin_bswap16(loadUnaligned<uint16_t>(key)));
       case 3:
-         return (static_cast<uint32_t>(__builtin_bswap16(loadUnaligned<uint16_t>(key))) << 8) | (static_cast<uint32_t>(key[2]) << 8);
+         return (static_cast<uint32_t>(__builtin_bswap16(loadUnaligned<uint16_t>(key))) << 8) | (static_cast<uint32_t>(key[2]));
       default:
          return __builtin_bswap32(loadUnaligned<uint32_t>(key + len - 4));
    }
