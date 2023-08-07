@@ -83,7 +83,7 @@ int main(int argc, char** argv)
       string s;
       s.resize(4);
       for (auto x : v) {
-         *(uint32_t*)(s.data()) = x;
+         *(uint32_t*)(s.data()) = __builtin_bswap32(x);
          data.push_back(s);
       }
       runTest(e, data);
