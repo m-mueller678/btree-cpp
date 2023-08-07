@@ -14,6 +14,13 @@ uint8_t* DenseNode::getUpperFence()
    return ptr() + lowerFenceOffset();
 }
 
+uint8_t* DenseNode::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut){
+   KeyError index= keyToIndex(key+prefixLength,keyLength-prefixLength);
+   if(index<0 || !isSlotPresent(index)){return nullptr;}
+   payloadSizeOut=valLen;
+   return getVal(index);
+}
+
 AnyNode* DenseNode::any()
 {
    return reinterpret_cast<AnyNode*>(this);

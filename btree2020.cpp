@@ -476,16 +476,25 @@ uint8_t* BTree::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOu
    AnyNode* node = root;
    while (node->isAnyInner())
       node = node->basic()->lookupInner(key, keyLength);
-   BTreeNode* basicNode = node->basic();
-   bool found;
-   unsigned pos = basicNode->lowerBound(key, keyLength, found);
-   if (!found)
-      return nullptr;
+   switch (node->tag) {
+      case Tag::Leaf: {
+         BTreeNode* basicNode = node->basic();
+         bool found;
+         unsigned pos = basicNode->lowerBound(key, keyLength, found);
+         if (!found)
+            return nullptr;
 
-   // key found, copy payload
-   assert(pos < basicNode->count);
-   payloadSizeOut = basicNode->slot[pos].payloadLen;
-   return basicNode->getPayload(pos);
+         // key found, copy payload
+         assert(pos < basicNode->count);
+         payloadSizeOut = basicNode->slot[pos].payloadLen;
+         return basicNode->getPayload(pos);
+      }
+      case Tag::Dense:{
+         return node->dense()->lookup(key,keyLength,payloadSizeOut);
+      }
+      case Tag::Inner:
+         ASSUME(false)
+   }
 }
 
 bool BTree::lookup(uint8_t* key, unsigned keyLength)

@@ -33,6 +33,10 @@ inline unsigned max(unsigned a, unsigned b)
       }                                                                                                                  \
    }
 
+#define ASSUME(x){ \
+   assert(x);      \
+   }
+
 template <class T>
 static T loadUnaligned(void* p)
 {
@@ -259,6 +263,7 @@ struct DenseNode : public DenseNodeHeader {
    void unsetSlotPresent(unsigned i);
 
    uint8_t* getVal(unsigned i);
+   uint8_t* lookup(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut);
 };
 
 union AnyNode {
