@@ -199,6 +199,10 @@ unsigned BTreeNode::lowerBound(uint8_t* key, unsigned keyLength)
    return lowerBound(key, keyLength, ignore);
 }
 
+bool BTreeNode::insertChild(uint8_t* key, unsigned keyLength,AnyNode* child){
+   return insert(key,keyLength,reinterpret_cast<uint8_t*>(&child),sizeof (AnyNode*));
+}
+
 bool BTreeNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
 {
    if (!requestSpaceFor(spaceNeeded(keyLength, payloadLength))) {
@@ -375,7 +379,7 @@ void BTreeNode::splitNode(BTreeNode* parent, unsigned sepSlot, uint8_t* sepKey, 
    BTreeNode tmp(isLeaf());
    BTreeNode* nodeRight = &tmp;
    nodeRight->setFences(sepKey, sepLength, getUpperFence(), upperFence.length);
-   bool succ = parent->insert(sepKey, sepLength, reinterpret_cast<uint8_t*>(&nodeLeft), sizeof(BTreeNode*));
+   bool succ = parent->insertChild(sepKey, sepLength,nodeLeft->any());
    static_cast<void>(succ);
    assert(succ);
    if (isLeaf()) {

@@ -147,7 +147,7 @@ void DenseNode::splitNode(BTreeNode* parent, uint8_t* key, unsigned keyLen)
 
    DenseNode* denseLeft = reinterpret_cast<DenseNode*>(new AnyNode());
    memcpy(denseLeft, this, sizeof(DenseNode));
-   bool succ = parent->insert(full_boundary, fullKeyLen, reinterpret_cast<uint8_t*>(&denseLeft), sizeof(BTreeNode*));
+   bool succ = parent->insertChild(full_boundary, fullKeyLen, denseLeft->any());
    assert(succ);
    if (split_to_self) {
       this->init(full_boundary, denseLeft->fullKeyLen, denseLeft->getUpperFence(), denseLeft->upperFenceLen, denseLeft->fullKeyLen,

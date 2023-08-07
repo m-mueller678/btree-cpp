@@ -179,6 +179,7 @@ struct BTreeNode : public BTreeNodeHeader {
 
    AnyNode* any() { return reinterpret_cast<AnyNode*>(this); }
    bool is_underfull();
+   bool insertChild(uint8_t* key, unsigned int keyLength, AnyNode* child);
 };
 
 typedef uint32_t NumericPart;
