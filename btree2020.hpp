@@ -281,6 +281,8 @@ union AnyNode {
          case Tag::Leaf:
          case Tag::Inner:
             return basic()->destroy();
+         case Tag::Dense:
+            return dealloc();
          default:
             abort();
       }
