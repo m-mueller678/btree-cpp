@@ -77,7 +77,7 @@ void DenseNode::copyKeyValueRangeToBasic(BTreeNode* dst, unsigned srcStart, unsi
       dst->slot[outSlot].keyLen = fullKeyLen - dst->prefixLength;
       dst->slot[outSlot].payloadLen = valLen;
       memcpy(dst->getPayload(outSlot), getVal(i), valLen);
-      memcpy(dst->getPayload(outSlot) - npLen, reinterpret_cast<uint8_t*>(&numericPart) + sizeof(NumericPart) - npLen, valLen);
+      memcpy(dst->getPayload(outSlot) - npLen, reinterpret_cast<uint8_t*>(&numericPart) + sizeof(NumericPart) - npLen, npLen);
       memcpy(dst->getKey(outSlot), getLowerFence() + dst->prefixLength, fullKeyLen - dst->prefixLength - npLen);
       outSlot += 1;
    }
