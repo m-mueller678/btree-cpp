@@ -359,3 +359,13 @@ uint8_t* DenseNode::getVal(unsigned i)
    assert(i < slotCount);
    return ptr() + sizeof(DenseNodeHeader) + mask_word_count() * maskBytesPerWord + i * valLen;
 }
+
+bool DenseNode::range_lookup(uint8_t * key,unsigned keyLen,uint8_t* keyOut,
+                             // called with keylen and value
+                             // scan continues if callback returns true
+                             const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb){
+   KeyError first_index = anyKeyIndex(key,keyLen);
+   unsigned npLen= computeNumericPartLen(prefixLength,fullKeyLen);
+   memcpy(keyOut,getLowerFence(),fullKeyLen-npLen);
+   unsigned word_index=
+}

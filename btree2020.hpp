@@ -1,12 +1,13 @@
 #pragma once
 #pragma clang diagnostic ignored "-Wvla-extension"
 
+#include <bit>
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <bit>
+#include <functional>
 
 // maximum page size (in bytes) is 65536
 constexpr unsigned pageSize = 4096;
@@ -197,6 +198,10 @@ struct BTreeNode : public BTreeNodeHeader {
    AnyNode* any() { return reinterpret_cast<AnyNode*>(this); }
    bool is_underfull();
    bool insertChild(uint8_t* key, unsigned int keyLength, AnyNode* child);
+   bool range_lookup(uint8_t* key,
+                     unsigned int keyLen,
+                     uint8_t* keyOut,
+                     const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
 };
 
 typedef uint32_t NumericPart;
@@ -284,6 +289,11 @@ struct DenseNode : public DenseNodeHeader {
    bool is_underfull();
    unsigned int occupiedCount();
    BTreeNode* convertToBasic();
+   bool range_lookup(uint8_t* key,
+                     unsigned int keyLen,
+                     uint8_t* keyOut,
+                     const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
+   KeyError anyKeyIndex(uint8_t* key, unsigned int keyLen);
 };
 
 union AnyNode {
@@ -347,4 +357,8 @@ struct BTree {
    bool lookup(uint8_t* key, unsigned keyLength);
    void insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength);
    bool remove(uint8_t* key, unsigned keyLength);
+   void range_lookup(uint8_t* key,
+                     unsigned int keyLen,
+                     uint8_t* keyOut,
+                     const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
 };

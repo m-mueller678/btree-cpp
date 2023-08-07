@@ -2,6 +2,7 @@
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 
 BTreeNode::BTreeNode(bool isLeaf) : BTreeNodeHeader(isLeaf) {
    assert(sizeof (BTreeNode)==pageSize);
@@ -613,6 +614,58 @@ bool BTree::remove(uint8_t* key, unsigned keyLength)
       }
       case Tag::Inner:{
          ASSUME(false)
+      }
+   }
+}
+
+bool BTreeNode::range_lookup(uint8_t * key,unsigned keyLen,uint8_t* keyOut,
+                         // called with keylen and value
+                         // scan continues if callback returns true
+                             const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb){
+   memcpy(key,keyOut,prefixLength);
+   unsigned start_index = ;
+   for(unsigned i=lowerBound(key,keyLen);i<count;++i){
+      memcpy(keyOut+prefixLength, getKey(i),slot[i].keyLen);
+      if(!found_record_cb(slot[i].keyLen, getPayload(i),slot[i].payloadLen)){
+         return false
+      }
+   }
+   return true;
+}
+
+void BTree::range_lookup(uint8_t * key,unsigned keyLen,uint8_t* keyOut,
+                         // called with keylen and value
+                         // scan continues if callback returns true
+                         const std::function<bool(unsigned,uint8_t*,unsigned)> &found_record_cb){
+   uint8_t startKeyBuffer[BTreeNode::maxKVSize+1];
+   while(true){
+      AnyNode* node=root;
+      while(node->isAnyInner()){
+            node = node->basic()->lookupInner(key, keyLen);
+      }
+      switch (node->tag){
+            case Tag::Leaf:{
+               if(!node->basic()->range_lookup(key,keyLen,keyOut,found_record_cb))
+                  return ;
+               keyLen=node->basic()->upperFence.length;
+               key=startKeyBuffer;
+               memcpy(key,node->basic()->getUpperFence(),keyLen);
+               key[keyLen]=0;
+               keyLen+=1;
+               break;
+            }
+            case Tag::Dense:{
+               if(!node->dense()->range_lookup(key,keyLen,keyOut,found_record_cb))
+                  return;
+               keyLen=node->dense()->upperFenceLen;
+               key=startKeyBuffer;
+               memcpy(key,node->dense()->getUpperFence(),keyLen);
+               key[keyLen]=0;
+               keyLen+=1;
+               break;
+            }
+            case Tag::Inner:
+               ASSUME(false)
       }
    }
 }
