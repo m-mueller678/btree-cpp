@@ -6,7 +6,8 @@
 #include <cstring>
 
 // maximum page size (in bytes) is 65536
-static const unsigned pageSize = 4096;
+constexpr unsigned pageSize = 4096;
+constexpr bool enableDense = true;
 
 inline unsigned min(unsigned a, unsigned b)
 {
