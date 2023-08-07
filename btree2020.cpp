@@ -476,6 +476,7 @@ uint8_t* BTree::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOu
    AnyNode* node = root;
    while (node->isAnyInner())
       node = node->basic()->lookupInner(key, keyLength);
+   //COUNTER(is_basic_lookup,node->tag == Tag::Leaf,1<<20)
    switch (node->tag) {
       case Tag::Leaf: {
          BTreeNode* basicNode = node->basic();
@@ -559,7 +560,7 @@ void BTree::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned 
       parent = node->basic();
       node = parent->lookupInner(key, keyLength);
    }
-   COUNTER(is_basic,node->tag == Tag::Leaf,1<<14)
+   //COUNTER(is_basic_insert,node->tag == Tag::Leaf,1<<20)
    if (node->tag == Tag::Leaf) {
       if (node->basic()->insert(key, keyLength, payload, payloadLength))
          return;
