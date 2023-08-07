@@ -96,6 +96,7 @@ bool DenseNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsig
    assert(keyIndex >= 0);
    setSlotPresent(keyIndex);
    memcpy(getVal(keyIndex), payload, payloadLength);
+   return true;
 }
 
 void DenseNode::splitNode(BTreeNode* parent, uint8_t* key, unsigned keyLen)

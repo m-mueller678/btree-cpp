@@ -1,4 +1,5 @@
 #pragma once
+#pragma clang diagnostic ignored "-Wvla-extension"
 
 #include <cassert>
 #include <cstdint>
@@ -309,8 +310,8 @@ struct BTree {
   private:
    AnyNode* root;
 
-   void splitNode(AnyNode* node, BTreeNode* parent, uint8_t* key, unsigned keyLength, unsigned payloadLength);
-   void ensureSpace(AnyNode* toSplit, uint8_t* key, unsigned keyLength, unsigned payloadLength);
+   void splitNode(AnyNode* node, BTreeNode* parent, uint8_t* key, unsigned keyLength);
+   void ensureSpace(AnyNode* toSplit, uint8_t* key, unsigned keyLength);
 
   public:
    BTree();

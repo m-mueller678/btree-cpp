@@ -494,7 +494,7 @@ bool BTree::lookup(uint8_t* key, unsigned keyLength)
    return lookup(key, keyLength, x) != nullptr;
 }
 
-void BTree::splitNode(AnyNode* node, BTreeNode* parent, uint8_t* key, unsigned keyLength, unsigned payloadLength)
+void BTree::splitNode(AnyNode* node, BTreeNode* parent, uint8_t* key, unsigned keyLength)
 {
    // create new root if necessary
    if (!parent) {
@@ -514,7 +514,7 @@ void BTree::splitNode(AnyNode* node, BTreeNode* parent, uint8_t* key, unsigned k
             node->basic()->splitNode(parent, sepInfo.slot, sepKey, sepInfo.length);
          } else {
             // must split parent first to make space for separator, restart from root to do this
-            ensureSpace(parent->any(), key, keyLength, sizeof(BTreeNode*));
+            ensureSpace(parent->any(), key, keyLength);
          }
          break;
       }
@@ -523,14 +523,14 @@ void BTree::splitNode(AnyNode* node, BTreeNode* parent, uint8_t* key, unsigned k
          if (parent->requestSpaceFor(spaceNeededParent)) {
             node->dense()->splitNode(parent, key, keyLength);
          } else {
-            ensureSpace(parent->any(), key, keyLength, sizeof(BTreeNode*));
+            ensureSpace(parent->any(), key, keyLength);
          }
          break;
       }
    }
 }
 
-void BTree::ensureSpace(AnyNode* toSplit, uint8_t* key, unsigned keyLength, unsigned payloadLength)
+void BTree::ensureSpace(AnyNode* toSplit, uint8_t* key, unsigned keyLength)
 {
    AnyNode* node = root;
    BTreeNode* parent = nullptr;
@@ -538,7 +538,7 @@ void BTree::ensureSpace(AnyNode* toSplit, uint8_t* key, unsigned keyLength, unsi
       parent = node->basic();
       node = parent->lookupInner(key, keyLength);
    }
-   splitNode(toSplit, parent, key, keyLength, payloadLength);
+   splitNode(toSplit, parent, key, keyLength);
 }
 
 void BTree::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
@@ -560,7 +560,7 @@ void BTree::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned 
    }
 
    // node is full: split and restart
-   splitNode(node, parent, key, keyLength, payloadLength);
+   splitNode(node, parent, key, keyLength);
    insert(key, keyLength, payload, payloadLength);
 }
 
