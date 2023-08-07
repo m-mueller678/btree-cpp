@@ -616,7 +616,7 @@ bool BTree::remove(uint8_t* key, unsigned keyLength)
       case Tag::Dense:{
          if(!node->dense()->remove(key,keyLength))
             return false;
-         if(parent && parent->count>=2 && pos+1 <= parent->count && node->dense()->is_underfull()){
+         if(parent && parent->count>=2 && pos+1 < parent->count && node->dense()->is_underfull()){
             node->dense()->convertToBasic();
             AnyNode* right = parent->getChild(pos + 1);
             if(right->tag == Tag::Leaf){
