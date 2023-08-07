@@ -199,8 +199,16 @@ unsigned BTreeNode::lowerBound(uint8_t* key, unsigned keyLength)
 
 bool BTreeNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
 {
-   if (!requestSpaceFor(spaceNeeded(keyLength, payloadLength)))
+   if (!requestSpaceFor(spaceNeeded(keyLength, payloadLength))) {
+      DenseNode tmp;
+      if(tmp.try_densify(this))
+         {
+            DenseNode* dense = reinterpret_cast<DenseNode*>(this);
+            *dense = tmp;
+            return dense->insert(key, keyLength, payload, payloadLength);
+         }
       return false;  // no space, insert fails
+   }
    unsigned slotId = lowerBound(key, keyLength);
    memmove(slot + slotId + 1, slot + slotId, sizeof(Slot) * (count - slotId));
    storeKeyValue(slotId, key, keyLength, payload, payloadLength);
