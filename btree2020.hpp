@@ -234,13 +234,7 @@ struct DenseNode : public DenseNodeHeader {
    static unsigned computeNumericPartLen(unsigned prefixLength, unsigned fullKeyLen);
    static unsigned computeNumericPrefixLength(unsigned prefixLength, unsigned fullKeyLen);
 
-   void init(uint8_t* lowerFence,
-             unsigned lowerFenceLen,
-             uint8_t* upperFence,
-             unsigned upperFenceLen,
-             unsigned prefixLength,
-             unsigned fullKeyLen,
-             unsigned valLen);
+   void init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen, unsigned fullKeyLen, unsigned valLen);
 
    unsigned mask_word_count();
 
@@ -265,6 +259,7 @@ struct DenseNode : public DenseNodeHeader {
 
    uint8_t* getVal(unsigned i);
    uint8_t* lookup(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut);
+   void updatePrefixLength();
 };
 
 union AnyNode {

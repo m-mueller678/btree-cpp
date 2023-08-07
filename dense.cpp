@@ -43,15 +43,19 @@ void DenseNode::changeUpperFence(uint8_t* fence, unsigned len)
 {
    assert(upperFenceLen <= fullKeyLen);
    upperFenceLen = len;
+   memcpy(getUpperFence(), fence, len);
+   updatePrefixLength();
+   // TODO could make numeric part extraction independent of prefix len
+   updateArrayStart();
+}
+void DenseNode::updatePrefixLength()
+{
    uint8_t* uf = getUpperFence();
-   memcpy(uf, fence, len);
    uint8_t* lf = getLowerFence();
    prefixLength = 0;
    while (prefixLength < upperFenceLen && prefixLength < lowerFenceLen && lf[prefixLength] == uf[prefixLength]) {
       prefixLength += 1;
    }
-   // TODO could make numeric part extraction independent of prefix len
-   updateArrayStart();
 }
 
 void DenseNode::copyKeyValueRangeToBasic(BTreeNode* dst, unsigned srcStart, unsigned srcEnd)
@@ -140,8 +144,8 @@ void DenseNode::splitNode(BTreeNode* parent, uint8_t* key, unsigned keyLen)
    bool succ = parent->insert(full_boundary, fullKeyLen, reinterpret_cast<uint8_t*>(&denseLeft), sizeof(BTreeNode*));
    assert(succ);
    if (split_to_self) {
-      this->init(full_boundary, denseLeft->fullKeyLen, denseLeft->getUpperFence(), denseLeft->upperFenceLen, denseLeft->prefixLength,
-                 denseLeft->fullKeyLen, denseLeft->valLen);
+      this->init(full_boundary, denseLeft->fullKeyLen, denseLeft->getUpperFence(), denseLeft->upperFenceLen, denseLeft->fullKeyLen,
+                 denseLeft->valLen);
    } else {
       BTreeNode* right = &this->any()->_basic_node;
       // TODO check move constructor semantics
@@ -189,13 +193,7 @@ unsigned DenseNode::computeNumericPrefixLength(unsigned prefixLength, unsigned f
    return fullKeyLen - computeNumericPartLen(prefixLength, fullKeyLen);
 }
 
-void DenseNode::init(uint8_t* lowerFence,
-                     unsigned lowerFenceLen,
-                     uint8_t* upperFence,
-                     unsigned upperFenceLen,
-                     unsigned prefixLength,
-                     unsigned fullKeyLen,
-                     unsigned valLen)
+void DenseNode::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen, unsigned fullKeyLen, unsigned valLen)
 {
    assert(sizeof (DenseNode)==pageSize);
    tag = Tag::Dense;
@@ -203,13 +201,13 @@ void DenseNode::init(uint8_t* lowerFence,
    this->valLen = valLen;
    this->lowerFenceLen = lowerFenceLen;
    this->upperFenceLen = upperFenceLen;
-   this->prefixLength = prefixLength;
    assert(lowerFenceLen <= fullKeyLen);
    assert(computeNumericPrefixLength(prefixLength, fullKeyLen) <= lowerFenceLen);
    slotCount = computeSlotCount(valLen, lowerFenceOffset());
    zeroMask();
    memcpy(this->getLowerFence(), lowerFence, lowerFenceLen);
    memcpy(this->getUpperFence(), upperFence, upperFenceLen);
+   this->updatePrefixLength();
    updateArrayStart();
 }
 
@@ -269,7 +267,7 @@ unsigned DenseNode::computeSlotCount(unsigned valLen, unsigned fencesStart)
    unsigned count = fencesStart * 8 / (valLen * 8 + 1);
    while (true) {
       unsigned maskSize = (count + maskBitsPerWord - 1) / maskBitsPerWord * maskBytesPerWord;
-      if (maskSize + count * valLen > fencesStart) {
+      if (sizeof(DenseNodeHeader) + maskSize + count * valLen > fencesStart) {
          count -= 1;
       } else {
          return count;
@@ -295,8 +293,7 @@ bool DenseNode::try_densify(BTreeNode* basicNode)
    }
 
    // preconditios confirmed, create.
-   init(basicNode->getLowerFence(), basicNode->lowerFence.length, basicNode->getUpperFence(), basicNode->upperFence.length, basicNode->prefixLength,
-        fullKeyLen, valLen1);
+   init(basicNode->getLowerFence(), basicNode->lowerFence.length, basicNode->getUpperFence(), basicNode->upperFence.length, fullKeyLen, valLen1);
    KeyError lastKey = keyToIndex(basicNode->getKey(basicNode->count - 1), fullKeyLen - prefixLength);
    if(lastKey<0){
       return false;
