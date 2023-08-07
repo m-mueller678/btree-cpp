@@ -501,24 +501,29 @@ void BTree::splitNode(AnyNode* node, BTreeNode* parent, uint8_t* key, unsigned k
       root = parent->any();
    }
 
-   if (node->tag == Tag::Leaf) {
-      // split
-      BTreeNode::SeparatorInfo sepInfo = node->basic()->findSeparator();
-      unsigned spaceNeededParent = parent->spaceNeeded(sepInfo.length, sizeof(BTreeNode*));
-      if (parent->requestSpaceFor(spaceNeededParent)) {  // is there enough space in the parent for the separator?
-         uint8_t sepKey[sepInfo.length];
-         node->basic()->getSep(sepKey, sepInfo);
-         node->basic()->splitNode(parent, sepInfo.slot, sepKey, sepInfo.length);
-      } else {
-         // must split parent first to make space for separator, restart from root to do this
-         ensureSpace(parent->any(), key, keyLength, sizeof(BTreeNode*));
+   switch(node->tag){
+      case Tag::Leaf:
+      case Tag::Inner:{
+         BTreeNode::SeparatorInfo sepInfo = node->basic()->findSeparator();
+         unsigned spaceNeededParent = parent->spaceNeeded(sepInfo.length, sizeof(BTreeNode*));
+         if (parent->requestSpaceFor(spaceNeededParent)) {  // is there enough space in the parent for the separator?
+            uint8_t sepKey[sepInfo.length];
+            node->basic()->getSep(sepKey, sepInfo);
+            node->basic()->splitNode(parent, sepInfo.slot, sepKey, sepInfo.length);
+         } else {
+            // must split parent first to make space for separator, restart from root to do this
+            ensureSpace(parent->any(), key, keyLength, sizeof(BTreeNode*));
+         }
+         break;
       }
-   } else {
-      unsigned spaceNeededParent = parent->spaceNeeded(node->dense()->fullKeyLen, sizeof(BTreeNode*));
-      if (parent->requestSpaceFor(spaceNeededParent)) {
-         node->dense()->splitNode(parent, key, keyLength);
-      } else {
-         ensureSpace(parent->any(), key, keyLength, sizeof(BTreeNode*));
+      case Tag::Dense:{
+         unsigned spaceNeededParent = parent->spaceNeeded(node->dense()->fullKeyLen, sizeof(BTreeNode*));
+         if (parent->requestSpaceFor(spaceNeededParent)) {
+            node->dense()->splitNode(parent, key, keyLength);
+         } else {
+            ensureSpace(parent->any(), key, keyLength, sizeof(BTreeNode*));
+         }
+         break;
       }
    }
 }
