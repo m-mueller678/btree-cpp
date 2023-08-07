@@ -574,6 +574,10 @@ void BTree::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned 
    insert(key, keyLength, payload, payloadLength);
 }
 
+bool BTreeNode::is_underfull(){
+   return freeSpaceAfterCompaction() >= BTreeNode::underFullSize;
+}
+
 bool BTree::remove(uint8_t* key, unsigned keyLength)
 {
    AnyNode* node = root;
@@ -585,19 +589,43 @@ bool BTree::remove(uint8_t* key, unsigned keyLength)
       BTreeNode* basicNode = node->basic();
       node = (pos == basicNode->count) ? basicNode->upper : basicNode->getChild(pos);
    }
-   if (!node->basic()->remove(key, keyLength))
-      return false;  // key not found
+   switch(node->tag){
+      case Tag::Leaf:{
+         if (!node->basic()->remove(key, keyLength))
+            return false;  // key not found
 
-   // merge if underfull
-   if (node->basic()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
-      // find neighbor and merge
-      if (parent && (parent->count >= 2) && ((pos + 1) < parent->count)) {
-         BTreeNode* right = parent->getChild(pos + 1)->basic();
-         if (right->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
-            if (node->basic()->mergeNodes(pos, parent, right))
-               node->dealloc();
+         // merge if underfull
+         if (node->basic()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
+            // find neighbor and merge
+            if (parent && (parent->count >= 2) && ((pos + 1) < parent->count)) {
+               AnyNode* right = parent->getChild(pos + 1);
+               if(right->tag == Tag::Leaf){
+                  if (right->basic()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
+                     if (node->basic()->mergeNodes(pos, parent, right->basic()))
+                        node->dealloc();
+                  }
+               }
+            }
          }
+         return true;
+      }
+      case Tag::Dense:{
+         if(!node->dense()->remove(key,keyLength))
+            return false;
+         if(parent && parent->count>=2 && pos+1 <= parent->count && node->dense()->is_underfull()){
+            node->dense()->convertToBasic();
+            AnyNode* right = parent->getChild(pos + 1);
+            if(right->tag == Tag::Leaf){
+               if (right->basic()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
+                  if (node->basic()->mergeNodes(pos, parent, right->basic()))
+                     node->dealloc();
+               }
+            }
+         }
+         return true;
+      }
+      case Tag::Inner:{
+         ASSUME(false)
       }
    }
-   return true;
 }

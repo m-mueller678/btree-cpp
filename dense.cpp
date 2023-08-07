@@ -90,12 +90,7 @@ bool DenseNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsig
    assert(keyLength >= prefixLength);
    if (payloadLength != valLen || keyLength != fullKeyLen) {
       // TODO chek capacity
-      BTreeNode tmp{true};
-      tmp.setFences(getLowerFence(), lowerFenceLen, getUpperFence(), upperFenceLen);
-      copyKeyValueRangeToBasic(&tmp, 0, slotCount);
-      tmp.makeHint();
-      BTreeNode* basicNode = reinterpret_cast<BTreeNode*>(this);
-      *basicNode = tmp;
+      BTreeNode* basicNode = convertToBasic();
       return basicNode->insert(key, keyLength, payload, payloadLength);
    }
    KeyError keyIndex = keyToIndex(key + prefixLength, keyLength - prefixLength);
@@ -111,6 +106,17 @@ bool DenseNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsig
    setSlotPresent(keyIndex);
    memcpy(getVal(keyIndex), payload, payloadLength);
    return true;
+}
+
+BTreeNode* DenseNode::convertToBasic()
+{
+   BTreeNode tmp{true};
+   tmp.setFences(getLowerFence(), lowerFenceLen, getUpperFence(), upperFenceLen);
+   copyKeyValueRangeToBasic(&tmp, 0, slotCount);
+   tmp.makeHint();
+   BTreeNode* basicNode = reinterpret_cast<BTreeNode*>(this);
+   *basicNode = tmp;
+   return basicNode;
 }
 
 void DenseNode::splitNode(BTreeNode* parent, uint8_t* key, unsigned keyLen)
@@ -211,6 +217,19 @@ void DenseNode::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upper
    updateArrayStart();
 }
 
+unsigned DenseNode::occupiedCount(){
+   //TODO keep track of occupied count
+   unsigned total=0;
+   for(unsigned i=0;i<mask_word_count();++i)
+      total += std::__popcount(mask[i]);
+   return total;
+}
+
+bool DenseNode::is_underfull(){
+   unsigned totalEntrySize = (fullKeyLen-prefixLength+valLen + sizeof(BTreeNode::Slot)) * occupiedCount();
+   return sizeof (BTreeNodeHeader) + totalEntrySize + lowerFenceLen + upperFenceLen < pageSize - BTreeNode::underFullSize;
+}
+
 unsigned DenseNode::mask_word_count()
 {
    return (slotCount + maskBitsPerWord - 1) / maskBitsPerWord;
@@ -274,6 +293,15 @@ unsigned DenseNode::computeSlotCount(unsigned valLen, unsigned fencesStart)
       }
    }
 }
+
+bool DenseNode::remove(uint8_t* key, unsigned keyLength)
+{
+   KeyError index= keyToIndex(key+prefixLength,keyLength-prefixLength);
+   if(index<0 || !isSlotPresent(index)){return false;}
+   unsetSlotPresent(index);
+   return true;
+}
+
 
 bool DenseNode::try_densify(BTreeNode* basicNode)
 {

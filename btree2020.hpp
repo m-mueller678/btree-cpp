@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <bit>
 
 // maximum page size (in bytes) is 65536
 constexpr unsigned pageSize = 4096;
@@ -177,6 +178,7 @@ struct BTreeNode : public BTreeNodeHeader {
    void destroy();
 
    AnyNode* any() { return reinterpret_cast<AnyNode*>(this); }
+   bool is_underfull();
 };
 
 typedef uint32_t NumericPart;
@@ -260,6 +262,10 @@ struct DenseNode : public DenseNodeHeader {
    uint8_t* getVal(unsigned i);
    uint8_t* lookup(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut);
    void updatePrefixLength();
+   bool remove(uint8_t* key, unsigned int keyLength);
+   bool is_underfull();
+   unsigned int occupiedCount();
+   BTreeNode* convertToBasic();
 };
 
 union AnyNode {
