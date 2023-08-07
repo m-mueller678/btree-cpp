@@ -219,7 +219,7 @@ NumericPart DenseNode::getNumericPart(uint8_t* key, unsigned len)
 {
    switch (len) {
       case 0:
-         abort();  // shouldn't happen, likely a bug
+         return 0;
       case 1:
          return static_cast<uint32_t>(key[0]);
       case 2:
@@ -285,8 +285,10 @@ bool DenseNode::try_densify(BTreeNode* basicNode)
    // preconditios confirmed, create.
    init(basicNode->getLowerFence(), basicNode->lowerFence.length, basicNode->getUpperFence(), basicNode->upperFence.length, basicNode->prefixLength,
         fullKeyLen, valLen1);
-   int lastKey = keyToIndex(basicNode->getKey(basicNode->count - 1), fullKeyLen - prefixLength);
-   assert(lastKey >= 0);
+   KeyError lastKey = keyToIndex(basicNode->getKey(basicNode->count - 1), fullKeyLen - prefixLength);
+   if(lastKey<0){
+      return false;
+   }
    for (unsigned i = 0; i < basicNode->count; ++i) {
       int index = keyToIndex(basicNode->getKey(i), fullKeyLen - prefixLength);
       assert(index >= 0);
