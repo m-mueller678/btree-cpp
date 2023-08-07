@@ -201,12 +201,11 @@ bool BTreeNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsig
 {
    if (!requestSpaceFor(spaceNeeded(keyLength, payloadLength))) {
       DenseNode tmp;
-      if(tmp.try_densify(this))
-         {
-            DenseNode* dense = reinterpret_cast<DenseNode*>(this);
-            *dense = tmp;
-            return dense->insert(key, keyLength, payload, payloadLength);
-         }
+      if (tmp.try_densify(this)) {
+         DenseNode* dense = reinterpret_cast<DenseNode*>(this);
+         *dense = tmp;
+         return dense->insert(key, keyLength, payload, payloadLength);
+      }
       return false;  // no space, insert fails
    }
    unsigned slotId = lowerBound(key, keyLength);
@@ -493,25 +492,34 @@ bool BTree::lookup(uint8_t* key, unsigned keyLength)
    return lookup(key, keyLength, x) != nullptr;
 }
 
-void BTree::splitNode(BTreeNode* node, BTreeNode* parent, uint8_t* key, unsigned keyLength, unsigned payloadLength)
+void BTree::splitNode(AnyNode* node, BTreeNode* parent, uint8_t* key, unsigned keyLength, unsigned payloadLength)
 {
    // create new root if necessary
    if (!parent) {
       parent = BTreeNode::makeInner()->basic();
-      parent->upper = node->any();
+      parent->upper = node;
       root = parent->any();
    }
 
-   // split
-   BTreeNode::SeparatorInfo sepInfo = node->findSeparator();
-   unsigned spaceNeededParent = parent->spaceNeeded(sepInfo.length, sizeof(BTreeNode*));
-   if (parent->requestSpaceFor(spaceNeededParent)) {  // is there enough space in the parent for the separator?
-      uint8_t sepKey[sepInfo.length];
-      node->getSep(sepKey, sepInfo);
-      node->splitNode(parent, sepInfo.slot, sepKey, sepInfo.length);
+   if (node->tag == Tag::Leaf) {
+      // split
+      BTreeNode::SeparatorInfo sepInfo = node->basic()->findSeparator();
+      unsigned spaceNeededParent = parent->spaceNeeded(sepInfo.length, sizeof(BTreeNode*));
+      if (parent->requestSpaceFor(spaceNeededParent)) {  // is there enough space in the parent for the separator?
+         uint8_t sepKey[sepInfo.length];
+         node->basic()->getSep(sepKey, sepInfo);
+         node->basic()->splitNode(parent, sepInfo.slot, sepKey, sepInfo.length);
+      } else {
+         // must split parent first to make space for separator, restart from root to do this
+         ensureSpace(parent, key, keyLength, sizeof(BTreeNode*));
+      }
    } else {
-      // must split parent first to make space for separator, restart from root to do this
-      ensureSpace(parent, key, keyLength, sizeof(BTreeNode*));
+      unsigned spaceNeededParent = parent->spaceNeeded(node->dense()->fullKeyLen, sizeof(BTreeNode*));
+      if (parent->requestSpaceFor(spaceNeededParent)) {
+         node->dense()->splitNode(parent, key, keyLength);
+      } else {
+         ensureSpace(parent, key, keyLength, sizeof(BTreeNode*));
+      }
    }
 }
 
@@ -535,8 +543,13 @@ void BTree::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned 
       parent = node->basic();
       node = parent->lookupInner(key, keyLength);
    }
-   if (node->basic()->insert(key, keyLength, payload, payloadLength))
-      return;
+   if (node->tag == Tag::Leaf) {
+      if (node->basic()->insert(key, keyLength, payload, payloadLength))
+         return;
+   } else {
+      if (node->dense()->insert(key, keyLength, payload, payloadLength))
+         return;
+   }
 
    // node is full: split and restart
    splitNode(node->basic(), parent, key, keyLength, payloadLength);

@@ -282,13 +282,19 @@ union AnyNode {
       assert(tag == Tag::Leaf || tag == Tag::Inner);
       return reinterpret_cast<BTreeNode*>(this);
    }
+   
+   DenseNode* dense()
+   {
+       assert(tag == Tag::Dense);
+       return reinterpret_cast<DenseNode*>(this);
+   }
 };
 
 struct BTree {
   private:
    AnyNode* root;
 
-   void splitNode(BTreeNode* node, BTreeNode* parent, uint8_t* key, unsigned keyLength, unsigned payloadLength);
+   void splitNode(AnyNode* node, BTreeNode* parent, uint8_t* key, unsigned keyLength, unsigned payloadLength);
    void ensureSpace(BTreeNode* toSplit, uint8_t* key, unsigned keyLength, unsigned payloadLength);
 
   public:
