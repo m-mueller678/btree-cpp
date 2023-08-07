@@ -26,7 +26,10 @@ uint8_t* DenseNode::getPrefix()
 
 void DenseNode::restoreKey(uint8_t* prefix, uint8_t* dst, unsigned index)
 {
-   abort();
+   unsigned numericPartLen= computeNumericPartLen(prefixLength,fullKeyLen);
+   memcpy(dst,prefix,fullKeyLen-numericPartLen);
+   NumericPart numericPart = __builtin_bswap32(arrayStart + static_cast<NumericPart>(index));
+   memcpy(dst+fullKeyLen-numericPartLen,reinterpret_cast<uint8_t*>(&numericPart) + sizeof(NumericPart) - numericPartLen,numericPartLen);
 }
 
 void DenseNode::changeUpperFence(uint8_t* fence, unsigned len)

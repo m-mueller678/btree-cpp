@@ -285,11 +285,10 @@ union AnyNode {
    {
       switch (tag) {
          case Tag::Leaf:
+         case Tag::Dense:
             return false;
          case Tag::Inner:
             return true;
-         default:
-            abort();
       }
    }
 
