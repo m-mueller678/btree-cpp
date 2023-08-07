@@ -186,6 +186,7 @@ void DenseNode::init(uint8_t* lowerFence,
                      unsigned fullKeyLen,
                      unsigned valLen)
 {
+   assert(sizeof (DenseNode)==pageSize);
    tag = Tag::Dense;
    this->fullKeyLen = fullKeyLen;
    this->valLen = valLen;

@@ -20,7 +20,9 @@ static uint32_t head(uint8_t* key, unsigned keyLength)
    }
 }
 
-BTreeNode::BTreeNode(bool isLeaf) : BTreeNodeHeader(isLeaf) {}
+BTreeNode::BTreeNode(bool isLeaf) : BTreeNodeHeader(isLeaf) {
+   assert(sizeof (BTreeNode)==pageSize);
+}
 
 uint8_t* BTreeNode::ptr()
 {
