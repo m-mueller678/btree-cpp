@@ -45,8 +45,8 @@ void runTest(PerfEvent& e, vector<string>& data)
 
    {
       e.setParam("op", "range");
-      PerfEventBlock b(e, count);
-      for (uint64_t i = 0; i < count; i += 15) {
+      PerfEventBlock b(e, count / 4);
+      for (uint64_t i = 0; i < count; i += 4) {
          uint8_t keyBuffer[BTreeNode::maxKVSize];
          unsigned foundIndex = 0;
          t.range_lookup((uint8_t*)data[i].data(), data[i].size(), keyBuffer, [&](unsigned keyLen, uint8_t* payload, unsigned payloadLen) {
