@@ -113,8 +113,8 @@ bool HashNode::requestSlotAndSpace(unsigned kvSize)
       dataOffset -= hashCapacity * 2;
       memcpy(ptr() + dataOffset, hashes(), count);
       hashOffset = dataOffset;
-      hashCapacity *= 2;
       spaceUsed += hashCapacity;
+      hashCapacity *= 2;
       return true;
    }
 }
@@ -159,12 +159,14 @@ struct HashSlotReferenceDeref {
 
 bool HashNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
 {
+   assert(spaceUsed == 12 * count + lowerFenceLen + upperFenceLen + hashCapacity);
    assert(findIndex(key, keyLength) < 0);
    assert(keyLength >= prefixLength);
    if (!requestSlotAndSpace(keyLength - prefixLength + payloadLength))
       return false;
    storeKeyValue(count, key, keyLength, payload, payloadLength);
    count += 1;
+   assert(spaceUsed == 12 * count + lowerFenceLen + upperFenceLen + hashCapacity);
    return true;
 }
 
