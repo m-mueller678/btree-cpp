@@ -530,6 +530,20 @@ void BTree::splitNode(AnyNode* node, BTreeNode* parent, uint8_t* key, unsigned k
          }
          break;
       }
+      case Tag::Hash: {
+         node->hash()->sort();
+         BTreeNode::SeparatorInfo sepInfo = node->hash()->findSeparator();
+         unsigned spaceNeededParent = parent->spaceNeeded(sepInfo.length, sizeof(BTreeNode*));
+         if (parent->requestSpaceFor(spaceNeededParent)) {  // is there enough space in the parent for the separator?
+            uint8_t sepKey[sepInfo.length];
+            node->hash()->getSep(sepKey, sepInfo);
+            node->hash()->splitNode(parent, sepInfo.slot, sepKey, sepInfo.length);
+         } else {
+            // must split parent first to make space for separator, restart from root to do this
+            ensureSpace(parent->any(), key, keyLength);
+         }
+         break;
+      }
    }
 }
 

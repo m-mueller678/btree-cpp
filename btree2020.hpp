@@ -353,6 +353,16 @@ struct HashNode : public HashNodeHeader {
    bool requestSpace(unsigned int spaceNeeded);
    bool requestSlotAndSpace(unsigned int spaceNeeded);
    void compactify();
+   void sort();
+   unsigned int commonPrefix(unsigned int slotA, unsigned int slotB);
+   BTreeNode::SeparatorInfo findSeparator();
+   void getSep(uint8_t* sepKeyOut, BTreeNode::SeparatorInfo info);
+   void splitNode(BTreeNode* parent, unsigned int sepSlot, uint8_t* sepKey, unsigned int sepLength);
+   AnyNode* any() { return reinterpret_cast<AnyNode*>(this); }
+   void updateHash(unsigned int i);
+   void copyKeyValue(unsigned srcSlot, HashNode* dst, unsigned dstSlot);
+   void storeKeyValue(unsigned int slotId, uint8_t* key, unsigned int keyLength, uint8_t* payload, unsigned int payloadLength);
+   void copyKeyValueRange(HashNode* dst, unsigned int dstSlot, unsigned int srcSlot, unsigned int srcCount);
 };
 
 union AnyNode {
