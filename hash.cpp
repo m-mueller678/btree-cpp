@@ -312,3 +312,41 @@ void HashNode::storeKeyValue(unsigned slotId, uint8_t* key, unsigned keyLength, 
    memcpy(getPayload(slotId), payload, payloadLength);
    updateHash(slotId);
 }
+
+bool HashNode::remove(uint8_t* key, unsigned keyLength)
+{
+   int index = findIndex(key, keyLength);
+   if (index < 0)
+      return false;
+   return removeSlot(index);
+}
+
+bool HashNode::removeSlot(unsigned slotId)
+{
+   spaceUsed -= slot[slotId].keyLen;
+   spaceUsed -= slot[slotId].payloadLen;
+   memmove(slot + slotId, slot + slotId + 1, sizeof(HashSlot) * (count - slotId - 1));
+   memmove(hashes() + slotId, hashes() + slotId + 1, count - slotId - 1);
+   count--;
+   sortedCount -= (slotId < sortedCount);
+   return true;
+}
+
+// merge "this" into "right" via "tmp"
+bool HashNode::mergeNodes(unsigned slotId, BTreeNode* parent, HashNode* right)
+{
+   HashNode tmp;
+   unsigned newHashCapacity = count + right->count;
+   tmp.init(getLowerFence(), lowerFenceLen, right->getUpperFence(), right->upperFenceLen, newHashCapacity);
+   unsigned leftGrow = (prefixLength - tmp.prefixLength) * count;
+   unsigned rightGrow = (right->prefixLength - tmp.prefixLength) * right->count;
+   unsigned spaceUpperBound = spaceUsed - hashCapacity + right->spaceUsed - right->hashCapacity + newHashCapacity +
+                              (reinterpret_cast<uint8_t*>(slot + count + right->count) - ptr()) + leftGrow + rightGrow;
+   if (spaceUpperBound > pageSize)
+      return false;
+   copyKeyValueRange(&tmp, 0, 0, count);
+   right->copyKeyValueRange(&tmp, count, 0, right->count);
+   parent->removeSlot(slotId);
+   *right = tmp;
+   return true;
+}

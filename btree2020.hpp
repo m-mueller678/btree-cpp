@@ -363,6 +363,9 @@ struct HashNode : public HashNodeHeader {
    void copyKeyValue(unsigned srcSlot, HashNode* dst, unsigned dstSlot);
    void storeKeyValue(unsigned int slotId, uint8_t* key, unsigned int keyLength, uint8_t* payload, unsigned int payloadLength);
    void copyKeyValueRange(HashNode* dst, unsigned int dstSlot, unsigned int srcSlot, unsigned int srcCount);
+   bool removeSlot(unsigned int slotId);
+   bool remove(uint8_t* key, unsigned int keyLength);
+   bool mergeNodes(unsigned int slotId, BTreeNode* parent, HashNode* right);
 };
 
 union AnyNode {
