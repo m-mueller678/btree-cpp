@@ -47,11 +47,10 @@ void runTest(PerfEvent& e, vector<string>& data)
       e.setParam("op", "range");
       PerfEventBlock b(e, count);
       for (uint64_t i = 0; i < count; i += 15) {
-         unsigned payloadSize;
          uint8_t keyBuffer[BTreeNode::maxKVSize];
          unsigned foundIndex = 0;
          t.range_lookup((uint8_t*)data[i].data(), data[i].size(), keyBuffer, [&](unsigned keyLen, uint8_t* payload, unsigned payloadLen) {
-            assert(payloadSize == sizeof(uint64_t));
+            assert(payloadLen == sizeof(uint64_t));
             assert(loadUnaligned<uint64_t>(payload) == i + foundIndex);
             assert(keyLen == data[i].size());
             assert(memcmp(keyBuffer, data[i].data(), keyLen) == 0);
