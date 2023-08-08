@@ -1,5 +1,5 @@
-#include <csignal>
 #include <algorithm>
+#include <csignal>
 #include <fstream>
 #include <string>
 #include "PerfEvent.hpp"
@@ -26,8 +26,8 @@ void runTest(PerfEvent& e, vector<string>& data)
       for (uint64_t i = 0; i < count; i++) {
          t.insert((uint8_t*)data[i].data(), data[i].size(), reinterpret_cast<uint8_t*>(&i), sizeof(uint64_t));
 
-         //for (uint64_t j=0; j<=i; j+=1) if (!t.lookup((uint8_t*)data[j].data(), data[j].size())) throw;
-         //for (uint64_t j=0; j<=i; j++) if (!t.lookup((uint8_t*)data[j].data(), data[j].size()-8)) throw;
+         // for (uint64_t j=0; j<=i; j+=1) if (!t.lookup((uint8_t*)data[j].data(), data[j].size())) throw;
+         // for (uint64_t j=0; j<=i; j++) if (!t.lookup((uint8_t*)data[j].data(), data[j].size()-8)) throw;
       }
    }
 
@@ -43,23 +43,43 @@ void runTest(PerfEvent& e, vector<string>& data)
       }
    }
 
+   {
+      e.setParam("op", "range");
+      PerfEventBlock b(e, count);
+      for (uint64_t i = 0; i < count; i += 15) {
+         unsigned payloadSize;
+         uint8_t keyBuffer[BTreeNode::maxKVSize];
+         unsigned foundIndex = 0;
+         t.range_lookup((uint8_t*)data[i].data(), data[i].size(), keyBuffer, [&](unsigned keyLen, uint8_t* payload, unsigned payloadLen) {
+            assert(payloadSize == sizeof(uint64_t));
+            assert(loadUnaligned<uint64_t>(payload) == i + foundIndex);
+            assert(keyLen == data[i].size());
+            assert(memcmp(keyBuffer, data[i].data(), keyLen) == 0);
+            foundIndex += 1;
+            return foundIndex < 10;
+         });
+         if (foundIndex > 10 || (foundIndex < 10 && foundIndex + i != data.size()))
+            throw;
+      }
+   }
+
    // prefix lookup
    for (uint64_t i = 0; i < count; i++)
       t.lookup((uint8_t*)data[i].data(), data[i].size() - (data[i].size() / 4));
 
    {
-      for (uint64_t i = 0; i < count; i += 4) // remove some
+      for (uint64_t i = 0; i < count; i += 4)  // remove some
          if (!t.remove((uint8_t*)data[i].data(), data[i].size()))
             throw;
-      for (uint64_t i = 0; i < count; i++) // lookup all, causes some misses
+      for (uint64_t i = 0; i < count; i++)  // lookup all, causes some misses
          if ((i % 4 == 0) == t.lookup((uint8_t*)data[i].data(), data[i].size()))
             throw;
-      for (uint64_t i = 0; i < count / 2 + count / 4; i++) // remove some more
+      for (uint64_t i = 0; i < count / 2 + count / 4; i++)  // remove some more
          if ((i % 4 == 0) == t.remove((uint8_t*)data[i].data(), data[i].size()))
             throw;
-      for (uint64_t i = 0; i < count / 2 + count / 4; i++) // insert
+      for (uint64_t i = 0; i < count / 2 + count / 4; i++)  // insert
          t.insert((uint8_t*)data[i].data(), data[i].size(), reinterpret_cast<uint8_t*>(&i), sizeof(uint64_t));
-      for (uint64_t i = 0; i < count; i++) // remove all
+      for (uint64_t i = 0; i < count; i++)  // remove all
          t.remove((uint8_t*)data[i].data(), data[i].size());
       for (uint64_t i = 0; i < count; i++)
          if (t.lookup((uint8_t*)data[i].data(), data[i].size()))
