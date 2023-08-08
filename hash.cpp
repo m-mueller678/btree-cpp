@@ -1,9 +1,10 @@
 #include <algorithm>
+#include <string_view>
 #include "btree2020.hpp"
-
 uint8_t HashNode::compute_hash(uint8_t* key, unsigned keyLength)
 {
-   return 4;  // TODO
+   std::hash<std::string_view> hasher;
+   return hasher(std::string_view{reinterpret_cast<const char*>(key), keyLength});
 }
 
 uint8_t* HashNode::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut)
