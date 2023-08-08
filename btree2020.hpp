@@ -11,7 +11,7 @@
 
 // maximum page size (in bytes) is 65536
 constexpr unsigned pageSize = 4096;
-constexpr bool enableDense = true;
+constexpr bool enableDense = false;
 constexpr bool enableHash = true;
 
 inline unsigned min(unsigned a, unsigned b)
@@ -352,7 +352,7 @@ struct HashNode : public HashNodeHeader {
    unsigned int freeSpaceAfterCompaction();
    bool requestSpace(unsigned int spaceNeeded);
    bool requestSlotAndSpace(unsigned int spaceNeeded);
-   void compactify();
+   void compactify(unsigned newHashCapacity);
    void sort();
    unsigned int commonPrefix(unsigned int slotA, unsigned int slotB);
    BTreeNode::SeparatorInfo findSeparator();

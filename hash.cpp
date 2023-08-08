@@ -117,29 +117,37 @@ unsigned HashNode::freeSpace()
 
 unsigned HashNode::freeSpaceAfterCompaction()
 {
-   return pageSize - (reinterpret_cast<uint8_t*>(slot + count) - ptr()) - spaceUsed;
+   return pageSize - (reinterpret_cast<uint8_t*>(slot + count) - ptr()) - spaceUsed + hashCapacity;
 }
 
 bool HashNode::requestSlotAndSpace(unsigned kvSize)
 {
    if (count < hashCapacity) {
-      return requestSpace(kvSize + sizeof(HashSlot));
-   } else {
-      if (!requestSpace(hashCapacity * 2 + kvSize + sizeof(HashSlot)))
+      if (kvSize + sizeof(HashSlot) <= freeSpace()) {
+         return true;
+      } else if (count + 1 + kvSize + sizeof(HashSlot) > freeSpaceAfterCompaction()) {
          return false;
-      dataOffset -= hashCapacity * 2;
-      memcpy(ptr() + dataOffset, hashes(), count);
-      hashOffset = dataOffset;
-      spaceUsed += hashCapacity;
-      hashCapacity *= 2;
-      return true;
+      }
+   } else {
+      if (hashCapacity * 2 + kvSize + sizeof(HashSlot) <= freeSpace()) {
+         dataOffset -= hashCapacity * 2;
+         memcpy(ptr() + dataOffset, hashes(), count);
+         hashOffset = dataOffset;
+         spaceUsed += hashCapacity;
+         hashCapacity *= 2;
+         return true;
+      } else if (count + 1 + kvSize + sizeof(HashSlot) > freeSpaceAfterCompaction()) {
+         return false;
+      }
    }
+   // TODO choose better hash capacity
+   compactify(count + 1);
+   return true;
 }
 
-void HashNode::compactify()
+void HashNode::compactify(unsigned newHashCapacity)
 {
-   unsigned newHashCapacity = count + 1;
-   unsigned should = freeSpaceAfterCompaction() + hashCapacity - newHashCapacity;
+   unsigned should = freeSpaceAfterCompaction() - newHashCapacity;
    HashNode tmp;
    tmp.init(getLowerFence(), lowerFenceLen, getUpperFence(), upperFenceLen, newHashCapacity);
    memcpy(tmp.hashes(), hashes(), count);
@@ -150,30 +158,18 @@ void HashNode::compactify()
    *this = tmp;
 }
 
-bool HashNode::requestSpace(unsigned spaceNeeded)
-{
-   if (spaceNeeded <= freeSpace())
-      return true;
-   if (spaceNeeded <= freeSpaceAfterCompaction()) {
-      compactify();
-      return true;
-   }
-   return false;
-}
-
-struct HashSlotReferenceDeref {
-   HashNode* node;
-   unsigned slot;
-};
-
 bool HashNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
 {
+   assert(freeSpace() < pageSize);
    assert(findIndex(key, keyLength) < 0);
    assert(keyLength >= prefixLength);
-   if (!requestSlotAndSpace(keyLength - prefixLength + payloadLength))
+   if (!requestSlotAndSpace(keyLength - prefixLength + payloadLength)) {
+      assert(freeSpace() < pageSize);
       return false;
+   }
    storeKeyValue(count, key, keyLength, payload, payloadLength);
    count += 1;
+   assert(freeSpace() < pageSize);
    return true;
 }
 
