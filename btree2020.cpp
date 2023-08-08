@@ -200,7 +200,9 @@ bool BTreeNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsig
       }
       return false;  // no space, insert fails
    }
-   unsigned slotId = lowerBound(key, keyLength);
+   bool found;
+   unsigned slotId = lowerBound(key, keyLength, found);
+   assert(!found);
    memmove(slot + slotId + 1, slot + slotId, sizeof(Slot) * (count - slotId));
    storeKeyValue(slotId, key, keyLength, payload, payloadLength);
    count++;
@@ -659,6 +661,7 @@ bool BTree::remove(uint8_t* key, unsigned keyLength)
                }
             }
          }
+         return true;
       }
       case Tag::Inner: {
          ASSUME(false)
