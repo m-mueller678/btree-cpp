@@ -341,7 +341,7 @@ struct HashNode : public HashNodeHeader {
    uint8_t* hashes();
    uint8_t* getPayload(unsigned int slotId);
    uint8_t* getKey(unsigned int slotId);
-   void init(uint8_t* lowerFence, unsigned int lowerFenceLen, uint8_t* upperFence, unsigned int upperFenceLen);
+   void init(uint8_t* lowerFence, unsigned int lowerFenceLen, uint8_t* upperFence, unsigned int upperFenceLen, unsigned hashCapacity);
    static AnyNode* makeRootLeaf();
    uint8_t* getLowerFence();
    uint8_t* getUpperFence();

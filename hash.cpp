@@ -32,7 +32,7 @@ int HashNode::findIndex(uint8_t* key, unsigned keyLength)
 AnyNode* HashNode::makeRootLeaf()
 {
    AnyNode* ptr = new AnyNode;
-   ptr->_hash.init(nullptr, 0, nullptr, 0);
+   ptr->_hash.init(nullptr, 0, nullptr, 0, 64);
    return ptr;
 }
 
@@ -56,16 +56,16 @@ void HashNode::updatePrefixLength()
    }
 }
 
-void HashNode::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen)
+void HashNode::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen, unsigned hashCapacity)
 {
    assert(sizeof(HashNode) == pageSize);
    _tag = Tag::Hash;
    count = 0;
    sortedCount = 0;
-   spaceUsed = upperFenceLen + lowerFenceLen;
+   spaceUsed = upperFenceLen + lowerFenceLen + hashCapacity;
    dataOffset = pageSize - spaceUsed;
-   hashCapacity = 16;
-   hashOffset = dataOffset - hashCapacity;
+   hashOffset = dataOffset;
+   this->hashCapacity = hashCapacity;
    this->lowerFenceLen = lowerFenceLen;
    this->upperFenceLen = upperFenceLen;
    memcpy(this->getLowerFence(), lowerFence, lowerFenceLen);
@@ -113,21 +113,31 @@ bool HashNode::requestSlotAndSpace(unsigned kvSize)
       memcpy(ptr() + dataOffset, hashes(), count);
       hashOffset = dataOffset;
       hashCapacity *= 2;
+      spaceUsed += hashCapacity;
       return true;
    }
 }
 
 void HashNode::compactify()
 {
-   unsigned should = freeSpaceAfterCompaction();
+   unsigned newHashCapacity = count + 1;
+   unsigned should = freeSpaceAfterCompaction() + hashCapacity - newHashCapacity;
    HashNode tmp;
-   tmp.init(getLowerFence(), lowerFenceLen, getUpperFence(), upperFenceLen);
-   abort();  // TODO
-   //   copyKeyValueRange(&tmp, 0, 0, count);
-   //   tmp.upper = upper;
-   //   memcpy(reinterpret_cast<char*>(this), &tmp, sizeof(BTreeNode));
-   //   makeHint();
-   //   assert(freeSpace() == should);
+   tmp.init(getLowerFence(), lowerFenceLen, getUpperFence(), upperFenceLen, newHashCapacity);
+   memcpy(tmp.hashes(), hashes(), count);
+   memcpy(tmp.slot, slot, sizeof(HashSlot) * count);
+   for (unsigned i = 0; i < count; ++i) {
+      uint16_t entryLen = slot[i].keyLen + slot[i].payloadLen;
+      tmp.dataOffset -= entryLen;
+      tmp.spaceUsed += entryLen;
+      tmp.slot[i].keyLen = slot[i].keyLen;
+      tmp.slot[i].payloadLen = slot[i].payloadLen;
+      tmp.slot[i].offset = tmp.dataOffset;
+      memcpy(getKey(i), tmp.getKey(i), entryLen);
+   }
+   tmp.count = count;
+   assert(tmp.freeSpace() == should);
+   *this = tmp;
 }
 
 bool HashNode::requestSpace(unsigned spaceNeeded)
@@ -150,9 +160,11 @@ bool HashNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsign
    if (!requestSlotAndSpace(keyLength + payloadLength))
       return false;
    dataOffset -= payloadLength + keyLength;
+   spaceUsed += payloadLength + keyLength;
    slot[count].keyLen = keyLength;
    slot[count].payloadLen = payloadLength;
    slot[count].offset = dataOffset;
+   hashes()[count] = compute_hash(key, keyLength);
    memcpy(getKey(count), key, keyLength);
    memcpy(getPayload(count), payload, payloadLength);
    count += 1;
