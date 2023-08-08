@@ -419,12 +419,6 @@ AnyKeyIndex DenseNode::anyKeyIndex(uint8_t* key, unsigned keyLen)
    }
 }
 
-unsigned count_trailing_zeros(Mask m)
-{
-   abort();
-   // TODO
-}
-
 bool DenseNode::range_lookup(uint8_t* key,
                              unsigned keyLen,
                              uint8_t* keyOut,
@@ -448,7 +442,7 @@ bool DenseNode::range_lookup(uint8_t* key,
    unsigned shift = firstIndex % maskBitsPerWord;
    word >>= shift;
    while (true) {
-      unsigned trailingZeros = count_trailing_zeros(word);
+      unsigned trailingZeros = std::__countr_zero(word);
       if (trailingZeros == maskBitsPerWord) {
          wordIndex += 1;
          if (wordIndex >= maskWordCount()) {
