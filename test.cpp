@@ -51,9 +51,9 @@ void runTest(PerfEvent& e, vector<string>& data)
          unsigned foundIndex = 0;
          t.range_lookup((uint8_t*)data[i].data(), data[i].size(), keyBuffer, [&](unsigned keyLen, uint8_t* payload, unsigned payloadLen) {
             assert(payloadLen == sizeof(uint64_t));
-            assert(loadUnaligned<uint64_t>(payload) == i + foundIndex);
-            assert(keyLen == data[i].size());
-            assert(memcmp(keyBuffer, data[i].data(), keyLen) == 0);
+            uint64_t loadedPayload = loadUnaligned<uint64_t>(payload);
+            assert(data[loadedPayload].size() == keyLen);
+            assert(memcmp(keyBuffer, data[loadedPayload].data(), keyLen) == 0);
             foundIndex += 1;
             return foundIndex < 10;
          });
