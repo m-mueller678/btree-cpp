@@ -558,14 +558,17 @@ void BTree::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned 
       case Tag::Leaf: {
          if (node->basic()->insert(key, keyLength, payload, payloadLength))
             return;
+         break;
       }
       case Tag::Dense: {
          if (node->dense()->insert(key, keyLength, payload, payloadLength))
             return;
+         break;
       }
       case Tag::Hash: {
          if (node->hash()->insert(key, keyLength, payload, payloadLength))
             return;
+         break;
       }
       case Tag::Inner:
          ASSUME(false);
