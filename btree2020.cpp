@@ -4,8 +4,9 @@
 #include <cstring>
 #include <functional>
 
-BTreeNode::BTreeNode(bool isLeaf) : BTreeNodeHeader(isLeaf) {
-   assert(sizeof (BTreeNode)==pageSize);
+BTreeNode::BTreeNode(bool isLeaf) : BTreeNodeHeader(isLeaf)
+{
+   assert(sizeof(BTreeNode) == pageSize);
 }
 
 uint8_t* BTreeNode::ptr()
@@ -183,15 +184,16 @@ unsigned BTreeNode::lowerBound(uint8_t* key, unsigned keyLength)
    return lowerBound(key, keyLength, ignore);
 }
 
-bool BTreeNode::insertChild(uint8_t* key, unsigned keyLength,AnyNode* child){
-   return insert(key,keyLength,reinterpret_cast<uint8_t*>(&child),sizeof (AnyNode*));
+bool BTreeNode::insertChild(uint8_t* key, unsigned keyLength, AnyNode* child)
+{
+   return insert(key, keyLength, reinterpret_cast<uint8_t*>(&child), sizeof(AnyNode*));
 }
 
 bool BTreeNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
 {
    if (!requestSpaceFor(spaceNeeded(keyLength, payloadLength))) {
       DenseNode tmp;
-      if (enableDense &&  tmp.try_densify(this)) {
+      if (enableDense && tmp.try_densify(this)) {
          DenseNode* dense = reinterpret_cast<DenseNode*>(this);
          *dense = tmp;
          return dense->insert(key, keyLength, payload, payloadLength);
@@ -363,7 +365,7 @@ void BTreeNode::splitNode(BTreeNode* parent, unsigned sepSlot, uint8_t* sepKey, 
    BTreeNode tmp(isLeaf());
    BTreeNode* nodeRight = &tmp;
    nodeRight->setFences(sepKey, sepLength, getUpperFence(), upperFence.length);
-   bool succ = parent->insertChild(sepKey, sepLength,nodeLeft->any());
+   bool succ = parent->insertChild(sepKey, sepLength, nodeLeft->any());
    static_cast<void>(succ);
    assert(succ);
    if (isLeaf()) {
@@ -464,7 +466,7 @@ uint8_t* BTree::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOu
    AnyNode* node = root;
    while (node->isAnyInner())
       node = node->basic()->lookupInner(key, keyLength);
-   //COUNTER(is_basic_lookup,node->tag == Tag::Leaf,1<<20)
+   // COUNTER(is_basic_lookup,node->tag == Tag::Leaf,1<<20)
    switch (node->tag) {
       case Tag::Leaf: {
          BTreeNode* basicNode = node->basic();
@@ -478,8 +480,8 @@ uint8_t* BTree::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOu
          payloadSizeOut = basicNode->slot[pos].payloadLen;
          return basicNode->getPayload(pos);
       }
-      case Tag::Dense:{
-         return node->dense()->lookup(key,keyLength,payloadSizeOut);
+      case Tag::Dense: {
+         return node->dense()->lookup(key, keyLength, payloadSizeOut);
       }
       case Tag::Inner:
          ASSUME(false);
@@ -501,9 +503,9 @@ void BTree::splitNode(AnyNode* node, BTreeNode* parent, uint8_t* key, unsigned k
       root = parent->any();
    }
 
-   switch(node->tag){
+   switch (node->tag) {
       case Tag::Leaf:
-      case Tag::Inner:{
+      case Tag::Inner: {
          BTreeNode::SeparatorInfo sepInfo = node->basic()->findSeparator();
          unsigned spaceNeededParent = parent->spaceNeeded(sepInfo.length, sizeof(BTreeNode*));
          if (parent->requestSpaceFor(spaceNeededParent)) {  // is there enough space in the parent for the separator?
@@ -516,7 +518,7 @@ void BTree::splitNode(AnyNode* node, BTreeNode* parent, uint8_t* key, unsigned k
          }
          break;
       }
-      case Tag::Dense:{
+      case Tag::Dense: {
          unsigned spaceNeededParent = parent->spaceNeeded(node->dense()->fullKeyLen, sizeof(BTreeNode*));
          if (parent->requestSpaceFor(spaceNeededParent)) {
             node->dense()->splitNode(parent, key, keyLength);
@@ -548,7 +550,7 @@ void BTree::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned 
       parent = node->basic();
       node = parent->lookupInner(key, keyLength);
    }
-   //COUNTER(is_basic_insert,node->tag == Tag::Leaf,1<<20)
+   // COUNTER(is_basic_insert,node->tag == Tag::Leaf,1<<20)
    if (node->tag == Tag::Leaf) {
       if (node->basic()->insert(key, keyLength, payload, payloadLength))
          return;
@@ -562,7 +564,8 @@ void BTree::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned 
    insert(key, keyLength, payload, payloadLength);
 }
 
-bool BTreeNode::is_underfull(){
+bool BTreeNode::is_underfull()
+{
    return freeSpaceAfterCompaction() >= BTreeNode::underFullSize;
 }
 
@@ -577,8 +580,8 @@ bool BTree::remove(uint8_t* key, unsigned keyLength)
       BTreeNode* basicNode = node->basic();
       node = (pos == basicNode->count) ? basicNode->upper : basicNode->getChild(pos);
    }
-   switch(node->tag){
-      case Tag::Leaf:{
+   switch (node->tag) {
+      case Tag::Leaf: {
          if (!node->basic()->remove(key, keyLength))
             return false;  // key not found
 
@@ -587,7 +590,7 @@ bool BTree::remove(uint8_t* key, unsigned keyLength)
             // find neighbor and merge
             if (parent && (parent->count >= 2) && ((pos + 1) < parent->count)) {
                AnyNode* right = parent->getChild(pos + 1);
-               if(right->tag == Tag::Leaf){
+               if (right->tag == Tag::Leaf) {
                   if (right->basic()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
                      if (node->basic()->mergeNodes(pos, parent, right->basic()))
                         node->dealloc();
@@ -597,13 +600,13 @@ bool BTree::remove(uint8_t* key, unsigned keyLength)
          }
          return true;
       }
-      case Tag::Dense:{
-         if(!node->dense()->remove(key,keyLength))
+      case Tag::Dense: {
+         if (!node->dense()->remove(key, keyLength))
             return false;
-         if(parent && parent->count>=2 && pos+1 < parent->count && node->dense()->is_underfull()){
+         if (parent && parent->count >= 2 && pos + 1 < parent->count && node->dense()->is_underfull()) {
             node->dense()->convertToBasic();
             AnyNode* right = parent->getChild(pos + 1);
-            if(right->tag == Tag::Leaf){
+            if (right->tag == Tag::Leaf) {
                if (right->basic()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
                   if (node->basic()->mergeNodes(pos, parent, right->basic()))
                      node->dealloc();
@@ -612,60 +615,65 @@ bool BTree::remove(uint8_t* key, unsigned keyLength)
          }
          return true;
       }
-      case Tag::Inner:{
+      case Tag::Inner: {
          ASSUME(false)
       }
    }
 }
 
-bool BTreeNode::range_lookup(uint8_t * key,unsigned keyLen,uint8_t* keyOut,
-                         // called with keylen and value
-                         // scan continues if callback returns true
-                             const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb){
-   memcpy(key,keyOut,prefixLength);
-   unsigned start_index = ;
-   for(unsigned i=lowerBound(key,keyLen);i<count;++i){
-      memcpy(keyOut+prefixLength, getKey(i),slot[i].keyLen);
-      if(!found_record_cb(slot[i].keyLen, getPayload(i),slot[i].payloadLen)){
-         return false
+bool BTreeNode::range_lookup(uint8_t* key,
+                             unsigned keyLen,
+                             uint8_t* keyOut,
+                             // called with keylen and value
+                             // scan continues if callback returns true
+                             const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
+{
+   memcpy(key, keyOut, prefixLength);
+   for (unsigned i = lowerBound(key, keyLen); i < count; ++i) {
+      memcpy(keyOut + prefixLength, getKey(i), slot[i].keyLen);
+      if (!found_record_cb(slot[i].keyLen, getPayload(i), slot[i].payloadLen)) {
+         return false;
       }
    }
    return true;
 }
 
-void BTree::range_lookup(uint8_t * key,unsigned keyLen,uint8_t* keyOut,
+void BTree::range_lookup(uint8_t* key,
+                         unsigned keyLen,
+                         uint8_t* keyOut,
                          // called with keylen and value
                          // scan continues if callback returns true
-                         const std::function<bool(unsigned,uint8_t*,unsigned)> &found_record_cb){
-   uint8_t startKeyBuffer[BTreeNode::maxKVSize+1];
-   while(true){
-      AnyNode* node=root;
-      while(node->isAnyInner()){
-            node = node->basic()->lookupInner(key, keyLen);
+                         const std::function<bool(unsigned, uint8_t*, unsigned)>& found_record_cb)
+{
+   uint8_t startKeyBuffer[BTreeNode::maxKVSize + 1];
+   while (true) {
+      AnyNode* node = root;
+      while (node->isAnyInner()) {
+         node = node->basic()->lookupInner(key, keyLen);
       }
-      switch (node->tag){
-            case Tag::Leaf:{
-               if(!node->basic()->range_lookup(key,keyLen,keyOut,found_record_cb))
-                  return ;
-               keyLen=node->basic()->upperFence.length;
-               key=startKeyBuffer;
-               memcpy(key,node->basic()->getUpperFence(),keyLen);
-               key[keyLen]=0;
-               keyLen+=1;
-               break;
-            }
-            case Tag::Dense:{
-               if(!node->dense()->range_lookup(key,keyLen,keyOut,found_record_cb))
-                  return;
-               keyLen=node->dense()->upperFenceLen;
-               key=startKeyBuffer;
-               memcpy(key,node->dense()->getUpperFence(),keyLen);
-               key[keyLen]=0;
-               keyLen+=1;
-               break;
-            }
-            case Tag::Inner:
-               ASSUME(false)
+      switch (node->tag) {
+         case Tag::Leaf: {
+            if (!node->basic()->range_lookup(key, keyLen, keyOut, found_record_cb))
+               return;
+            keyLen = node->basic()->upperFence.length;
+            key = startKeyBuffer;
+            memcpy(key, node->basic()->getUpperFence(), keyLen);
+            key[keyLen] = 0;
+            keyLen += 1;
+            break;
+         }
+         case Tag::Dense: {
+            if (!node->dense()->range_lookup(key, keyLen, keyOut, found_record_cb))
+               return;
+            keyLen = node->dense()->upperFenceLen;
+            key = startKeyBuffer;
+            memcpy(key, node->dense()->getUpperFence(), keyLen);
+            key[keyLen] = 0;
+            keyLen += 1;
+            break;
+         }
+         case Tag::Inner:
+            ASSUME(false)
       }
    }
 }

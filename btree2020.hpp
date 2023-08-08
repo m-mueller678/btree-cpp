@@ -35,9 +35,10 @@ inline unsigned max(unsigned a, unsigned b)
       }                                                                                                                  \
    }
 
-#define ASSUME(x){ \
-   assert(x);      \
-   __builtin_assume(x); \
+#define ASSUME(x)          \
+   {                       \
+      assert(x);           \
+      __builtin_assume(x); \
    }
 
 template <class T>
@@ -230,6 +231,17 @@ enum KeyError : int {
    FarTooLarge = -4,
 };
 
+enum AnyKeyRel {
+   Before,
+   After,
+   At,
+};
+
+struct AnyKeyIndex {
+   unsigned index;
+   AnyKeyRel rel;
+};
+
 struct DenseNode : public DenseNodeHeader {
    union {
       Mask mask[(pageSize - sizeof(DenseNodeHeader)) / sizeof(Mask)];
@@ -261,7 +273,7 @@ struct DenseNode : public DenseNodeHeader {
 
    void init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen, unsigned fullKeyLen, unsigned valLen);
 
-   unsigned mask_word_count();
+   unsigned maskWordCount();
 
    void zeroMask();
 
@@ -293,7 +305,7 @@ struct DenseNode : public DenseNodeHeader {
                      unsigned int keyLen,
                      uint8_t* keyOut,
                      const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
-   KeyError anyKeyIndex(uint8_t* key, unsigned int keyLen);
+   AnyKeyIndex anyKeyIndex(uint8_t* key, unsigned keyLen);
 };
 
 union AnyNode {
