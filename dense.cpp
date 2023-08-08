@@ -104,7 +104,7 @@ bool DenseNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsig
       case KeyError::NotNumericRange:
          return false;
       case KeyError::WrongLen:
-         abort();
+         ASSUME(false);
    }
    assert(keyIndex >= 0);
    setSlotPresent(keyIndex);

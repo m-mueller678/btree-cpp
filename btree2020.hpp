@@ -76,7 +76,7 @@ enum class Tag : uint8_t {
 };
 
 struct BTreeNodeHeader {
-   Tag tag;
+   Tag _tag;
 
    static const unsigned underFullSize = pageSize / 4;  // merge nodes below this size
 
@@ -99,7 +99,7 @@ struct BTreeNodeHeader {
    uint32_t hint[hintCount];
    uint32_t padding;
 
-   BTreeNodeHeader(bool isLeaf) : tag(isLeaf ? Tag::Leaf : Tag::Inner) {}
+   BTreeNodeHeader(bool isLeaf) : _tag(isLeaf ? Tag::Leaf : Tag::Inner) {}
 };
 
 struct BTreeNode : public BTreeNodeHeader {
@@ -309,22 +309,27 @@ struct DenseNode : public DenseNodeHeader {
 };
 
 union AnyNode {
-   Tag tag;
+   Tag _tag;
    BTreeNode _basic_node;
+
+   Tag tag()
+   {
+      ASSUME(_tag == Tag::Inner || _tag == Tag::Leaf || _tag == Tag::Dense);
+      ASSUME(enableDense || _tag != Tag::Dense);
+      return _tag;
+   }
 
    AnyNode(BTreeNode basic) : _basic_node(basic) {}
    AnyNode() {}
 
    void destroy()
    {
-      switch (tag) {
+      switch (tag()) {
          case Tag::Leaf:
          case Tag::Inner:
             return basic()->destroy();
          case Tag::Dense:
             return dealloc();
-         default:
-            abort();
       }
    }
 
@@ -332,7 +337,7 @@ union AnyNode {
 
    bool isAnyInner()
    {
-      switch (tag) {
+      switch (tag()) {
          case Tag::Leaf:
          case Tag::Dense:
             return false;
@@ -343,13 +348,13 @@ union AnyNode {
 
    BTreeNode* basic()
    {
-      assert(tag == Tag::Leaf || tag == Tag::Inner);
+      ASSUME(_tag == Tag::Leaf || _tag == Tag::Inner);
       return reinterpret_cast<BTreeNode*>(this);
    }
 
    DenseNode* dense()
    {
-      assert(tag == Tag::Dense);
+      ASSUME(_tag == Tag::Dense);
       return reinterpret_cast<DenseNode*>(this);
    }
 };

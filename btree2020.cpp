@@ -15,24 +15,24 @@ uint8_t* BTreeNode::ptr()
 }
 bool BTreeNode::isInner()
 {
-   switch (tag) {
+   switch (_tag) {
       case Tag::Inner:
          return true;
       case Tag::Leaf:
          return false;
       default:
-         abort();
+         ASSUME(false);
    }
 }
 bool BTreeNode::isLeaf()
 {
-   switch (tag) {
+   switch (_tag) {
       case Tag::Inner:
          return false;
       case Tag::Leaf:
          return true;
       default:
-         abort();
+         ASSUME(false);
    }
 }
 uint8_t* BTreeNode::getLowerFence()
@@ -467,7 +467,7 @@ uint8_t* BTree::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOu
    while (node->isAnyInner())
       node = node->basic()->lookupInner(key, keyLength);
    // COUNTER(is_basic_lookup,node->tag == Tag::Leaf,1<<20)
-   switch (node->tag) {
+   switch (node->tag()) {
       case Tag::Leaf: {
          BTreeNode* basicNode = node->basic();
          bool found;
@@ -503,7 +503,7 @@ void BTree::splitNode(AnyNode* node, BTreeNode* parent, uint8_t* key, unsigned k
       root = parent->any();
    }
 
-   switch (node->tag) {
+   switch (node->tag()) {
       case Tag::Leaf:
       case Tag::Inner: {
          BTreeNode::SeparatorInfo sepInfo = node->basic()->findSeparator();
@@ -551,7 +551,7 @@ void BTree::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned 
       node = parent->lookupInner(key, keyLength);
    }
    // COUNTER(is_basic_insert,node->tag == Tag::Leaf,1<<20)
-   if (node->tag == Tag::Leaf) {
+   if (node->tag() == Tag::Leaf) {
       if (node->basic()->insert(key, keyLength, payload, payloadLength))
          return;
    } else {
@@ -580,7 +580,7 @@ bool BTree::remove(uint8_t* key, unsigned keyLength)
       BTreeNode* basicNode = node->basic();
       node = (pos == basicNode->count) ? basicNode->upper : basicNode->getChild(pos);
    }
-   switch (node->tag) {
+   switch (node->tag()) {
       case Tag::Leaf: {
          if (!node->basic()->remove(key, keyLength))
             return false;  // key not found
@@ -590,7 +590,7 @@ bool BTree::remove(uint8_t* key, unsigned keyLength)
             // find neighbor and merge
             if (parent && (parent->count >= 2) && ((pos + 1) < parent->count)) {
                AnyNode* right = parent->getChild(pos + 1);
-               if (right->tag == Tag::Leaf) {
+               if (right->tag() == Tag::Leaf) {
                   if (right->basic()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
                      if (node->basic()->mergeNodes(pos, parent, right->basic()))
                         node->dealloc();
@@ -606,7 +606,7 @@ bool BTree::remove(uint8_t* key, unsigned keyLength)
          if (parent && parent->count >= 2 && pos + 1 < parent->count && node->dense()->is_underfull()) {
             node->dense()->convertToBasic();
             AnyNode* right = parent->getChild(pos + 1);
-            if (right->tag == Tag::Leaf) {
+            if (right->tag() == Tag::Leaf) {
                if (right->basic()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
                   if (node->basic()->mergeNodes(pos, parent, right->basic()))
                      node->dealloc();
@@ -651,7 +651,7 @@ void BTree::range_lookup(uint8_t* key,
       while (node->isAnyInner()) {
          node = node->basic()->lookupInner(key, keyLen);
       }
-      switch (node->tag) {
+      switch (node->tag()) {
          case Tag::Leaf: {
             if (!node->basic()->range_lookup(key, keyLen, keyOut, found_record_cb))
                return;
