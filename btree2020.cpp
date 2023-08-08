@@ -628,10 +628,10 @@ bool BTreeNode::range_lookup(uint8_t* key,
                              // scan continues if callback returns true
                              const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
-   memcpy(key, keyOut, prefixLength);
+   memcpy(keyOut, key, prefixLength);
    for (unsigned i = lowerBound(key, keyLen); i < count; ++i) {
       memcpy(keyOut + prefixLength, getKey(i), slot[i].keyLen);
-      if (!found_record_cb(slot[i].keyLen, getPayload(i), slot[i].payloadLen)) {
+      if (!found_record_cb(slot[i].keyLen + prefixLength, getPayload(i), slot[i].payloadLen)) {
          return false;
       }
    }
