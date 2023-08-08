@@ -453,7 +453,7 @@ void BTreeNode::destroy()
    this->any()->dealloc();
 }
 
-BTree::BTree() : root(BTreeNode::makeLeaf()) {}
+BTree::BTree() : root(enableHash ? HashNode::makeRootLeaf() : BTreeNode::makeLeaf()) {}
 
 BTree::~BTree()
 {
@@ -482,6 +482,9 @@ uint8_t* BTree::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOu
       }
       case Tag::Dense: {
          return node->dense()->lookup(key, keyLength, payloadSizeOut);
+      }
+      case Tag::Hash: {
+         return node->hash()->lookup(key, keyLength, payloadSizeOut);
       }
       case Tag::Inner:
          ASSUME(false);
@@ -551,14 +554,22 @@ void BTree::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned 
       node = parent->lookupInner(key, keyLength);
    }
    // COUNTER(is_basic_insert,node->tag == Tag::Leaf,1<<20)
-   if (node->tag() == Tag::Leaf) {
-      if (node->basic()->insert(key, keyLength, payload, payloadLength))
-         return;
-   } else {
-      if (node->dense()->insert(key, keyLength, payload, payloadLength))
-         return;
+   switch (node->tag()) {
+      case Tag::Leaf: {
+         if (node->basic()->insert(key, keyLength, payload, payloadLength))
+            return;
+      }
+      case Tag::Dense: {
+         if (node->dense()->insert(key, keyLength, payload, payloadLength))
+            return;
+      }
+      case Tag::Hash: {
+         if (node->hash()->insert(key, keyLength, payload, payloadLength))
+            return;
+      }
+      case Tag::Inner:
+         ASSUME(false);
    }
-
    // node is full: split and restart
    splitNode(node, parent, key, keyLength);
    insert(key, keyLength, payload, payloadLength);

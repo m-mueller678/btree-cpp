@@ -1,7 +1,7 @@
 #include <cstdint>
 #include "btree2020.hpp"
 
-unsigned DenseNode::lowerFenceOffset()
+unsigned DenseNode::fencesOffset()
 {
    return pageSize - lowerFenceLen - max(upperFenceLen, fullKeyLen);
 }
@@ -11,7 +11,7 @@ uint8_t* DenseNode::getLowerFence()
 }
 uint8_t* DenseNode::getUpperFence()
 {
-   return ptr() + lowerFenceOffset();
+   return ptr() + fencesOffset();
 }
 
 uint8_t* DenseNode::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut)
@@ -51,6 +51,7 @@ void DenseNode::changeUpperFence(uint8_t* fence, unsigned len)
    // TODO could make numeric part extraction independent of prefix len
    updateArrayStart();
 }
+
 void DenseNode::updatePrefixLength()
 {
    uint8_t* uf = getUpperFence();
@@ -212,7 +213,7 @@ void DenseNode::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upper
    this->lowerFenceLen = lowerFenceLen;
    this->upperFenceLen = upperFenceLen;
    assert(lowerFenceLen <= fullKeyLen);
-   slotCount = computeSlotCount(valLen, lowerFenceOffset());
+   slotCount = computeSlotCount(valLen, fencesOffset());
    zeroMask();
    memcpy(this->getLowerFence(), lowerFence, lowerFenceLen);
    memcpy(this->getUpperFence(), upperFence, upperFenceLen);

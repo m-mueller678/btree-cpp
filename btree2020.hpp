@@ -12,6 +12,7 @@
 // maximum page size (in bytes) is 65536
 constexpr unsigned pageSize = 4096;
 constexpr bool enableDense = true;
+constexpr bool enableHash = true;
 
 inline unsigned min(unsigned a, unsigned b)
 {
@@ -73,6 +74,7 @@ enum class Tag : uint8_t {
    Leaf = 0,
    Inner = 1,
    Dense = 2,
+   Hash = 3,
 };
 
 struct BTreeNodeHeader {
@@ -247,7 +249,7 @@ struct DenseNode : public DenseNodeHeader {
       Mask mask[(pageSize - sizeof(DenseNodeHeader)) / sizeof(Mask)];
       uint8_t heap[pageSize - sizeof(DenseNodeHeader)];
    };
-   unsigned lowerFenceOffset();
+   unsigned fencesOffset();
    uint8_t* getLowerFence();
    uint8_t* getUpperFence();
 
@@ -308,14 +310,63 @@ struct DenseNode : public DenseNodeHeader {
    AnyKeyIndex anyKeyIndex(uint8_t* key, unsigned keyLen);
 };
 
+struct HashNodeHeader {
+   Tag _tag;
+   uint16_t count;
+   uint16_t sortedCount;
+   uint16_t spaceUsed;
+   uint16_t dataOffset;
+   uint16_t prefixLength;
+   uint16_t hashCapacity;
+   uint16_t hashOffset;
+   uint16_t lowerFenceLen;
+   uint16_t upperFenceLen;
+};
+
+struct HashSlot {
+   uint16_t offset;
+   uint16_t keyLen;
+   uint16_t payloadLen;
+};
+
+struct HashNode : public HashNodeHeader {
+   union {
+      HashSlot slot[(pageSize - sizeof(HashNodeHeader)) / sizeof(HashSlot)];  // grows from front
+      uint8_t heap[pageSize - sizeof(HashNodeHeader)];                        // grows from back
+   };
+
+   uint8_t* lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut);
+   static uint8_t compute_hash(uint8_t* key, unsigned int keyLength);
+   uint8_t* ptr();
+   uint8_t* hashes();
+   uint8_t* getPayload(unsigned int slotId);
+   uint8_t* getKey(unsigned int slotId);
+   void init(uint8_t* lowerFence, unsigned int lowerFenceLen, uint8_t* upperFence, unsigned int upperFenceLen);
+   static AnyNode* makeRootLeaf();
+   uint8_t* getLowerFence();
+   uint8_t* getUpperFence();
+   void updatePrefixLength();
+   bool insert(uint8_t* key, unsigned int keyLength, uint8_t* payload, unsigned int payloadLength);
+   int findIndex(uint8_t* key, unsigned keyLength);
+   unsigned int freeSpace();
+   unsigned int freeSpaceAfterCompaction();
+   bool requestSpace(unsigned int spaceNeeded);
+   bool requestSlotAndSpace(unsigned int spaceNeeded);
+   void compactify();
+};
+
 union AnyNode {
    Tag _tag;
    BTreeNode _basic_node;
+   DenseNode _dense;
+   HashNode _hash;
 
    Tag tag()
    {
-      ASSUME(_tag == Tag::Inner || _tag == Tag::Leaf || _tag == Tag::Dense);
-      ASSUME(enableDense || _tag != Tag::Dense);
+      ASSUME(_tag == Tag::Inner || _tag == Tag::Leaf || _tag == Tag::Dense || _tag == Tag::Hash);
+      ASSUME((enableDense && !enableHash) || _tag != Tag::Dense);
+      ASSUME(enableHash || _tag != Tag::Hash);
+      ASSUME(!enableHash || _tag != Tag::Leaf);
       return _tag;
    }
 
@@ -329,6 +380,7 @@ union AnyNode {
          case Tag::Inner:
             return basic()->destroy();
          case Tag::Dense:
+         case Tag::Hash:
             return dealloc();
       }
    }
@@ -340,6 +392,7 @@ union AnyNode {
       switch (tag()) {
          case Tag::Leaf:
          case Tag::Dense:
+         case Tag::Hash:
             return false;
          case Tag::Inner:
             return true;
@@ -356,6 +409,12 @@ union AnyNode {
    {
       ASSUME(_tag == Tag::Dense);
       return reinterpret_cast<DenseNode*>(this);
+   }
+
+   HashNode* hash()
+   {
+      ASSUME(_tag == Tag::Hash);
+      return reinterpret_cast<HashNode*>(this);
    }
 };
 
