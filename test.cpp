@@ -78,8 +78,12 @@ void runTest(PerfEvent& e, vector<string>& data)
             throw;
       for (uint64_t i = 0; i < count / 2 + count / 4; i++)  // insert
          t.insert((uint8_t*)data[i].data(), data[i].size(), reinterpret_cast<uint8_t*>(&i), sizeof(uint64_t));
-      for (uint64_t i = 0; i < count; i++)  // remove all
-         t.remove((uint8_t*)data[i].data(), data[i].size());
+      {
+         e.setParam("op", "remove");
+         PerfEventBlock b(e, count);
+         for (uint64_t i = 0; i < count; i++)  // remove all
+            t.remove((uint8_t*)data[i].data(), data[i].size());
+      }
       for (uint64_t i = 0; i < count; i++)
          if (t.lookup((uint8_t*)data[i].data(), data[i].size()))
             throw;
