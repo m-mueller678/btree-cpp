@@ -16,6 +16,22 @@ uint8_t* HashNode::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSiz
    return nullptr;
 }
 
+void HashNode::print()
+{
+   printf("# HashNode\n");
+   for (unsigned i = 0; i < count; ++i) {
+      printf("%d: [%d] ", i, hashes()[i]);
+      for (unsigned j = 0; j < slot[i].keyLen; ++j) {
+         printf("%d, ", getKey(i)[j]);
+      }
+      printf("\n");
+      for (unsigned j = 0; j < i; ++j) {
+         assert(slot[i].keyLen == slot[j].keyLen);
+         assert(memcmp(getKey(i), getKey(j), slot[i].keyLen) != 0);
+      }
+   }
+}
+
 int HashNode::findIndex(uint8_t* key, unsigned keyLength)
 {
    key += prefixLength;
@@ -127,16 +143,8 @@ void HashNode::compactify()
    tmp.init(getLowerFence(), lowerFenceLen, getUpperFence(), upperFenceLen, newHashCapacity);
    memcpy(tmp.hashes(), hashes(), count);
    memcpy(tmp.slot, slot, sizeof(HashSlot) * count);
-   for (unsigned i = 0; i < count; ++i) {
-      uint16_t entryLen = slot[i].keyLen + slot[i].payloadLen;
-      tmp.dataOffset -= entryLen;
-      tmp.spaceUsed += entryLen;
-      tmp.slot[i].keyLen = slot[i].keyLen;
-      tmp.slot[i].payloadLen = slot[i].payloadLen;
-      tmp.slot[i].offset = tmp.dataOffset;
-      memcpy(getKey(i), tmp.getKey(i), entryLen);
-   }
-   tmp.count = count;
+   copyKeyValueRange(&tmp, 0, 0, count);
+   tmp.sortedCount = sortedCount;
    assert(tmp.freeSpace() == should);
    *this = tmp;
 }
@@ -159,14 +167,12 @@ struct HashSlotReferenceDeref {
 
 bool HashNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
 {
-   assert(spaceUsed == 12 * count + lowerFenceLen + upperFenceLen + hashCapacity);
    assert(findIndex(key, keyLength) < 0);
    assert(keyLength >= prefixLength);
    if (!requestSlotAndSpace(keyLength - prefixLength + payloadLength))
       return false;
    storeKeyValue(count, key, keyLength, payload, payloadLength);
    count += 1;
-   assert(spaceUsed == 12 * count + lowerFenceLen + upperFenceLen + hashCapacity);
    return true;
 }
 

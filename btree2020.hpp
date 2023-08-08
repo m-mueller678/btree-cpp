@@ -366,6 +366,7 @@ struct HashNode : public HashNodeHeader {
    bool removeSlot(unsigned int slotId);
    bool remove(uint8_t* key, unsigned int keyLength);
    bool mergeNodes(unsigned int slotId, BTreeNode* parent, HashNode* right);
+   void print();
 };
 
 union AnyNode {
@@ -432,7 +433,6 @@ union AnyNode {
 };
 
 struct BTree {
-  private:
    AnyNode* root;
 
    void splitNode(AnyNode* node, BTreeNode* parent, uint8_t* key, unsigned keyLength);

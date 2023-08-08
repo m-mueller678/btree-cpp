@@ -654,7 +654,7 @@ bool BTree::remove(uint8_t* key, unsigned keyLength)
             // find neighbor and merge
             if (parent && (parent->count >= 2) && ((pos + 1) < parent->count)) {
                AnyNode* right = parent->getChild(pos + 1);
-               ASSUME(right->tag() == Tag::Hash);
+               ASSUME(right->_tag == Tag::Hash);
                if (right->hash()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
                   if (node->hash()->mergeNodes(pos, parent, right->hash()))
                      node->dealloc();
