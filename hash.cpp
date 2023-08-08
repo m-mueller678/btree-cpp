@@ -358,3 +358,48 @@ bool HashNode::mergeNodes(unsigned slotId, BTreeNode* parent, HashNode* right)
    *right = tmp;
    return true;
 }
+
+bool HashNode::range_lookup(uint8_t* key,
+                            unsigned keyLen,
+                            uint8_t* keyOut,
+                            // called with keylen and value
+                            // scan continues if callback returns true
+                            const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
+{
+   sort();
+   memcpy(keyOut, key, prefixLength);
+   for (unsigned i = lowerBound(key, keyLen); i < count; ++i) {
+      memcpy(keyOut + prefixLength, getKey(i), slot[i].keyLen);
+      if (!found_record_cb(slot[i].keyLen + prefixLength, getPayload(i), slot[i].payloadLen)) {
+         return false;
+      }
+   }
+   return true;
+}
+
+// lower bound search, foundOut indicates if there is an exact match, returns slotId
+unsigned HashNode::lowerBound(uint8_t* key, unsigned keyLength)
+{
+   key += prefixLength;
+   keyLength -= prefixLength;
+   unsigned lower = 0;
+   unsigned upper = count;
+   while (lower < upper) {
+      unsigned mid = ((upper - lower) / 2) + lower;
+      int cmp = memcmp(key, getKey(mid), min(keyLength, slot[mid].keyLen));
+      if (cmp < 0) {
+         upper = mid;
+      } else if (cmp > 0) {
+         lower = mid + 1;
+      } else {
+         if (keyLength < slot[mid].keyLen) {  // key is shorter
+            upper = mid;
+         } else if (keyLength > slot[mid].keyLen) {  // key is longer
+            lower = mid + 1;
+         } else {
+            return mid;
+         }
+      }
+   }
+   return lower;
+}

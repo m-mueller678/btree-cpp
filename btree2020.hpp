@@ -367,6 +367,11 @@ struct HashNode : public HashNodeHeader {
    bool remove(uint8_t* key, unsigned int keyLength);
    bool mergeNodes(unsigned int slotId, BTreeNode* parent, HashNode* right);
    void print();
+   bool range_lookup(uint8_t* key,
+                     unsigned int keyLen,
+                     uint8_t* keyOut,
+                     const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
+   unsigned int lowerBound(uint8_t* key, unsigned int keyLength);
 };
 
 union AnyNode {

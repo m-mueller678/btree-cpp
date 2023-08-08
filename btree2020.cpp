@@ -720,8 +720,16 @@ void BTree::range_lookup(uint8_t* key,
             keyLen += 1;
             break;
          }
-         case Tag::Hash:
-            abort();  // TODO
+         case Tag::Hash: {
+            if (!node->hash()->range_lookup(key, keyLen, keyOut, found_record_cb))
+               return;
+            keyLen = node->hash()->upperFenceLen;
+            key = startKeyBuffer;
+            memcpy(key, node->hash()->getUpperFence(), keyLen);
+            key[keyLen] = 0;
+            keyLen += 1;
+            break;
+         }
          case Tag::Inner:
             ASSUME(false)
       }
