@@ -8,7 +8,7 @@ uint8_t HashNode::compute_hash(uint8_t* key, unsigned keyLength)
 
 uint8_t* HashNode::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut)
 {
-   int index = findIndex(key, 0);
+   int index = findIndex(key, keyLength);
    if (index >= 0) {
       payloadSizeOut = slot[index].payloadLen;
       return getPayload(index);
