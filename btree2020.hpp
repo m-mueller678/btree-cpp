@@ -460,8 +460,8 @@ union AnyNode {
       ASSUME((enableDense && !enableHash) || _tag != Tag::Dense);
       ASSUME(enableHash || _tag != Tag::Hash);
       ASSUME(!enableHash || _tag != Tag::Leaf);
-      ASSUME(!enableHeadNode || _tag != Tag::Head4);
-      ASSUME(!enableHeadNode || _tag != Tag::Head8);
+      ASSUME(enableHeadNode || _tag != Tag::Head4);
+      ASSUME(enableHeadNode || _tag != Tag::Head8);
       return _tag;
    }
 
