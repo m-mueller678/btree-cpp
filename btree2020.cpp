@@ -790,7 +790,7 @@ void BTree::range_lookup(uint8_t* key,
    while (true) {
       AnyNode* node = root;
       while (node->isAnyInner()) {
-         node = node->basic()->lookupInner(key, keyLen);
+         node = node->lookupInner(key, keyLen);
       }
       switch (node->tag()) {
          case Tag::Leaf: {
