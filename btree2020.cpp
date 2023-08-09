@@ -520,7 +520,7 @@ uint8_t* BTree::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOu
 {
    AnyNode* node = root;
    while (node->isAnyInner())
-      node = node->basic()->lookupInner(key, keyLength);
+      node = node->lookupInner(key, keyLength);
    // COUNTER(is_basic_lookup,node->tag == Tag::Leaf,1<<20)
    switch (node->tag()) {
       case Tag::Leaf: {
