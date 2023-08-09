@@ -78,9 +78,66 @@ void HeadNode<T>::insertAt(unsigned index, T head, AnyNode* child)
    storeUnaligned(children() + index, child);
 }
 
-AnyNode** HeadNodeHead::children()
+template <class T>
+void HeadNode<T>::clone_from_basic(BTreeNode* src)
 {
-   return reinterpret_cast<AnyNode**>(ptr() + childOffset);
+   init(src->getLowerFence(), src->lowerFence.length, src->getUpperFence(), src->upperFence.length);
+   ASSUME(src->count <= keyCapacity);
+   count = src->count;
+   for (unsigned i = 0; i < src->count; ++i) {
+      T head;
+      bool succ = makeSepHead(src->getKey(i), src->slot[i].keyLen, &head);
+      ASSUME(succ);
+      keys[i] = head;
+      memcpy(children() + i, src->getPayload(i), sizeof(AnyNode*));
+   }
+   storeUnaligned(children() + count, src->upper);
+}
+
+uint8_t* HeadNodeHead::getLowerFence()
+{
+   return ptr() + pageSize - lowerFenceLen;
+}
+
+uint8_t* HeadNodeHead::getUpperFence()
+{
+   return ptr() + fencesOffset();
+}
+
+unsigned HeadNodeHead::fencesOffset()
+{
+   return pageSize - lowerFenceLen - upperFenceLen;
+}
+
+void HeadNodeHead::updatePrefixLength()
+{
+   uint8_t* uf = getUpperFence();
+   uint8_t* lf = getLowerFence();
+   prefixLength = 0;
+   while (prefixLength < upperFenceLen && prefixLength < lowerFenceLen && lf[prefixLength] == uf[prefixLength]) {
+      prefixLength += 1;
+   }
+}
+
+template <class T>
+void HeadNode<T>::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen)
+{
+   assert(sizeof(HeadNode<T>) == pageSize);
+   _tag = sizeof(T) == 4 ? Tag::Head4 : Tag::Head8;
+   count = 0;
+   this->lowerFenceLen = lowerFenceLen;
+   this->upperFenceLen = upperFenceLen;
+   unsigned keyOffset = reinterpret_cast<uint8_t*>(keys) - ptr();
+   keyCapacity = (fencesOffset() - keyOffset - sizeof(AnyNode*)) / sizeof(sizeof(T) + sizeof(AnyNode*));
+   memcpy(this->getLowerFence(), lowerFence, lowerFenceLen);
+   memcpy(this->getUpperFence(), upperFence, upperFenceLen);
+   updatePrefixLength();
+}
+
+template <class T>
+AnyNode** HeadNode<T>::children()
+{
+   return reinterpret_cast<AnyNode**>(keys + keyCapacity);
 }
 
 uint8_t* HeadNodeHead::ptr()

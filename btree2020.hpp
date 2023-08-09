@@ -402,18 +402,19 @@ struct HeadNodeHead {
    Tag _tag;
    uint16_t count;
    uint16_t keyCapacity;
-   uint16_t childOffset;
    uint16_t lowerFenceLen;
    uint16_t upperFenceLen;
    uint16_t prefixLength;
-   uint16_t _padding;
-   AnyNode** children();
    uint8_t* ptr();
+   uint8_t* getLowerFence();
+   uint8_t* getUpperFence();
+   void updatePrefixLength();
+   unsigned int fencesOffset();
 };
 
 template <class T>
 struct HeadNode : public HeadNodeHead {
-   T keys[(pageSize - sizeof(HeadNodeHead)) / sizeof(T)];
+   T keys[(pageSize - sizeof(HeadNodeHead)) / sizeof(T) - 1];
    uint8_t data[pageSize - sizeof(HeadNodeHead)];
 
    void destroy();
@@ -426,6 +427,9 @@ struct HeadNode : public HeadNodeHead {
    static void makeNeedleHead(uint8_t* key, unsigned int keyLen, T* out);
    unsigned int lowerBound(T head, bool& foundOut);
    void insertAt(unsigned int index, T head, AnyNode* child);
+   void init(uint8_t* lowerFence, unsigned int lowerFenceLen, uint8_t* upperFence, unsigned int upperFenceLen);
+   AnyNode** children();
+   void clone_from_basic(BTreeNode* src);
 };
 
 union AnyNode {
