@@ -309,3 +309,11 @@ AnyNode* HeadNode<T>::lookupInner(uint8_t* key, unsigned keyLength)
    unsigned index = lowerBound(head, found);
    return loadUnaligned<AnyNode*>(children() + index);
 }
+
+template <class T>
+BTreeNode::SeparatorInfo HeadNode<T>::findSeparator()
+{
+   ASSUME(count > 1);
+   unsigned slotId = count / 2;
+   return BTreeNode::SeparatorInfo{static_cast<unsigned>(prefixLength + getKeyLength(slotId)), slotId, false};
+}

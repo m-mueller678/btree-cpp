@@ -440,6 +440,7 @@ struct HeadNode : public HeadNodeHead {
    void copyKeyValueRangeToBasic(BTreeNode* dst, unsigned int srcStart, unsigned int srcEnd);
    void copyKeyValueRange(HeadNode<T>* dst, unsigned int dstSlot, unsigned int srcSlot, unsigned int srcCount);
    bool convertToBasicWithSpace(unsigned int newKeyLen);
+   BTreeNode::SeparatorInfo findSeparator();
 };
 
 typedef HeadNode<uint32_t> HeadNode4;
