@@ -198,6 +198,7 @@ bool HeadNodeHead::requestChildConvertFromBasic(BTreeNode* node, unsigned newKey
       tmp._head8.clone_from_basic(node);
       ASSUME(tmp._head8.count < tmp._head8.keyCapacity);
    }
+   memcpy(node, &tmp, pageSize);
    return true;
 }
 
