@@ -160,7 +160,6 @@ struct BTreeNode : public BTreeNodeHeader {
    bool requestSpaceFor(unsigned spaceNeeded);
 
    static AnyNode* makeLeaf();
-   static AnyNode* makeInner(AnyNode*);
 
    uint8_t* getKey(unsigned slotId);
    uint8_t* getPayload(unsigned slotId);
@@ -582,6 +581,7 @@ union AnyNode {
             ASSUME(false);
       }
    }
+   static AnyNode* makeRoot(AnyNode* child);
 };
 
 struct BTree {

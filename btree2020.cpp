@@ -73,11 +73,19 @@ AnyNode* BTreeNode::makeLeaf()
 {
    return new AnyNode(BTreeNode(true));
 }
-AnyNode* BTreeNode::makeInner(AnyNode* child)
+
+AnyNode* AnyNode::makeRoot(AnyNode* child)
 {
-   AnyNode* ptr = new AnyNode(BTreeNode(false));
-   ptr->basic()->upper = child;
-   return ptr;
+   if (enableHeadNode) {
+      AnyNode* ptr = new AnyNode();
+      ptr->_head4.init(nullptr, 0, nullptr, 0);
+      storeUnaligned(ptr->head4()->children(), child);
+      return ptr;
+   } else {
+      AnyNode* ptr = new AnyNode(BTreeNode(false));
+      ptr->basic()->upper = child;
+      return ptr;
+   }
 }
 
 uint8_t* BTreeNode::getKey(unsigned slotId)
@@ -550,7 +558,7 @@ void BTree::splitNode(AnyNode* node, AnyNode* parent, uint8_t* key, unsigned key
 {
    // create new root if necessary
    if (!parent) {
-      parent = BTreeNode::makeInner(node);
+      parent = AnyNode::makeRoot(node);
       root = parent;
    }
 
