@@ -177,12 +177,13 @@ void HeadNode<T>::clone_from_basic(BTreeNode* src)
    storeUnaligned(children() + count, src->upper);
 }
 
-bool HeadNodeHead::fromBasicInsert(BTreeNode* node, uint8_t* key, unsigned keyLength, AnyNode* child)
+bool HeadNodeHead::requestChildConvertFromBasic(BTreeNode* node, unsigned newKeyLength)
 {
-   if (keyLength >= 8) {
+   newKeyLength -= node->prefixLength;
+   if (newKeyLength >= 8) {
       return false;
    }
-   bool shortKeys = keyLength < 4;
+   bool shortKeys = newKeyLength < 4;
    for (unsigned i = 0; i < node->count; ++i) {
       if (node->slot[i].keyLen >= 8) {
          return false;
@@ -192,11 +193,12 @@ bool HeadNodeHead::fromBasicInsert(BTreeNode* node, uint8_t* key, unsigned keyLe
    AnyNode tmp;
    if (shortKeys) {
       tmp._head4.clone_from_basic(node);
-      return tmp._head4.insertChild(key, keyLength, child);
+      ASSUME(tmp._head4.count < tmp._head4.keyCapacity);
    } else {
       tmp._head8.clone_from_basic(node);
-      return tmp._head8.insertChild(key, keyLength, child);
+      ASSUME(tmp._head8.count < tmp._head8.keyCapacity);
    }
+   return true;
 }
 
 uint8_t* HeadNodeHead::getLowerFence()

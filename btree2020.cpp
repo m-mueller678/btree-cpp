@@ -189,11 +189,7 @@ unsigned BTreeNode::lowerBound(uint8_t* key, unsigned keyLength)
 
 bool BTreeNode::insertChild(uint8_t* key, unsigned keyLength, AnyNode* child)
 {
-   bool succ = insert(key, keyLength, reinterpret_cast<uint8_t*>(&child), sizeof(AnyNode*));
-   if (enableHeadNode && !succ) {
-      return HeadNodeHead::fromBasicInsert(this, key, keyLength, child);
-   }
-   return succ;
+   return insert(key, keyLength, reinterpret_cast<uint8_t*>(&child), sizeof(AnyNode*));
 }
 
 bool BTreeNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)

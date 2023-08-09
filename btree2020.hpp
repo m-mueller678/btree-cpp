@@ -412,8 +412,8 @@ struct HeadNodeHead {
    uint8_t* getUpperFence();
    void updatePrefixLength();
    unsigned int fencesOffset();
-   static bool fromBasicInsert(BTreeNode* node, uint8_t* key, unsigned keyLength, AnyNode* child);
    AnyNode* any() { return reinterpret_cast<AnyNode*>(this); }
+   static bool requestChildConvertFromBasic(BTreeNode* node, unsigned int newKeyLength);
 };
 
 template <class T>
@@ -549,8 +549,13 @@ union AnyNode {
    bool innerRequestSpaceFor(unsigned keyLen)
    {
       switch (tag()) {
-         case Tag::Inner:
-            return basic()->requestSpaceFor(basic()->spaceNeeded(keyLen, sizeof(AnyNode*)));
+         case Tag::Inner: {
+            bool succ = basic()->requestSpaceFor(basic()->spaceNeeded(keyLen, sizeof(AnyNode*)));
+            if (enableHeadNode && !succ) {
+               return HeadNodeHead::requestChildConvertFromBasic(basic(), keyLen);
+            }
+            return succ;
+         }
          case Tag::Head4:
             return head4()->requestSpaceFor(keyLen);
          case Tag::Head8:
