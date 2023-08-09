@@ -47,36 +47,68 @@ bool HeadNode<T>::insertChild(uint8_t* key, unsigned int keyLength, AnyNode* chi
 {
    T head;
    if (makeSepHead(key, keyLength, &head)) {
+      bool found;
+      unsigned index = lowerBound(head, found);
+      ASSUME(!found);
+      insertAt(index, head, child);
+   } else {
+      abort();  // TODO
+      //         let data = NodeDataBuffer::new();
+      //         let fences = data.store_fences(self.fences());
+      //         self.export(&data, PrefixMode::Keep);
+      //         let this = unsafe { reinterpret_mut::<Self, BTreeNode>(self) };
+      //         <BasicNode as NodeCreator<true>>::create(
+      //             this,
+      //             fences,
+      //             &data,
+      //             0..data.len(),
+      //                                                  PrefixMode::Keep,
+      //         )?;
+      //         let this = unsafe { reinterpret_mut::<BTreeNode, BasicNode>(this) };
+      //         Self::try_insert_to_basic(this, index, key, child)
    }
 }
 
-//     debug_assert!(self.head.key_count < self.head.key_capacity);
-//     if let Some(key) = Head::make_fence_head(key) {
-//         let (head, keys, children, _) = self.as_parts_mut();
-//         keys[..head.key_count as usize + 1]
-//         .copy_within(index..head.key_count as usize, index + 1);
-//         children[..head.key_count as usize + 2]
-//         .copy_within(index..head.key_count as usize + 1, index + 1);
-//         keys[index] = key;
-//         children[index] = child;
-//         head.key_count += 1;
-//         self.update_hint(index);
-//         Ok(())
-//     } else {
-//         let data = NodeDataBuffer::new();
-//         let fences = data.store_fences(self.fences());
-//         self.export(&data, PrefixMode::Keep);
-//         let this = unsafe { reinterpret_mut::<Self, BTreeNode>(self) };
-//         <BasicNode as NodeCreator<true>>::create(
-//             this,
-//             fences,
-//             &data,
-//             0..data.len(),
-//                                                  PrefixMode::Keep,
-//         )?;
-//         let this = unsafe { reinterpret_mut::<BTreeNode, BasicNode>(this) };
-//         Self::try_insert_to_basic(this, index, key, child)
-//     }
+template <class T>
+void HeadNode<T>::insertAt(unsigned index, T head, AnyNode* child)
+{
+   memmove(keys + index + 1, keys + index, (count - index) * sizeof(T));
+   keys[index] = head;
+   memmove(children() + index + 1, children() + index, (count - index) * sizeof(AnyNode*));
+   storeUnaligned(children() + index, child);
+}
+
+AnyNode** HeadNodeHead::children()
+{
+   return reinterpret_cast<AnyNode**>(ptr() + childOffset);
+}
+
+uint8_t* HeadNodeHead::ptr()
+{
+   return reinterpret_cast<uint8_t*>(this);
+}
+
+template <class T>
+unsigned HeadNode<T>::lowerBound(T head, bool& foundOut)
+{
+   foundOut = false;
+   // check hint
+   unsigned lower = 0;
+   unsigned upper = count;
+   // searchHint(keyHead, lower, upper);
+   while (lower < upper) {
+      unsigned mid = ((upper - lower) / 2) + lower;
+      if (head <= keys[mid]) {
+         upper = mid;
+      } else if (head > keys[mid]) {
+         lower = mid + 1;
+      } else {
+         foundOut = true;
+         return mid;
+      }
+   }
+   return lower;
+}
 
 template <class T>
 bool HeadNode<T>::requestSpaceFor(unsigned keyLen)

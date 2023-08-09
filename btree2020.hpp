@@ -51,6 +51,12 @@ static T loadUnaligned(void* p)
    return x;
 }
 
+template <class T>
+static void storeUnaligned(void* p, T t)
+{
+   memcpy(p, &t, sizeof(T));
+}
+
 // Get order-preserving head of key (assuming little endian)
 static uint32_t head(uint8_t* key, unsigned keyLength)
 {
@@ -401,6 +407,8 @@ struct HeadNodeHead {
    uint16_t upperFenceLen;
    uint16_t prefixLength;
    uint16_t _padding;
+   AnyNode** children();
+   uint8_t* ptr();
 };
 
 template <class T>
@@ -416,6 +424,8 @@ struct HeadNode : public HeadNodeHead {
    AnyNode* lookupInner(uint8_t* key, unsigned keyLength);
    static bool makeSepHead(uint8_t* key, unsigned int keyLen, T* out);
    static void makeNeedleHead(uint8_t* key, unsigned int keyLen, T* out);
+   unsigned int lowerBound(T head, bool& foundOut);
+   void insertAt(unsigned int index, T head, AnyNode* child);
 };
 
 union AnyNode {
