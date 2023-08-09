@@ -124,7 +124,7 @@ BTreeNode* DenseNode::convertToBasic()
    return basicNode;
 }
 
-void DenseNode::splitNode(BTreeNode* parent, uint8_t* key, unsigned keyLen)
+void DenseNode::splitNode(AnyNode* parent, uint8_t* key, unsigned keyLen)
 {
    assert(keyLen >= prefixLength);
    int key_index = keyToIndex(key + prefixLength, keyLen - prefixLength);

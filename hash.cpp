@@ -251,7 +251,7 @@ void HashNode::getSep(uint8_t* sepKeyOut, BTreeNode::SeparatorInfo info)
    memcpy(sepKeyOut + prefixLength, getKey(info.slot + info.isTruncated), info.length - prefixLength);
 }
 
-void HashNode::splitNode(BTreeNode* parent, unsigned sepSlot, uint8_t* sepKey, unsigned sepLength)
+void HashNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, unsigned sepLength)
 {
    // split this node into nodeLeft and nodeRight
    assert(sepSlot > 0);

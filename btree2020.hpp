@@ -12,7 +12,8 @@
 // maximum page size (in bytes) is 65536
 constexpr unsigned pageSize = 4096;
 constexpr bool enableDense = false;
-constexpr bool enableHash = true;
+constexpr bool enableHash = false;
+constexpr bool enableHeadNode = true;
 
 inline unsigned min(unsigned a, unsigned b)
 {
@@ -75,6 +76,8 @@ enum class Tag : uint8_t {
    Inner = 1,
    Dense = 2,
    Hash = 3,
+   Head4 = 4,
+   Head8 = 5,
 };
 
 struct BTreeNodeHeader {
@@ -136,7 +139,7 @@ struct BTreeNode : public BTreeNodeHeader {
    bool requestSpaceFor(unsigned spaceNeeded);
 
    static AnyNode* makeLeaf();
-   static AnyNode* makeInner();
+   static AnyNode* makeInner(AnyNode*);
 
    uint8_t* getKey(unsigned slotId);
    uint8_t* getPayload(unsigned slotId);
@@ -180,7 +183,7 @@ struct BTreeNode : public BTreeNodeHeader {
 
    void setFences(uint8_t* lowerKey, unsigned lowerLen, uint8_t* upperKey, unsigned upperLen);
 
-   void splitNode(BTreeNode* parent, unsigned sepSlot, uint8_t* sepKey, unsigned sepLength);
+   void splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, unsigned sepLength);
 
    struct SeparatorInfo {
       unsigned length;   // length of new separator
@@ -265,7 +268,7 @@ struct DenseNode : public DenseNodeHeader {
 
    bool insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength);
 
-   void splitNode(BTreeNode* parent, uint8_t* key, unsigned keyLen);
+   void splitNode(AnyNode* parent, uint8_t* key, unsigned keyLen);
 
    unsigned prefixDiffLen();
    KeyError keyToIndex(uint8_t* truncatedKey, unsigned truncatedLen);
@@ -357,7 +360,7 @@ struct HashNode : public HashNodeHeader {
    unsigned int commonPrefix(unsigned int slotA, unsigned int slotB);
    BTreeNode::SeparatorInfo findSeparator();
    void getSep(uint8_t* sepKeyOut, BTreeNode::SeparatorInfo info);
-   void splitNode(BTreeNode* parent, unsigned int sepSlot, uint8_t* sepKey, unsigned int sepLength);
+   void splitNode(AnyNode* parent, unsigned int sepSlot, uint8_t* sepKey, unsigned int sepLength);
    AnyNode* any() { return reinterpret_cast<AnyNode*>(this); }
    void updateHash(unsigned int i);
    void copyKeyValue(unsigned srcSlot, HashNode* dst, unsigned dstSlot);
@@ -374,18 +377,45 @@ struct HashNode : public HashNodeHeader {
    unsigned int lowerBound(uint8_t* key, unsigned int keyLength);
 };
 
+struct HeadNodeHead {
+   Tag _tag;
+   uint16_t count;
+   uint16_t key_capacity;
+   uint16_t child_offset;
+   uint16_t lowerFenceLen;
+   uint16_t upperFenceLen;
+   uint16_t prefixLength;
+   uint16_t _padding;
+};
+
+struct HeadNode : public HeadNodeHead {
+   uint32_t keys4[pageSize - sizeof(HeadNodeHead) / 4];
+   uint64_t keys8[pageSize - sizeof(HeadNodeHead) / 8];
+   uint8_t data[pageSize - sizeof(HeadNodeHead)];
+
+   void destroy();
+   void splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, unsigned sepLength);
+   bool insertChild(uint8_t* key, unsigned int keyLength, AnyNode* child);
+   bool requestSpaceFor(unsigned keyLen);
+   void getSep(uint8_t* sepKeyOut, BTreeNode::SeparatorInfo info);
+   AnyNode* lookupInner(uint8_t* key, unsigned keyLength);
+};
+
 union AnyNode {
    Tag _tag;
    BTreeNode _basic_node;
    DenseNode _dense;
    HashNode _hash;
+   HeadNode _head;
 
    Tag tag()
    {
-      ASSUME(_tag == Tag::Inner || _tag == Tag::Leaf || _tag == Tag::Dense || _tag == Tag::Hash);
+      ASSUME(_tag == Tag::Inner || _tag == Tag::Leaf || _tag == Tag::Dense || _tag == Tag::Hash || _tag == Tag::Head4 || _tag == Tag::Head8);
       ASSUME((enableDense && !enableHash) || _tag != Tag::Dense);
       ASSUME(enableHash || _tag != Tag::Hash);
       ASSUME(!enableHash || _tag != Tag::Leaf);
+      ASSUME(!enableHeadNode || _tag != Tag::Head4);
+      ASSUME(!enableHeadNode || _tag != Tag::Head8);
       return _tag;
    }
 
@@ -401,6 +431,9 @@ union AnyNode {
          case Tag::Dense:
          case Tag::Hash:
             return dealloc();
+         case Tag::Head4:
+         case Tag::Head8:
+            return head()->destroy();
       }
    }
 
@@ -414,6 +447,8 @@ union AnyNode {
          case Tag::Hash:
             return false;
          case Tag::Inner:
+         case Tag::Head4:
+         case Tag::Head8:
             return true;
       }
    }
@@ -435,12 +470,63 @@ union AnyNode {
       ASSUME(_tag == Tag::Hash);
       return reinterpret_cast<HashNode*>(this);
    }
+
+   HeadNode* head()
+   {
+      ASSUME(_tag == Tag::Head4 || _tag == Tag::Head8);
+      return reinterpret_cast<HeadNode*>(this);
+   }
+
+   bool insertChild(uint8_t* key, unsigned int keyLength, AnyNode* child)
+   {
+      switch (tag()) {
+         case Tag::Inner:
+            return basic()->insertChild(key, keyLength, child);
+         case Tag::Head4:
+         case Tag::Head8:
+            return head()->insertChild(key, keyLength, child);
+         case Tag::Leaf:
+         case Tag::Hash:
+         case Tag::Dense:
+            ASSUME(false);
+      }
+   }
+
+   bool innerRequestSpaceFor(unsigned keyLen)
+   {
+      switch (tag()) {
+         case Tag::Inner:
+            return basic()->requestSpaceFor(keyLen + sizeof(AnyNode*));
+         case Tag::Head4:
+         case Tag::Head8:
+            return head()->requestSpaceFor(keyLen);
+         case Tag::Leaf:
+         case Tag::Hash:
+         case Tag::Dense:
+            ASSUME(false);
+      }
+   }
+
+   AnyNode* lookupInner(uint8_t* key, unsigned keyLength)
+   {
+      switch (tag()) {
+         case Tag::Inner:
+            return basic()->lookupInner(key, keyLength);
+         case Tag::Head4:
+         case Tag::Head8:
+            return head()->lookupInner(key, keyLength);
+         case Tag::Leaf:
+         case Tag::Hash:
+         case Tag::Dense:
+            ASSUME(false);
+      }
+   }
 };
 
 struct BTree {
    AnyNode* root;
 
-   void splitNode(AnyNode* node, BTreeNode* parent, uint8_t* key, unsigned keyLength);
+   void splitNode(AnyNode* node, AnyNode* parent, uint8_t* key, unsigned keyLength);
    void ensureSpace(AnyNode* toSplit, uint8_t* key, unsigned keyLength);
 
   public:

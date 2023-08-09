@@ -72,9 +72,11 @@ AnyNode* BTreeNode::makeLeaf()
 {
    return new AnyNode(BTreeNode(true));
 }
-AnyNode* BTreeNode::makeInner()
+AnyNode* BTreeNode::makeInner(AnyNode* child)
 {
-   return new AnyNode(BTreeNode(false));
+   AnyNode* ptr = new AnyNode(BTreeNode(false));
+   ptr->basic()->upper = child;
+   return ptr;
 }
 
 uint8_t* BTreeNode::getKey(unsigned slotId)
@@ -357,7 +359,7 @@ void BTreeNode::setFences(uint8_t* lowerKey, unsigned lowerLen, uint8_t* upperKe
       ;
 }
 
-void BTreeNode::splitNode(BTreeNode* parent, unsigned sepSlot, uint8_t* sepKey, unsigned sepLength)
+void BTreeNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, unsigned sepLength)
 {
    // split this node into nodeLeft and nodeRight
    assert(sepSlot > 0);
@@ -488,6 +490,8 @@ uint8_t* BTree::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOu
       case Tag::Hash: {
          return node->hash()->lookup(key, keyLength, payloadSizeOut);
       }
+      case Tag::Head4:
+      case Tag::Head8:
       case Tag::Inner:
          ASSUME(false);
    }
@@ -499,50 +503,59 @@ bool BTree::lookup(uint8_t* key, unsigned keyLength)
    return lookup(key, keyLength, x) != nullptr;
 }
 
-void BTree::splitNode(AnyNode* node, BTreeNode* parent, uint8_t* key, unsigned keyLength)
+void BTree::splitNode(AnyNode* node, AnyNode* parent, uint8_t* key, unsigned keyLength)
 {
    // create new root if necessary
    if (!parent) {
-      parent = BTreeNode::makeInner()->basic();
-      parent->upper = node;
-      root = parent->any();
+      parent = BTreeNode::makeInner(node);
+      root = parent;
    }
 
    switch (node->tag()) {
       case Tag::Leaf:
       case Tag::Inner: {
          BTreeNode::SeparatorInfo sepInfo = node->basic()->findSeparator();
-         unsigned spaceNeededParent = parent->spaceNeeded(sepInfo.length, sizeof(BTreeNode*));
-         if (parent->requestSpaceFor(spaceNeededParent)) {  // is there enough space in the parent for the separator?
+         if (parent->innerRequestSpaceFor(sepInfo.length)) {  // is there enough space in the parent for the separator?
             uint8_t sepKey[sepInfo.length];
             node->basic()->getSep(sepKey, sepInfo);
             node->basic()->splitNode(parent, sepInfo.slot, sepKey, sepInfo.length);
          } else {
             // must split parent first to make space for separator, restart from root to do this
-            ensureSpace(parent->any(), key, keyLength);
+            ensureSpace(parent, key, keyLength);
          }
          break;
       }
       case Tag::Dense: {
-         unsigned spaceNeededParent = parent->spaceNeeded(node->dense()->fullKeyLen, sizeof(BTreeNode*));
-         if (parent->requestSpaceFor(spaceNeededParent)) {
+         if (parent->innerRequestSpaceFor(node->dense()->fullKeyLen)) {  // is there enough space in the parent for the separator?
             node->dense()->splitNode(parent, key, keyLength);
          } else {
-            ensureSpace(parent->any(), key, keyLength);
+            ensureSpace(parent, key, keyLength);
          }
          break;
       }
       case Tag::Hash: {
          node->hash()->sort();
          BTreeNode::SeparatorInfo sepInfo = node->hash()->findSeparator();
-         unsigned spaceNeededParent = parent->spaceNeeded(sepInfo.length, sizeof(BTreeNode*));
-         if (parent->requestSpaceFor(spaceNeededParent)) {  // is there enough space in the parent for the separator?
+         if (parent->innerRequestSpaceFor(sepInfo.length)) {  // is there enough space in the parent for the separator?
             uint8_t sepKey[sepInfo.length];
             node->hash()->getSep(sepKey, sepInfo);
             node->hash()->splitNode(parent, sepInfo.slot, sepKey, sepInfo.length);
          } else {
             // must split parent first to make space for separator, restart from root to do this
-            ensureSpace(parent->any(), key, keyLength);
+            ensureSpace(parent, key, keyLength);
+         }
+         break;
+      }
+      case Tag::Head4:
+      case Tag::Head8: {
+         BTreeNode::SeparatorInfo sepInfo = node->basic()->findSeparator();
+         if (parent->innerRequestSpaceFor(sepInfo.length)) {  // is there enough space in the parent for the separator?
+            uint8_t sepKey[sepInfo.length];
+            node->head()->getSep(sepKey, sepInfo);
+            node->head()->splitNode(parent, sepInfo.slot, sepKey, sepInfo.length);
+         } else {
+            // must split parent first to make space for separator, restart from root to do this
+            ensureSpace(parent, key, keyLength);
          }
          break;
       }
@@ -552,9 +565,9 @@ void BTree::splitNode(AnyNode* node, BTreeNode* parent, uint8_t* key, unsigned k
 void BTree::ensureSpace(AnyNode* toSplit, uint8_t* key, unsigned keyLength)
 {
    AnyNode* node = root;
-   BTreeNode* parent = nullptr;
+   AnyNode* parent = nullptr;
    while (node->isAnyInner() && (node != toSplit)) {
-      parent = node->basic();
+      parent = node;
       node = parent->lookupInner(key, keyLength);
    }
    splitNode(toSplit, parent, key, keyLength);
@@ -564,9 +577,9 @@ void BTree::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned 
 {
    assert((keyLength + payloadLength) <= BTreeNode::maxKVSize);
    AnyNode* node = root;
-   BTreeNode* parent = nullptr;
+   AnyNode* parent = nullptr;
    while (node->isAnyInner()) {
-      parent = node->basic();
+      parent = node;
       node = parent->lookupInner(key, keyLength);
    }
    // COUNTER(is_basic_insert,node->tag == Tag::Leaf,1<<20)
@@ -587,6 +600,8 @@ void BTree::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned 
          break;
       }
       case Tag::Inner:
+      case Tag::Head4:
+      case Tag::Head8:
          ASSUME(false);
    }
    // node is full: split and restart
@@ -663,7 +678,9 @@ bool BTree::remove(uint8_t* key, unsigned keyLength)
          }
          return true;
       }
-      case Tag::Inner: {
+      case Tag::Inner:
+      case Tag::Head4:
+      case Tag::Head8: {
          ASSUME(false)
       }
    }
@@ -731,6 +748,8 @@ void BTree::range_lookup(uint8_t* key,
             break;
          }
          case Tag::Inner:
+         case Tag::Head4:
+         case Tag::Head8:
             ASSUME(false)
       }
    }
