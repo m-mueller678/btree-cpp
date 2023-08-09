@@ -95,7 +95,7 @@ AnyNode* BTreeNode::getChild(unsigned slotId)
    return loadUnaligned<AnyNode*>(getPayload(slotId));
 }
 
-// How much space would inserting a new key of length "keyLength" require?
+// How much space would inserting a new key of length "getKeyLength" require?
 unsigned BTreeNode::spaceNeeded(unsigned keyLength, unsigned payloadLength)
 {
    assert(keyLength >= prefixLength);  // fence key logic makes it impossible to insert a key that is shorter than prefix
@@ -189,17 +189,20 @@ unsigned BTreeNode::lowerBound(uint8_t* key, unsigned keyLength)
 
 bool BTreeNode::insertChild(uint8_t* key, unsigned keyLength, AnyNode* child)
 {
-   return insert(key, keyLength, reinterpret_cast<uint8_t*>(&child), sizeof(AnyNode*));
+   bool succ = insert(key, keyLength, reinterpret_cast<uint8_t*>(&child), sizeof(AnyNode*));
+   if (enableHeadNode && !succ) {
+      return HeadNodeHead::fromBasicInsert(this, key, keyLength, child);
+   }
+   return succ;
 }
 
 bool BTreeNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
 {
    if (!requestSpaceFor(spaceNeeded(keyLength, payloadLength))) {
-      DenseNode tmp;
-      if (enableDense && tmp.try_densify(this)) {
-         DenseNode* dense = reinterpret_cast<DenseNode*>(this);
-         *dense = tmp;
-         return dense->insert(key, keyLength, payload, payloadLength);
+      AnyNode tmp;
+      if (enableDense && _tag == Tag::Leaf && tmp._dense.try_densify(this)) {
+         *this->any() = tmp;
+         return this->any()->dense()->insert(key, keyLength, payload, payloadLength);
       }
       return false;  // no space, insert fails
    }

@@ -167,7 +167,7 @@ struct BTreeNode : public BTreeNodeHeader {
 
    AnyNode* getChild(unsigned slotId);
 
-   // How much space would inserting a new key of length "keyLength" require?
+   // How much space would inserting a new key of length "getKeyLength" require?
    unsigned spaceNeeded(unsigned keyLength, unsigned payloadLength);
 
    void makeHint();
@@ -410,12 +410,17 @@ struct HeadNodeHead {
    uint8_t* getUpperFence();
    void updatePrefixLength();
    unsigned int fencesOffset();
+   static bool fromBasicInsert(BTreeNode* node, uint8_t* key, unsigned keyLength, AnyNode* child);
+   AnyNode* any() { return reinterpret_cast<AnyNode*>(this); }
 };
 
 template <class T>
 struct HeadNode : public HeadNodeHead {
-   T keys[(pageSize - sizeof(HeadNodeHead)) / sizeof(T) - 1];
-   uint8_t data[pageSize - sizeof(HeadNodeHead)];
+   static constexpr unsigned paddedHeadSize = (sizeof(HeadNodeHead) + alignof(T) - 1) / alignof(T) * alignof(T);
+   union {
+      T keys[(pageSize - paddedHeadSize) / sizeof(T)];
+      uint8_t data[pageSize - paddedHeadSize];
+   };
 
    void destroy();
    void splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, unsigned sepLength);
@@ -430,15 +435,20 @@ struct HeadNode : public HeadNodeHead {
    void init(uint8_t* lowerFence, unsigned int lowerFenceLen, uint8_t* upperFence, unsigned int upperFenceLen);
    AnyNode** children();
    void clone_from_basic(BTreeNode* src);
+   unsigned getKeyLength(unsigned int i);
+   void copyKeyValueRangeToBasic(BTreeNode* dst, unsigned int srcStart, unsigned int srcEnd);
 };
+
+typedef HeadNode<uint32_t> HeadNode4;
+typedef HeadNode<uint64_t> HeadNode8;
 
 union AnyNode {
    Tag _tag;
    BTreeNode _basic_node;
    DenseNode _dense;
    HashNode _hash;
-   HeadNode<uint32_t> _head4;
-   HeadNode<uint32_t> _head8;
+   HeadNode4 _head4;
+   HeadNode8 _head8;
 
    Tag tag()
    {
