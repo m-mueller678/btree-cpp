@@ -39,7 +39,46 @@ void HeadNode<T>::makeNeedleHead(uint8_t* key, unsigned keyLen, T* out)
 template <class T>
 void HeadNode<T>::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, unsigned sepLength)
 {
-   abort();
+   ASSUME(sepSlot > 0);
+   ASSUME(sepSlot < (pageSize / sizeof(BTreeNode*)));
+   HeadNode<T>* nodeLeft = reinterpret_cast<HeadNode<T>*>(new AnyNode());
+   nodeLeft->init(getLowerFence(), lowerFenceLen, sepKey, sepLength);
+   HeadNode<T> tmp;
+   HeadNode<T>* nodeRight = &tmp;
+   nodeRight->init(sepKey, sepLength, getUpperFence(), upperFenceLen);
+   bool succ = parent->insertChild(sepKey, sepLength, nodeLeft->any());
+   ASSUME(succ);
+
+   // in inner node split, separator moves to parent (count == 1 + nodeLeft->count + nodeRight->count)
+   copyKeyValueRange(nodeLeft, 0, 0, sepSlot);
+   copyKeyValueRange(nodeRight, 0, nodeLeft->count + 1, count - nodeLeft->count - 1);
+   memcpy(nodeLeft->children() + nodeLeft->count, children() + nodeLeft->count, sizeof(AnyNode*));
+   memcpy(nodeRight->children() + nodeRight->count, children() + count, sizeof(AnyNode*));
+   // nodeLeft->makeHint();
+   // nodeRight->makeHint();
+   memcpy(this, nodeRight, sizeof(BTreeNode));
+}
+
+template <class T>
+void HeadNode<T>::copyKeyValueRange(HeadNode<T>* dst, unsigned dstSlot, unsigned srcSlot, unsigned srcCount)
+{
+   if (prefixLength <= dst->prefixLength) {  // prefix grows
+      unsigned diff = dst->prefixLength - prefixLength;
+      if (diff == 0) {
+         memcpy(dst->keys + dstSlot, keys + srcSlot, srcCount * sizeof(AnyNode*));
+      } else {
+         for (unsigned i = 0; i < srcCount; i++) {
+            dst->keys[dstSlot + i] = ((keys[srcSlot + i] & ~static_cast<T>(255)) << (diff * 8)) | getKeyLength(srcSlot + i);
+         }
+      }
+      memcpy(dst->children() + dstSlot, children() + srcSlot, srcCount * sizeof(AnyNode*));
+   } else {
+      for (unsigned i = 0; i < srcCount; i++)
+         // copyKeyValue(srcSlot + i, dst, dstSlot + i);
+         abort();
+   }
+   dst->count += srcCount;
+   ASSUME(dst->count <= dst->keyCapacity);
 }
 
 template <class T>
@@ -78,29 +117,38 @@ void HeadNode<T>::copyKeyValueRangeToBasic(BTreeNode* dst, unsigned srcStart, un
 template <class T>
 bool HeadNode<T>::insertChild(uint8_t* key, unsigned int keyLength, AnyNode* child)
 {
+   key += prefixLength;
+   keyLength -= prefixLength;
    T head;
    if (makeSepHead(key, keyLength, &head)) {
       bool found;
       unsigned index = lowerBound(head, found);
       ASSUME(!found);
       insertAt(index, head, child);
+      return true;
    } else {
-      unsigned space_lower_bound = lowerFenceLen + upperFenceLen + (count + 1) * (sizeof(AnyNode*) + sizeof(BTreeNode::Slot)) + keyLength;
+      return convertToBasicWithSpace(keyLength) && any()->basic()->insertChild(key, keyLength, child);
+   }
+}
+
+template <class T>
+bool HeadNode<T>::convertToBasicWithSpace(unsigned truncatedKeyLen)
+{
+   unsigned space_lower_bound = lowerFenceLen + upperFenceLen + (count + 1) * (sizeof(AnyNode*) + sizeof(BTreeNode::Slot)) + truncatedKeyLen;
+   if (space_lower_bound + sizeof(BTreeNodeHeader) > pageSize) {
+      return false;
+   } else {
+      for (int i = 0; i < count; ++i) {
+         space_lower_bound += getKeyLength(i);
+      }
       if (space_lower_bound + sizeof(BTreeNodeHeader) > pageSize) {
          return false;
-      } else {
-         for (int i = 0; i < count; ++i) {
-            space_lower_bound += getKeyLength(i);
-         }
-         if (space_lower_bound + sizeof(BTreeNodeHeader) > pageSize) {
-            return false;
-         }
-         BTreeNode tmp{false};
-         tmp.setFences(getLowerFence(), lowerFenceLen, getUpperFence(), upperFenceLen);
-         copyKeyValueRangeToBasic(&tmp, 0, count);
-         any()->_basic_node = tmp;
-         return any()->basic()->insertChild(key, keyLength, child);
       }
+      BTreeNode tmp{false};
+      tmp.setFences(getLowerFence(), lowerFenceLen, getUpperFence(), upperFenceLen);
+      copyKeyValueRangeToBasic(&tmp, 0, count);
+      memcpy(this, &tmp, pageSize);
+      return true;
    }
 }
 
@@ -227,15 +275,30 @@ unsigned HeadNode<T>::lowerBound(T head, bool& foundOut)
 template <class T>
 bool HeadNode<T>::requestSpaceFor(unsigned keyLen)
 {
-   abort();
+   if (keyLen >= sizeof(T)) {
+      return convertToBasicWithSpace(keyLen - prefixLength);
+   } else {
+      return count < keyCapacity;
+   }
 }
+
 template <class T>
 void HeadNode<T>::getSep(uint8_t* sepKeyOut, BTreeNode::SeparatorInfo info)
 {
-   abort();
+   memcpy(sepKeyOut, getLowerFence(), prefixLength);
+   T keyHead = byteswap(keys[info.slot]);
+   uint8_t* keyBytes = reinterpret_cast<uint8_t*>(&keyHead);
+   memcpy(sepKeyOut + prefixLength, keyBytes, info.length - prefixLength);
 }
+
 template <class T>
 AnyNode* HeadNode<T>::lookupInner(uint8_t* key, unsigned keyLength)
 {
-   abort();
+   key += prefixLength;
+   keyLength -= prefixLength;
+   T head;
+   makeNeedleHead(key, keyLength, &head);
+   bool found;
+   unsigned index = lowerBound(head, found);
+   return loadUnaligned<AnyNode*>(children() + index);
 }

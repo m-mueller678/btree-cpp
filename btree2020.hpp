@@ -58,7 +58,7 @@ static void storeUnaligned(void* p, T t)
 }
 
 // Get order-preserving head of key (assuming little endian)
-static uint32_t head(uint8_t* key, unsigned keyLength)
+inline uint32_t head(uint8_t* key, unsigned keyLength)
 {
    switch (keyLength) {
       case 0:
@@ -437,6 +437,8 @@ struct HeadNode : public HeadNodeHead {
    void clone_from_basic(BTreeNode* src);
    unsigned getKeyLength(unsigned int i);
    void copyKeyValueRangeToBasic(BTreeNode* dst, unsigned int srcStart, unsigned int srcEnd);
+   void copyKeyValueRange(HeadNode<T>* dst, unsigned int dstSlot, unsigned int srcSlot, unsigned int srcCount);
+   bool convertToBasicWithSpace(unsigned int newKeyLen);
 };
 
 typedef HeadNode<uint32_t> HeadNode4;
