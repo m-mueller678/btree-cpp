@@ -156,10 +156,12 @@ bool HeadNode<T>::convertToBasicWithSpace(unsigned truncatedKeyLen)
 template <class T>
 void HeadNode<T>::insertAt(unsigned index, T head, AnyNode* child)
 {
+   ASSUME(count < keyCapacity);
    memmove(keys + index + 1, keys + index, (count - index) * sizeof(T));
    keys[index] = head;
-   memmove(children() + index + 1, children() + index, (count - index) * sizeof(AnyNode*));
+   memmove(children() + index + 1, children() + index, (count + 1 - index) * sizeof(AnyNode*));
    storeUnaligned(children() + index, child);
+   count += 1;
 }
 
 template <class T>
