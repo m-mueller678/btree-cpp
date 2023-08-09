@@ -275,8 +275,9 @@ unsigned HeadNode<T>::lowerBound(T head, bool& foundOut)
 template <class T>
 bool HeadNode<T>::requestSpaceFor(unsigned keyLen)
 {
+   keyLen -= prefixLength;
    if (keyLen >= sizeof(T)) {
-      return convertToBasicWithSpace(keyLen - prefixLength);
+      return convertToBasicWithSpace(keyLen);
    } else {
       return count < keyCapacity;
    }

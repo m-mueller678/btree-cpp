@@ -374,8 +374,7 @@ void BTreeNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, un
    BTreeNode* nodeRight = &tmp;
    nodeRight->setFences(sepKey, sepLength, getUpperFence(), upperFence.length);
    bool succ = parent->insertChild(sepKey, sepLength, nodeLeft->any());
-   static_cast<void>(succ);
-   assert(succ);
+   ASSUME(succ);
    if (isLeaf()) {
       copyKeyValueRange(nodeLeft, 0, 0, sepSlot + 1);
       copyKeyValueRange(nodeRight, 0, nodeLeft->count, count - nodeLeft->count);
@@ -385,10 +384,54 @@ void BTreeNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, un
       copyKeyValueRange(nodeRight, 0, nodeLeft->count + 1, count - nodeLeft->count - 1);
       nodeLeft->upper = getChild(nodeLeft->count);
       nodeRight->upper = upper;
+      validate_child_fences();
    }
    nodeLeft->makeHint();
    nodeRight->makeHint();
    memcpy(reinterpret_cast<char*>(this), nodeRight, sizeof(BTreeNode));
+}
+
+void BTreeNode::validate_child_fences()
+{
+#ifdef NDEBUG
+   abort();
+#endif
+   uint8_t buffer[maxKVSize];
+   unsigned bufferLen = lowerFence.length;
+   memcpy(buffer, getLowerFence(), bufferLen);
+   for (int i = 0; i <= count; ++i) {
+      BTreeNode* child = (i == count ? upper : getChild(i))->basic();
+      assert(child->lowerFence.length == bufferLen);
+      assert(memcmp(child->getLowerFence(), buffer, bufferLen) == 0);
+      if (i == count) {
+         bufferLen = upperFence.length;
+         memcpy(buffer, getUpperFence(), bufferLen);
+      } else {
+         memcpy(buffer + prefixLength, getKey(i), slot[i].keyLen);
+         bufferLen = prefixLength + slot[i].keyLen;
+      }
+      assert(child->upperFence.length == bufferLen);
+      assert(memcmp(child->getUpperFence(), buffer, bufferLen) == 0);
+   }
+}
+
+void BTreeNode::print()
+{
+   printf("# BTreeNode\n");
+   for (unsigned i = 0; i < count; ++i) {
+      printf("%d: ", i);
+      for (unsigned j = 0; j < slot[i].keyLen; ++j) {
+         printf("%d, ", getKey(i)[j]);
+      }
+      if (isInner()) {
+         printf("-> %p\n", getChild(i));
+      } else {
+         printf("\n");
+      }
+   }
+   if (isInner()) {
+      printf("upper -> %p\n", upper);
+   }
 }
 
 unsigned BTreeNode::commonPrefix(unsigned slotA, unsigned slotB)

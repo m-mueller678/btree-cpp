@@ -229,6 +229,8 @@ struct BTreeNode : public BTreeNodeHeader {
                      unsigned int keyLen,
                      uint8_t* keyOut,
                      const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
+   void validate_child_fences();
+   void print();
 };
 
 typedef uint32_t NumericPart;
@@ -548,7 +550,7 @@ union AnyNode {
    {
       switch (tag()) {
          case Tag::Inner:
-            return basic()->requestSpaceFor(keyLen + sizeof(AnyNode*));
+            return basic()->requestSpaceFor(basic()->spaceNeeded(keyLen, sizeof(AnyNode*)));
          case Tag::Head4:
             return head4()->requestSpaceFor(keyLen);
          case Tag::Head8:
