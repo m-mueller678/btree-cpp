@@ -68,6 +68,21 @@ static uint32_t head(uint8_t* key, unsigned keyLength)
    }
 }
 
+template <class T>
+inline T byteswap(T x);
+
+template <>
+inline uint32_t byteswap<uint32_t>(uint32_t x)
+{
+   return __builtin_bswap32(x);
+}
+
+template <>
+inline uint64_t byteswap<uint64_t>(uint64_t x)
+{
+   return __builtin_bswap64(x);
+}
+
 struct BTreeNode;
 union AnyNode;
 
@@ -380,17 +395,17 @@ struct HashNode : public HashNodeHeader {
 struct HeadNodeHead {
    Tag _tag;
    uint16_t count;
-   uint16_t key_capacity;
-   uint16_t child_offset;
+   uint16_t keyCapacity;
+   uint16_t childOffset;
    uint16_t lowerFenceLen;
    uint16_t upperFenceLen;
    uint16_t prefixLength;
    uint16_t _padding;
 };
 
+template <class T>
 struct HeadNode : public HeadNodeHead {
-   uint32_t keys4[pageSize - sizeof(HeadNodeHead) / 4];
-   uint64_t keys8[pageSize - sizeof(HeadNodeHead) / 8];
+   T keys[(pageSize - sizeof(HeadNodeHead)) / sizeof(T)];
    uint8_t data[pageSize - sizeof(HeadNodeHead)];
 
    void destroy();
@@ -399,6 +414,8 @@ struct HeadNode : public HeadNodeHead {
    bool requestSpaceFor(unsigned keyLen);
    void getSep(uint8_t* sepKeyOut, BTreeNode::SeparatorInfo info);
    AnyNode* lookupInner(uint8_t* key, unsigned keyLength);
+   static bool makeSepHead(uint8_t* key, unsigned int keyLen, T* out);
+   static void makeNeedleHead(uint8_t* key, unsigned int keyLen, T* out);
 };
 
 union AnyNode {
@@ -406,7 +423,8 @@ union AnyNode {
    BTreeNode _basic_node;
    DenseNode _dense;
    HashNode _hash;
-   HeadNode _head;
+   HeadNode<uint32_t> _head4;
+   HeadNode<uint32_t> _head8;
 
    Tag tag()
    {
@@ -432,8 +450,9 @@ union AnyNode {
          case Tag::Hash:
             return dealloc();
          case Tag::Head4:
+            return head4()->destroy();
          case Tag::Head8:
-            return head()->destroy();
+            return head8()->destroy();
       }
    }
 
@@ -471,10 +490,16 @@ union AnyNode {
       return reinterpret_cast<HashNode*>(this);
    }
 
-   HeadNode* head()
+   HeadNode<uint32_t>* head4()
    {
-      ASSUME(_tag == Tag::Head4 || _tag == Tag::Head8);
-      return reinterpret_cast<HeadNode*>(this);
+      ASSUME(_tag == Tag::Head4);
+      return reinterpret_cast<HeadNode<uint32_t>*>(this);
+   }
+
+   HeadNode<uint64_t>* head8()
+   {
+      ASSUME(_tag == Tag::Head8);
+      return reinterpret_cast<HeadNode<uint64_t>*>(this);
    }
 
    bool insertChild(uint8_t* key, unsigned int keyLength, AnyNode* child)
@@ -483,8 +508,9 @@ union AnyNode {
          case Tag::Inner:
             return basic()->insertChild(key, keyLength, child);
          case Tag::Head4:
+            return head4()->insertChild(key, keyLength, child);
          case Tag::Head8:
-            return head()->insertChild(key, keyLength, child);
+            return head8()->insertChild(key, keyLength, child);
          case Tag::Leaf:
          case Tag::Hash:
          case Tag::Dense:
@@ -498,8 +524,9 @@ union AnyNode {
          case Tag::Inner:
             return basic()->requestSpaceFor(keyLen + sizeof(AnyNode*));
          case Tag::Head4:
+            return head4()->requestSpaceFor(keyLen);
          case Tag::Head8:
-            return head()->requestSpaceFor(keyLen);
+            return head8()->requestSpaceFor(keyLen);
          case Tag::Leaf:
          case Tag::Hash:
          case Tag::Dense:
@@ -513,8 +540,9 @@ union AnyNode {
          case Tag::Inner:
             return basic()->lookupInner(key, keyLength);
          case Tag::Head4:
+            return head4()->lookupInner(key, keyLength);
          case Tag::Head8:
-            return head()->lookupInner(key, keyLength);
+            return head8()->lookupInner(key, keyLength);
          case Tag::Leaf:
          case Tag::Hash:
          case Tag::Dense:

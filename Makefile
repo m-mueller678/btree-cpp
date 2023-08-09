@@ -1,5 +1,5 @@
 sources= *.cpp *.hpp
-cpps=btree2020.cpp test.cpp dense.cpp hash.cpp head.cpp
+cpps=btree2020.cpp test.cpp dense.cpp hash.cpp
 cc=clang++ -std=c++17
 
 all: asan.elf test.elf optimized.elf
