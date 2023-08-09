@@ -233,7 +233,7 @@ void HeadNode<T>::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upp
    this->lowerFenceLen = lowerFenceLen;
    this->upperFenceLen = upperFenceLen;
    unsigned keyOffset = data - ptr();
-   keyCapacity = (fencesOffset() - keyOffset - sizeof(AnyNode*)) / sizeof(sizeof(T) + sizeof(AnyNode*));
+   keyCapacity = (fencesOffset() - keyOffset - sizeof(AnyNode*)) / (sizeof(T) + sizeof(AnyNode*));
    memcpy(this->getLowerFence(), lowerFence, lowerFenceLen);
    memcpy(this->getUpperFence(), upperFence, upperFenceLen);
    updatePrefixLength();
