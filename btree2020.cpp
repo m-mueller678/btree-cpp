@@ -422,19 +422,28 @@ void BTreeNode::validate_child_fences()
 void BTreeNode::print()
 {
    printf("# BTreeNode\n");
+   printf("lower fence: ");
+   for (unsigned i = 0; i < lowerFence.length; ++i) {
+      printf("%d, ", getLowerFence()[i]);
+   }
+   printf("\nupper fence: ");
+   for (unsigned i = 0; i < upperFence.length; ++i) {
+      printf("%d, ", getUpperFence()[i]);
+   }
+   printf("\n");
    for (unsigned i = 0; i < count; ++i) {
       printf("%d: ", i);
       for (unsigned j = 0; j < slot[i].keyLen; ++j) {
          printf("%d, ", getKey(i)[j]);
       }
       if (isInner()) {
-         printf("-> %p\n", getChild(i));
+         printf("-> %p\n", reinterpret_cast<void*>(getChild(i)));
       } else {
          printf("\n");
       }
    }
    if (isInner()) {
-      printf("upper -> %p\n", upper);
+      printf("upper -> %p\n", reinterpret_cast<void*>(upper));
    }
 }
 
@@ -508,7 +517,12 @@ void BTreeNode::destroy()
    this->any()->dealloc();
 }
 
-BTree::BTree() : root(enableHash ? HashNode::makeRootLeaf() : BTreeNode::makeLeaf()) {}
+BTree::BTree() : root(enableHash ? HashNode::makeRootLeaf() : BTreeNode::makeLeaf())
+{
+#ifndef NDEBUG
+   root->print();
+#endif
+}
 
 BTree::~BTree()
 {

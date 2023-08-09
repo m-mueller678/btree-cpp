@@ -10,7 +10,7 @@
 #include <functional>
 
 // maximum page size (in bytes) is 65536
-constexpr unsigned pageSize = 4096;
+constexpr unsigned pageSize = 512;
 constexpr bool enableDense = false;
 constexpr bool enableHash = false;
 constexpr bool enableHeadNode = true;
@@ -441,6 +441,7 @@ struct HeadNode : public HeadNodeHead {
    void copyKeyValueRange(HeadNode<T>* dst, unsigned int dstSlot, unsigned int srcSlot, unsigned int srcCount);
    bool convertToBasicWithSpace(unsigned int newKeyLen);
    BTreeNode::SeparatorInfo findSeparator();
+   void print();
 };
 
 typedef HeadNode<uint32_t> HeadNode4;
@@ -583,6 +584,23 @@ union AnyNode {
       }
    }
    static AnyNode* makeRoot(AnyNode* child);
+
+   void print()
+   {
+      switch (tag()) {
+         case Tag::Inner:
+         case Tag::Leaf:
+            return basic()->print();
+         case Tag::Head8:
+            return head8()->print();
+         case Tag::Head4:
+            return head4()->print();
+         case Tag::Hash:
+            return hash()->print();
+         case Tag::Dense:
+            return;  // TODO
+      }
+   }
 };
 
 struct BTree {

@@ -68,7 +68,7 @@ void HeadNode<T>::copyKeyValueRange(HeadNode<T>* dst, unsigned dstSlot, unsigned
          memcpy(dst->keys + dstSlot, keys + srcSlot, srcCount * sizeof(AnyNode*));
       } else {
          for (unsigned i = 0; i < srcCount; i++) {
-            dst->keys[dstSlot + i] = ((keys[srcSlot + i] & ~static_cast<T>(255)) << (diff * 8)) | getKeyLength(srcSlot + i);
+            dst->keys[dstSlot + i] = ((keys[srcSlot + i] & ~static_cast<T>(255)) << (diff * 8)) | (getKeyLength(srcSlot + i) - diff);
          }
       }
       memcpy(dst->children() + dstSlot, children() + srcSlot, srcCount * sizeof(AnyNode*));
@@ -316,4 +316,27 @@ BTreeNode::SeparatorInfo HeadNode<T>::findSeparator()
    ASSUME(count > 1);
    unsigned slotId = count / 2;
    return BTreeNode::SeparatorInfo{static_cast<unsigned>(prefixLength + getKeyLength(slotId)), slotId, false};
+}
+
+template <class T>
+void HeadNode<T>::print()
+{
+   printf("# HeadNode%lu\n", sizeof(T));
+   printf("lower fence: ");
+   for (unsigned i = 0; i < lowerFenceLen; ++i) {
+      printf("%d, ", getLowerFence()[i]);
+   }
+   printf("\nupper fence: ");
+   for (unsigned i = 0; i < upperFenceLen; ++i) {
+      printf("%d, ", getUpperFence()[i]);
+   }
+   printf("\n");
+   for (unsigned i = 0; i < count; ++i) {
+      printf("%d: %#018lx |", i, static_cast<uint64_t>(keys[i]));
+      T keyHead = byteswap(keys[i]);
+      for (unsigned j = 0; j < getKeyLength(i); ++j) {
+         printf("%d, ", reinterpret_cast<uint8_t*>(&keyHead)[j]);
+      }
+      printf("-> %p\n", reinterpret_cast<void*>(loadUnaligned<AnyNode*>(children() + i)));
+   }
 }
