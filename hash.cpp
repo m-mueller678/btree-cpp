@@ -338,7 +338,7 @@ bool HashNode::removeSlot(unsigned slotId)
 }
 
 // merge "this" into "right" via "tmp"
-bool HashNode::mergeNodes(unsigned slotId, BTreeNode* parent, HashNode* right)
+bool HashNode::mergeNodes(unsigned slotId, AnyNode* parent, HashNode* right)
 {
    HashNode tmp;
    unsigned newHashCapacity = count + right->count;
@@ -351,7 +351,7 @@ bool HashNode::mergeNodes(unsigned slotId, BTreeNode* parent, HashNode* right)
       return false;
    copyKeyValueRange(&tmp, 0, 0, count);
    right->copyKeyValueRange(&tmp, count, 0, right->count);
-   parent->removeSlot(slotId);
+   parent->innerRemoveSlot(slotId);
    *right = tmp;
    return true;
 }

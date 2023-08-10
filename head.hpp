@@ -301,13 +301,18 @@ void HeadNode<T>::getSep(uint8_t* sepKeyOut, BTreeNode::SeparatorInfo info)
 template <class T>
 AnyNode* HeadNode<T>::lookupInner(uint8_t* key, unsigned keyLength)
 {
+   return loadUnaligned<AnyNode*>(children() + lookupInnerIndex(key, keyLength));
+}
+
+template <class T>
+unsigned HeadNode<T>::lookupInnerIndex(uint8_t* key, unsigned keyLength)
+{
    key += prefixLength;
    keyLength -= prefixLength;
    T head;
    makeNeedleHead(key, keyLength, &head);
    bool found;
-   unsigned index = lowerBound(head, found);
-   return loadUnaligned<AnyNode*>(children() + index);
+   return lowerBound(head, found);
 }
 
 template <class T>
@@ -339,4 +344,21 @@ void HeadNode<T>::print()
       }
       printf("-> %p\n", reinterpret_cast<void*>(loadUnaligned<AnyNode*>(children() + i)));
    }
+}
+
+template <class T>
+void HeadNode<T>::restoreKey(uint8_t* sepKeyOut, unsigned len, unsigned index)
+{
+   memcpy(sepKeyOut, getLowerFence(), prefixLength);
+   T keyHead = byteswap(keys[index]);
+   memcpy(sepKeyOut + prefixLength, &keyHead, len - prefixLength);
+}
+
+template <class T>
+void HeadNode<T>::removeSlot(unsigned int index)
+{
+   ASSUME(count > 0);
+   memmove(keys + index, keys + index + 1, (count - index - 1) * sizeof(T));
+   memmove(children() + index, children() + index + 1, (count - index) * sizeof(AnyNode*));
+   count -= 1;
 }

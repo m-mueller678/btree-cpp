@@ -183,14 +183,14 @@ struct BTreeNode : public BTreeNodeHeader {
 
    bool insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength);
 
-   bool removeSlot(unsigned slotId);
+   void removeSlot(unsigned slotId);
 
    bool remove(uint8_t* key, unsigned keyLength);
 
    void compactify();
 
    // merge "this" into "right" via "tmp"
-   bool mergeNodes(unsigned slotId, BTreeNode* parent, BTreeNode* right);
+   bool mergeNodes(unsigned slotId, AnyNode* parent, BTreeNode* right);
 
    // store key/value pair at slotId
    void storeKeyValue(uint16_t slotId, uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength);
@@ -230,6 +230,7 @@ struct BTreeNode : public BTreeNodeHeader {
                      const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
    void validate_child_fences();
    void print();
+   void restoreKey(uint8_t* keyOut, unsigned len, unsigned index);
 };
 
 typedef uint32_t NumericPart;
@@ -390,7 +391,7 @@ struct HashNode : public HashNodeHeader {
    void copyKeyValueRange(HashNode* dst, unsigned int dstSlot, unsigned int srcSlot, unsigned int srcCount);
    bool removeSlot(unsigned int slotId);
    bool remove(uint8_t* key, unsigned int keyLength);
-   bool mergeNodes(unsigned int slotId, BTreeNode* parent, HashNode* right);
+   bool mergeNodes(unsigned int slotId, AnyNode* parent, HashNode* right);
    void print();
    bool range_lookup(uint8_t* key,
                      unsigned int keyLen,
@@ -442,6 +443,9 @@ struct HeadNode : public HeadNodeHead {
    bool convertToBasicWithSpace(unsigned int newKeyLen);
    BTreeNode::SeparatorInfo findSeparator();
    void print();
+   unsigned lookupInnerIndex(uint8_t* key, unsigned keyLength);
+   void restoreKey(uint8_t* keyOut, unsigned keyLen, unsigned index);
+   void removeSlot(unsigned int slotId);
 };
 
 typedef HeadNode<uint32_t> HeadNode4;
@@ -599,6 +603,105 @@ union AnyNode {
             return hash()->print();
          case Tag::Dense:
             return;  // TODO
+      }
+   }
+
+   unsigned lookupInnerIndex(uint8_t* key, unsigned keyLength)
+   {
+      switch (tag()) {
+         case Tag::Inner:
+            return basic()->lowerBound(key, keyLength);
+         case Tag::Head4:
+            return head4()->lookupInnerIndex(key, keyLength);
+         case Tag::Head8:
+            return head8()->lookupInnerIndex(key, keyLength);
+         case Tag::Leaf:
+         case Tag::Dense:
+         case Tag::Hash:
+            ASSUME(false);
+      }
+   }
+
+   unsigned innerCount()
+   {
+      switch (tag()) {
+         case Tag::Inner:
+            return basic()->count;
+         case Tag::Head4:
+            return head4()->count;
+         case Tag::Head8:
+            return head8()->count;
+         case Tag::Leaf:
+         case Tag::Dense:
+         case Tag::Hash:
+            ASSUME(false);
+      }
+   }
+
+   AnyNode* getChild(unsigned index)
+   {
+      switch (tag()) {
+         case Tag::Inner: {
+            if (index == basic()->count)
+               return basic()->upper;
+            return basic()->getChild(index);
+         }
+         case Tag::Head4:
+            return loadUnaligned<AnyNode*>(head4()->children() + index);
+         case Tag::Head8:
+            return loadUnaligned<AnyNode*>(head8()->children() + index);
+         case Tag::Leaf:
+         case Tag::Dense:
+         case Tag::Hash:
+            ASSUME(false);
+      }
+   }
+
+   void innerRestoreKey(uint8_t* keyOut, unsigned len, unsigned index)
+   {
+      switch (tag()) {
+         case Tag::Inner:
+            return basic()->restoreKey(keyOut, len, index);
+         case Tag::Head4:
+            return head4()->restoreKey(keyOut, len, index);
+         case Tag::Head8:
+            return head8()->restoreKey(keyOut, len, index);
+         case Tag::Leaf:
+         case Tag::Dense:
+         case Tag::Hash:
+            ASSUME(false);
+      }
+   }
+
+   void innerRemoveSlot(unsigned int slotId)
+   {
+      switch (tag()) {
+         case Tag::Inner:
+            return basic()->removeSlot(slotId);
+         case Tag::Head4:
+            return head4()->removeSlot(slotId);
+         case Tag::Head8:
+            return head8()->removeSlot(slotId);
+         case Tag::Leaf:
+         case Tag::Dense:
+         case Tag::Hash:
+            ASSUME(false);
+      }
+   }
+
+   unsigned innerKeyLen(unsigned index)
+   {
+      switch (tag()) {
+         case Tag::Inner:
+            return basic()->slot[index].keyLen + basic()->prefixLength;
+         case Tag::Head4:
+            return head4()->getKeyLength(index);
+         case Tag::Head8:
+            return head8()->getKeyLength(index);
+         case Tag::Leaf:
+         case Tag::Dense:
+         case Tag::Hash:
+            ASSUME(false);
       }
    }
 };

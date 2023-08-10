@@ -220,14 +220,13 @@ bool BTreeNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsig
    return true;
 }
 
-bool BTreeNode::removeSlot(unsigned slotId)
+void BTreeNode::removeSlot(unsigned slotId)
 {
    spaceUsed -= slot[slotId].keyLen;
    spaceUsed -= slot[slotId].payloadLen;
    memmove(slot + slotId, slot + slotId + 1, sizeof(Slot) * (count - slotId - 1));
    count--;
    makeHint();
-   return true;
 }
 
 bool BTreeNode::remove(uint8_t* key, unsigned keyLength)
@@ -236,7 +235,8 @@ bool BTreeNode::remove(uint8_t* key, unsigned keyLength)
    unsigned slotId = lowerBound(key, keyLength, found);
    if (!found)
       return false;
-   return removeSlot(slotId);
+   removeSlot(slotId);
+   return true;
 }
 
 void BTreeNode::compactify()
@@ -253,11 +253,10 @@ void BTreeNode::compactify()
 }
 
 // merge "this" into "right" via "tmp"
-bool BTreeNode::mergeNodes(unsigned slotId, BTreeNode* parent, BTreeNode* right)
+bool BTreeNode::mergeNodes(unsigned slotId, AnyNode* parent, BTreeNode* right)
 {
    if (isLeaf()) {
       assert(right->isLeaf());
-      assert(parent->isInner());
       BTreeNode tmp(isLeaf());
       tmp.setFences(getLowerFence(), lowerFence.length, right->getUpperFence(), right->upperFence.length);
       unsigned leftGrow = (prefixLength - tmp.prefixLength) * count;
@@ -268,30 +267,29 @@ bool BTreeNode::mergeNodes(unsigned slotId, BTreeNode* parent, BTreeNode* right)
          return false;
       copyKeyValueRange(&tmp, 0, 0, count);
       right->copyKeyValueRange(&tmp, count, 0, right->count);
-      parent->removeSlot(slotId);
+      parent->innerRemoveSlot(slotId);
       memcpy(reinterpret_cast<uint8_t*>(right), &tmp, sizeof(BTreeNode));
       right->makeHint();
       return true;
    } else {
       assert(right->isInner());
-      assert(parent->isInner());
       BTreeNode tmp(isLeaf());
       tmp.setFences(getLowerFence(), lowerFence.length, right->getUpperFence(), right->upperFence.length);
       unsigned leftGrow = (prefixLength - tmp.prefixLength) * count;
       unsigned rightGrow = (right->prefixLength - tmp.prefixLength) * right->count;
-      unsigned extraKeyLength = parent->prefixLength + parent->slot[slotId].keyLen;
+      unsigned extraKeyLength = parent->innerKeyLen(slotId);
       unsigned spaceUpperBound = spaceUsed + right->spaceUsed + (reinterpret_cast<uint8_t*>(slot + count + right->count) - ptr()) + leftGrow +
                                  rightGrow + tmp.spaceNeeded(extraKeyLength, sizeof(BTreeNode*));
       if (spaceUpperBound > pageSize)
          return false;
       copyKeyValueRange(&tmp, 0, 0, count);
       uint8_t extraKey[extraKeyLength];
-      memcpy(extraKey, parent->getLowerFence(), parent->prefixLength);
-      memcpy(extraKey + parent->prefixLength, parent->getKey(slotId), parent->slot[slotId].keyLen);
-      storeKeyValue(count, extraKey, extraKeyLength, parent->getPayload(slotId), parent->slot[slotId].payloadLen);
+      parent->innerRestoreKey(extraKey, extraKeyLength, slotId);
+      AnyNode* child = parent->getChild(slotId);
+      storeKeyValue(count, extraKey, extraKeyLength, reinterpret_cast<uint8_t*>(&child), sizeof(AnyNode*));
       count++;
       right->copyKeyValueRange(&tmp, count, 0, right->count);
-      parent->removeSlot(slotId);
+      parent->innerRemoveSlot(slotId);
       memcpy(reinterpret_cast<uint8_t*>(right), &tmp, sizeof(BTreeNode));
       return true;
    }
@@ -493,10 +491,15 @@ BTreeNode::SeparatorInfo BTreeNode::findSeparator()
    return SeparatorInfo{static_cast<unsigned>(prefixLength + slot[bestSlot].keyLen), bestSlot, false};
 }
 
-void BTreeNode::getSep(uint8_t* sepKeyOut, SeparatorInfo info)
+void BTreeNode::restoreKey(uint8_t* sepKeyOut, unsigned len, unsigned index)
 {
    memcpy(sepKeyOut, getPrefix(), prefixLength);
-   memcpy(sepKeyOut + prefixLength, getKey(info.slot + info.isTruncated), info.length - prefixLength);
+   memcpy(sepKeyOut + prefixLength, getKey(index), len - prefixLength);
+}
+
+void BTreeNode::getSep(uint8_t* sepKeyOut, SeparatorInfo info)
+{
+   restoreKey(sepKeyOut, info.length, info.slot + info.isTruncated);
 }
 
 AnyNode* BTreeNode::lookupInner(uint8_t* key, unsigned keyLength)
@@ -693,13 +696,12 @@ bool BTreeNode::is_underfull()
 bool BTree::remove(uint8_t* key, unsigned keyLength)
 {
    AnyNode* node = root;
-   BTreeNode* parent = nullptr;
+   AnyNode* parent = nullptr;
    unsigned pos = 0;
    while (node->isAnyInner()) {
-      parent = node->basic();
-      pos = parent->lowerBound(key, keyLength);
-      BTreeNode* basicNode = node->basic();
-      node = (pos == basicNode->count) ? basicNode->upper : basicNode->getChild(pos);
+      parent = node;
+      pos = parent->lookupInnerIndex(key, keyLength);
+      node = parent->getChild(pos);
    }
    switch (node->tag()) {
       case Tag::Leaf: {
@@ -709,7 +711,8 @@ bool BTree::remove(uint8_t* key, unsigned keyLength)
          // merge if underfull
          if (node->basic()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
             // find neighbor and merge
-            if (parent && (parent->count >= 2) && ((pos + 1) < parent->count)) {
+            unsigned parentCount = parent->innerCount();
+            if (parent && parentCount >= 2 && ((pos + 1) < parentCount)) {
                AnyNode* right = parent->getChild(pos + 1);
                if (right->tag() == Tag::Leaf) {
                   if (right->basic()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
@@ -724,7 +727,8 @@ bool BTree::remove(uint8_t* key, unsigned keyLength)
       case Tag::Dense: {
          if (!node->dense()->remove(key, keyLength))
             return false;
-         if (parent && parent->count >= 2 && pos + 1 < parent->count && node->dense()->is_underfull()) {
+         unsigned parentCount = parent->innerCount();
+         if (parent && parentCount >= 2 && (pos + 1) < parentCount && node->dense()->is_underfull()) {
             node->dense()->convertToBasic();
             AnyNode* right = parent->getChild(pos + 1);
             if (right->tag() == Tag::Leaf) {
@@ -742,8 +746,9 @@ bool BTree::remove(uint8_t* key, unsigned keyLength)
 
          // merge if underfull
          if (node->hash()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
+            unsigned parentCount = parent->innerCount();
             // find neighbor and merge
-            if (parent && (parent->count >= 2) && ((pos + 1) < parent->count)) {
+            if (parent && parentCount >= 2 && ((pos + 1) < parentCount)) {
                AnyNode* right = parent->getChild(pos + 1);
                ASSUME(right->_tag == Tag::Hash);
                if (right->hash()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
