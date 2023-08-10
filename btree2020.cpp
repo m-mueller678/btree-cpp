@@ -508,7 +508,7 @@ void BTreeNode::getSep(uint8_t* sepKeyOut, SeparatorInfo info)
 
 AnyNode* BTreeNode::lookupInner(uint8_t* key, unsigned keyLength)
 {
-   validate_child_fences();
+   // validate_child_fences();
    unsigned pos = lowerBound(key, keyLength);
    if (pos == count)
       return upper;
