@@ -147,6 +147,7 @@ void BTreeNode::searchHint(uint32_t keyHead, unsigned& lowerOut, unsigned& upper
 // lower bound search, foundOut indicates if there is an exact match, returns slotId
 unsigned BTreeNode::lowerBound(uint8_t* key, unsigned keyLength, bool& foundOut)
 {
+   validateHint();
    foundOut = false;
 
    // skip prefix
@@ -398,6 +399,9 @@ void BTreeNode::validate_child_fences()
 #ifdef NDEBUG
    abort();
 #endif
+   if (!isInner()) {
+      return;
+   }
    uint8_t buffer[maxKVSize];
    unsigned bufferLen = lowerFence.length;
    memcpy(buffer, getLowerFence(), bufferLen);
@@ -504,6 +508,7 @@ void BTreeNode::getSep(uint8_t* sepKeyOut, SeparatorInfo info)
 
 AnyNode* BTreeNode::lookupInner(uint8_t* key, unsigned keyLength)
 {
+   validate_child_fences();
    unsigned pos = lowerBound(key, keyLength);
    if (pos == count)
       return upper;
@@ -833,5 +838,17 @@ void BTree::range_lookup(uint8_t* key,
          case Tag::Head8:
             ASSUME(false)
       }
+   }
+}
+
+void BTreeNode::validateHint()
+{
+#ifdef NDEBUG
+   abort();
+#endif
+   if (count > 0) {
+      unsigned dist = count / (hintCount + 1);
+      for (unsigned i = 0; i < hintCount; i++)
+         assert(hint[i] == slot[dist * (i + 1)].head);
    }
 }

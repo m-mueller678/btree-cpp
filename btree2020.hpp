@@ -253,6 +253,7 @@ struct BTreeNode : public BTreeNodeHeader {
    void validate_child_fences();
    void print();
    void restoreKey(uint8_t* keyOut, unsigned len, unsigned index);
+   void validateHint();
 };
 
 typedef uint32_t NumericPart;

@@ -112,6 +112,7 @@ void HeadNode<T>::copyKeyValueRangeToBasic(BTreeNode* dst, unsigned srcStart, un
       outSlot += 1;
    }
    dst->count = outSlot;
+   dst->makeHint();
    assert((dst->ptr() + dst->dataOffset) >= reinterpret_cast<uint8_t*>(dst->slot + dst->count));
 }
 
