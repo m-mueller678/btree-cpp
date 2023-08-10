@@ -2,3 +2,4 @@
 /.idea/
 *.elf
 /data/
+libcrc32c.so.1
