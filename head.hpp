@@ -266,6 +266,7 @@ unsigned HeadNode<T>::lowerBound(T head, bool& foundOut)
    // check hint
    unsigned lower = 0;
    unsigned upper = count;
+   validateHint();
    searchHint(head, lower, upper);
    if (lower > 0) {
       assert(head > keys[lower]);
@@ -369,8 +370,8 @@ void HeadNode<T>::removeSlot(unsigned int index)
    ASSUME(count > 0);
    memmove(keys + index, keys + index + 1, (count - index - 1) * sizeof(T));
    memmove(children() + index, children() + index + 1, (count - index) * sizeof(AnyNode*));
-   makeHint();
    count -= 1;
+   makeHint();
 }
 
 template <class T>
@@ -395,9 +396,11 @@ void HeadNode<T>::updateHint(unsigned slotId)
 template <class T>
 void HeadNode<T>::validateHint()
 {
-   unsigned dist = count / (hintCount + 1);
-   for (unsigned i = 0; i < hintCount; i++)
-      assert(hint[i] == keys[dist * (i + 1)]);
+   if (count > 0) {
+      unsigned dist = count / (hintCount + 1);
+      for (unsigned i = 0; i < hintCount; i++)
+         assert(hint[i] == keys[dist * (i + 1)]);
+   }
 }
 
 template <class T>
