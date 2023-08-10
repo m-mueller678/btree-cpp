@@ -130,7 +130,35 @@ bool HeadNode<T>::insertChild(uint8_t* key, unsigned int keyLength, AnyNode* chi
       updateHint(index);
       return true;
    } else {
-      return convertToBasicWithSpace(keyLength) && any()->basic()->insertChild(key, keyLength, child);
+      bool convert8 = sizeof(T) == 4 && keyLength < 8 && convertToHead8WithSpace(keyLength);
+      if (convert8) {
+         return this->any()->head8()->insertChild(key, keyLength, child)
+      } else {
+         return convertToBasicWithSpace(keyLength) && any()->basic()->insertChild(key, keyLength, child);
+      }
+   }
+}
+
+template <class T>
+bool HeadNode<T>::convertToHead8WithSpace(unsigned truncatedKeyLen)
+{
+   assert(sizeof(T) == 4);
+   unsigned space_lower_bound = lowerFenceLen + upperFenceLen + (count + 1) * (sizeof(AnyNode*) + sizeof(BTreeNode::Slot)) + truncatedKeyLen;
+   if (space_lower_bound + sizeof(BTreeNodeHeader) > pageSize) {
+      return false;
+   } else {
+      for (int i = 0; i < count; ++i) {
+         space_lower_bound += getKeyLength(i);
+      }
+      if (space_lower_bound + sizeof(BTreeNodeHeader) > pageSize) {
+         return false;
+      }
+      BTreeNode tmp{false};
+      tmp.setFences(getLowerFence(), lowerFenceLen, getUpperFence(), upperFenceLen);
+      copyKeyValueRangeToBasic(&tmp, 0, count);
+      tmp.upper = loadUnaligned<AnyNode*>(children() + count);
+      memcpy(this, &tmp, pageSize);
+      return true;
    }
 }
 
