@@ -322,7 +322,11 @@ bool HeadNode<T>::requestSpaceFor(unsigned keyLen)
 {
    keyLen -= prefixLength;
    if (keyLen >= sizeof(T)) {
-      return convertToBasicWithSpace(keyLen);
+      if (sizeof(T) == 4 && keyLen < 8) {
+         return convertToHead8WithSpace() || convertToBasicWithSpace(keyLen);
+      } else {
+         return convertToBasicWithSpace(keyLen);
+      }
    } else {
       return count < keyCapacity;
    }
