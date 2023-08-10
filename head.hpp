@@ -3,7 +3,8 @@
 template <class T>
 void HeadNode<T>::destroy()
 {
-   abort();
+   for (unsigned i = 0; i < count + 1; i++)
+      loadUnaligned<AnyNode*>(children() + i)->destroy();
 }
 
 template <class T>
