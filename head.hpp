@@ -130,9 +130,11 @@ bool HeadNode<T>::insertChild(uint8_t* key, unsigned int keyLength, AnyNode* chi
       updateHint(index);
       return true;
    } else {
-      bool convert8 = sizeof(T) == 4 && keyLength < 8 && convertToHead8WithSpace(keyLength);
+      bool convert8 = sizeof(T) == 4 && keyLength < 8 && convertToHead8WithSpace();
       if (convert8) {
-         return this->any()->head8()->insertChild(key, keyLength, child)
+         bool succ = this->any()->head8()->insertChild(key, keyLength, child);
+         ASSUME(succ);
+         return true;
       } else {
          return convertToBasicWithSpace(keyLength) && any()->basic()->insertChild(key, keyLength, child);
       }
@@ -140,26 +142,24 @@ bool HeadNode<T>::insertChild(uint8_t* key, unsigned int keyLength, AnyNode* chi
 }
 
 template <class T>
-bool HeadNode<T>::convertToHead8WithSpace(unsigned truncatedKeyLen)
+bool HeadNode<T>::convertToHead8WithSpace()
 {
    assert(sizeof(T) == 4);
-   unsigned space_lower_bound = lowerFenceLen + upperFenceLen + (count + 1) * (sizeof(AnyNode*) + sizeof(BTreeNode::Slot)) + truncatedKeyLen;
-   if (space_lower_bound + sizeof(BTreeNodeHeader) > pageSize) {
+   unsigned newKeyOffset = any()->_head8.data - ptr();
+   unsigned newKeyCapacity = (fencesOffset() - newKeyOffset - sizeof(AnyNode*)) / (8 + sizeof(AnyNode*));
+   if (count + 1 > newKeyCapacity)
       return false;
-   } else {
-      for (int i = 0; i < count; ++i) {
-         space_lower_bound += getKeyLength(i);
-      }
-      if (space_lower_bound + sizeof(BTreeNodeHeader) > pageSize) {
-         return false;
-      }
-      BTreeNode tmp{false};
-      tmp.setFences(getLowerFence(), lowerFenceLen, getUpperFence(), upperFenceLen);
-      copyKeyValueRangeToBasic(&tmp, 0, count);
-      tmp.upper = loadUnaligned<AnyNode*>(children() + count);
-      memcpy(this, &tmp, pageSize);
-      return true;
+
+   HeadNode8 tmp;
+   tmp.init(getLowerFence(), lowerFenceLen, getUpperFence(), upperFenceLen);
+   ASSUME(tmp.keyCapacity == newKeyCapacity);
+   for (unsigned i = 0; i < count; ++i) {
+      tmp.keys[i] = static_cast<uint64_t>(keys[i] & ~static_cast<uint32_t>(255)) << 32 | static_cast<uint64_t>(keys[i] & 255);
    }
+   memcpy(tmp.children(), children(), sizeof(AnyNode*) * count + 1);
+   tmp.makeHint();
+   memcpy(this, &tmp, pageSize);
+   return true;
 }
 
 template <class T>
