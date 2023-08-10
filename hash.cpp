@@ -3,6 +3,7 @@
 #include "btree2020.hpp"
 uint8_t HashNode::compute_hash(uint8_t* key, unsigned keyLength)
 {
+   // TODO benchmark hash function
    std::hash<std::string_view> hasher;
    return hasher(std::string_view{reinterpret_cast<const char*>(key), keyLength});
 }
@@ -35,9 +36,18 @@ void HashNode::print()
 
 int HashNode::findIndex(uint8_t* key, unsigned keyLength)
 {
-   key += prefixLength;
+   if (hashUseSimd) {
+      return findIndexSimd(key, keyLength);
+   } else {
+      return findIndexNoSimd(key, keyLength);
+   }
+}
+
+int HashNode::findIndexNoSimd(uint8_t* key, unsigned keyLength)
+{
+   if (hashUseSimd)
+      key += prefixLength;
    keyLength -= prefixLength;
-   // TODO use simd
    uint8_t needle = compute_hash(key, keyLength);
    for (unsigned i = 0; i < count; ++i) {
       if (hashes()[i] == needle && keyLength == slot[i].keyLen && memcmp(getKey(i), key, keyLength) == 0) {
@@ -45,6 +55,19 @@ int HashNode::findIndex(uint8_t* key, unsigned keyLength)
       }
    }
    return -1;
+}
+
+int HashNode::findIndexSimd(uint8_t* key, unsigned keyLength)
+{
+   int hash_misalign = hashes() % hashSimdWidth;
+   typedef Vec uint8_t;
+   Vec needle;
+   Vec word;
+   vec equality;
+   compare(needle, word);
+   equality >>= hash_misalign;
+   while (true) {
+   }
 }
 
 AnyNode* HashNode::makeRootLeaf()

@@ -14,6 +14,8 @@ constexpr unsigned pageSize = 512;
 constexpr bool enableDense = false;
 constexpr bool enableHash = false;
 constexpr bool enableHeadNode = true;
+constexpr bool hashUseSimd=false;
+constexpr unsigned hashSimdWidth=32;
 
 inline unsigned min(unsigned a, unsigned b)
 {
@@ -398,6 +400,10 @@ struct HashNode : public HashNodeHeader {
                      uint8_t* keyOut,
                      const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
    unsigned int lowerBound(uint8_t* key, unsigned int keyLength);
+   
+   int findIndexNoSimd(uint8_t* key, unsigned keyLength);
+   int findIndexSimd(uint8_t* key, unsigned keyLength);
+   
 };
 
 struct HeadNodeHead {
