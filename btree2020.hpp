@@ -479,6 +479,7 @@ struct HeadNode : public HeadNodeHead {
    void searchHint(T keyHead, unsigned int& lowerOut, unsigned int& upperOut);
    void validateHint();
    bool convertToHead8WithSpace();
+   bool convertToHead4WithSpace();
 };
 
 typedef HeadNode<uint32_t> HeadNode4;

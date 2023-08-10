@@ -130,6 +130,7 @@ bool HeadNode<T>::insertChild(uint8_t* key, unsigned int keyLength, AnyNode* chi
       updateHint(index);
       return true;
    } else {
+      ASSUME(false);  // TODO this is already handled in space request
       bool convert8 = sizeof(T) == 4 && keyLength < 8 && convertToHead8WithSpace();
       if (convert8) {
          bool succ = this->any()->head8()->insertChild(key, keyLength, child);
@@ -155,6 +156,25 @@ bool HeadNode<T>::convertToHead8WithSpace()
    ASSUME(tmp.keyCapacity == newKeyCapacity);
    for (unsigned i = 0; i < count; ++i) {
       tmp.keys[i] = static_cast<uint64_t>(keys[i] & ~static_cast<uint32_t>(255)) << 32 | static_cast<uint64_t>(keys[i] & 255);
+   }
+   memcpy(tmp.children(), children(), sizeof(AnyNode*) * count + 1);
+   tmp.makeHint();
+   memcpy(this, &tmp, pageSize);
+   return true;
+}
+
+template <class T>
+bool HeadNode<T>::convertToHead4WithSpace()
+{
+   assert(sizeof(T) == 8);
+   for (unsigned i = 0; i < count; ++i)
+      if (getKeyLength(i) >= 4)
+         return false;
+
+   HeadNode4 tmp;
+   tmp.init(getLowerFence(), lowerFenceLen, getUpperFence(), upperFenceLen);
+   for (unsigned i = 0; i < count; ++i) {
+      tmp.keys[i] = static_cast<uint32_t>(keys[i] >> 32) | static_cast<uint32_t>(keys[i] & 255);
    }
    memcpy(tmp.children(), children(), sizeof(AnyNode*) * count + 1);
    tmp.makeHint();
@@ -327,8 +347,12 @@ bool HeadNode<T>::requestSpaceFor(unsigned keyLen)
       } else {
          return convertToBasicWithSpace(keyLen);
       }
+   } else if (count < keyCapacity) {
+      return true;
+   } else if (sizeof(T) == 8 && keyLen < 4) {
+      return convertToHead4WithSpace();
    } else {
-      return count < keyCapacity;
+      return false;
    }
 }
 
