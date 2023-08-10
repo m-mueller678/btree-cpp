@@ -145,6 +145,7 @@ bool HeadNode<T>::insertChild(uint8_t* key, unsigned int keyLength, AnyNode* chi
 template <class T>
 bool HeadNode<T>::convertToHead8WithSpace()
 {
+   // TODO could do less copying for either conversion direction
    assert(sizeof(T) == 4);
    unsigned newKeyOffset = any()->_head8.data - ptr();
    unsigned newKeyCapacity = (fencesOffset() - newKeyOffset - sizeof(AnyNode*)) / (8 + sizeof(AnyNode*));
@@ -158,7 +159,10 @@ bool HeadNode<T>::convertToHead8WithSpace()
       tmp.keys[i] = static_cast<uint64_t>(keys[i] & ~static_cast<uint32_t>(255)) << 32 | static_cast<uint64_t>(keys[i] & 255);
    }
    memcpy(tmp.children(), children(), sizeof(AnyNode*) * count + 1);
+   tmp.count = count;
    tmp.makeHint();
+   print();
+   tmp.print();
    memcpy(this, &tmp, pageSize);
    return true;
 }
@@ -177,7 +181,10 @@ bool HeadNode<T>::convertToHead4WithSpace()
       tmp.keys[i] = static_cast<uint32_t>(keys[i] >> 32) | static_cast<uint32_t>(keys[i] & 255);
    }
    memcpy(tmp.children(), children(), sizeof(AnyNode*) * count + 1);
+   tmp.count = count;
    tmp.makeHint();
+   print();
+   tmp.print();
    memcpy(this, &tmp, pageSize);
    return true;
 }
@@ -311,6 +318,7 @@ inline uint8_t* HeadNodeHead::ptr()
 template <class T>
 unsigned HeadNode<T>::lowerBound(T head, bool& foundOut)
 {
+   validateHint();
    foundOut = false;
    // check hint
    unsigned lower = 0;
