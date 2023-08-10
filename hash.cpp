@@ -176,10 +176,11 @@ unsigned HashNode::freeSpaceAfterCompaction()
 
 bool HashNode::requestSlotAndSpace(unsigned kvSize)
 {
+   int onCompactHashCapacity = count * 2;
    if (count < hashCapacity) {
       if (kvSize + sizeof(HashSlot) <= freeSpace()) {
          return true;
-      } else if (count + 1 + kvSize + sizeof(HashSlot) > freeSpaceAfterCompaction()) {
+      } else if (onCompactHashCapacity + kvSize + sizeof(HashSlot) > freeSpaceAfterCompaction()) {
          return false;
       }
    } else {
@@ -190,12 +191,11 @@ bool HashNode::requestSlotAndSpace(unsigned kvSize)
          spaceUsed += hashCapacity;
          hashCapacity *= 2;
          return true;
-      } else if (count + 1 + kvSize + sizeof(HashSlot) > freeSpaceAfterCompaction()) {
+      } else if (onCompactHashCapacity + kvSize + sizeof(HashSlot) > freeSpaceAfterCompaction()) {
          return false;
       }
    }
-   // TODO choose better hash capacity
-   compactify(count + 1);
+   compactify(onCompactHashCapacity);
    return true;
 }
 
