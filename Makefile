@@ -11,7 +11,7 @@ test.elf: $(sources)
 	$(cc) $(cpps) -g -o test.elf -Wall -Wextra -Wpedantic
 
 optimized.elf: $(sources)
-	$(cc) $(cpps) -O3 -march=native -DNDEBUG -o optimized.elf
+	$(cc) $(cpps) -O3 -march=native -DNDEBUG -g -o optimized.elf
 
 clean:
 	rm test.elf optimized.elf asan.elf
