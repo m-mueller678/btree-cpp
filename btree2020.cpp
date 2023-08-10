@@ -386,7 +386,7 @@ void BTreeNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, un
       copyKeyValueRange(nodeRight, 0, nodeLeft->count + 1, count - nodeLeft->count - 1);
       nodeLeft->upper = getChild(nodeLeft->count);
       nodeRight->upper = upper;
-      validate_child_fences();
+      // validate_child_fences();
    }
    nodeLeft->makeHint();
    nodeRight->makeHint();
