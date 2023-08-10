@@ -159,7 +159,6 @@ void DenseNode::splitNode(AnyNode* parent, uint8_t* key, unsigned keyLen)
                  denseLeft->valLen);
    } else {
       BTreeNode* right = &this->any()->_basic_node;
-      // TODO check move constructor semantics
       *right = BTreeNode{true};
       right->setFences(full_boundary, denseLeft->fullKeyLen, denseLeft->getUpperFence(), denseLeft->upperFenceLen);
    }
