@@ -12,9 +12,11 @@
 // maximum page size (in bytes) is 65536
 constexpr unsigned pageSize = 4096;
 constexpr bool enableDense = false;
-constexpr bool enableHash = true;
-constexpr bool enableHeadNode = false;
-constexpr unsigned hintCount = 16;
+constexpr bool enableHash = false;
+constexpr bool enableHeadNode = true;
+constexpr unsigned basicHintCount = 16;
+constexpr unsigned headNode4HintCount = 16;
+constexpr unsigned headNode8HintCount = 16;
 
 typedef uint32_t HashSimdBitMask;
 constexpr bool hashUseSimd = true;
@@ -94,6 +96,21 @@ inline uint64_t byteswap<uint64_t>(uint64_t x)
    return __builtin_bswap64(x);
 }
 
+template <class T>
+constexpr unsigned headNodeHintCount(T);
+
+template <>
+inline constexpr unsigned headNodeHintCount<uint32_t>(uint32_t)
+{
+   return headNode4HintCount;
+}
+
+template <>
+inline constexpr unsigned headNodeHintCount<uint64_t>(uint64_t)
+{
+   return headNode8HintCount;
+}
+
 struct BTreeNode;
 union AnyNode;
 
@@ -107,9 +124,10 @@ enum class Tag : uint8_t {
 };
 
 struct BTreeNodeHeader {
-   Tag _tag;
+   static constexpr unsigned hintCount = basicHintCount;
+   static constexpr unsigned underFullSize = pageSize / 4;  // merge nodes below this size
 
-   static const unsigned underFullSize = pageSize / 4;  // merge nodes below this size
+   Tag _tag;
 
    struct FenceKeySlot {
       uint16_t offset;
@@ -425,7 +443,9 @@ struct HeadNodeHead {
 
 template <class T>
 struct HeadNode : public HeadNodeHead {
-   static constexpr unsigned paddedHeadSize = (sizeof(HeadNodeHead) + alignof(T) - 1) / alignof(T) * alignof(T);
+   static constexpr unsigned hintCount = headNodeHintCount<T>(0);
+   T hint[hintCount];
+   static constexpr unsigned paddedHeadSize = (sizeof(HeadNodeHead) + alignof(T) - 1) / alignof(T) * alignof(T) + sizeof(hint);
    union {
       T keys[(pageSize - paddedHeadSize) / sizeof(T)];
       uint8_t data[pageSize - paddedHeadSize];
@@ -453,6 +473,10 @@ struct HeadNode : public HeadNodeHead {
    unsigned lookupInnerIndex(uint8_t* key, unsigned keyLength);
    void restoreKey(uint8_t* keyOut, unsigned keyLen, unsigned index);
    void removeSlot(unsigned int slotId);
+   void makeHint();
+   void updateHint(unsigned int slotId);
+   void searchHint(T keyHead, unsigned int& lowerOut, unsigned int& upperOut);
+   void validateHint();
 };
 
 typedef HeadNode<uint32_t> HeadNode4;

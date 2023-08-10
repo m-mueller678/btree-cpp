@@ -55,8 +55,8 @@ void HeadNode<T>::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, 
    copyKeyValueRange(nodeRight, 0, nodeLeft->count + 1, count - nodeLeft->count - 1);
    memcpy(nodeLeft->children() + nodeLeft->count, children() + nodeLeft->count, sizeof(AnyNode*));
    memcpy(nodeRight->children() + nodeRight->count, children() + count, sizeof(AnyNode*));
-   // nodeLeft->makeHint();
-   // nodeRight->makeHint();
+   nodeLeft->makeHint();
+   nodeRight->makeHint();
    memcpy(this, nodeRight, sizeof(BTreeNode));
 }
 
@@ -126,6 +126,7 @@ bool HeadNode<T>::insertChild(uint8_t* key, unsigned int keyLength, AnyNode* chi
       unsigned index = lowerBound(head, found);
       ASSUME(!found);
       insertAt(index, head, child);
+      updateHint(index);
       return true;
    } else {
       return convertToBasicWithSpace(keyLength) && any()->basic()->insertChild(key, keyLength, child);
@@ -178,6 +179,7 @@ void HeadNode<T>::clone_from_basic(BTreeNode* src)
       keys[i] = head;
       memcpy(children() + i, src->getPayload(i), sizeof(AnyNode*));
    }
+   makeHint();
    storeUnaligned(children() + count, src->upper);
 }
 
@@ -264,7 +266,13 @@ unsigned HeadNode<T>::lowerBound(T head, bool& foundOut)
    // check hint
    unsigned lower = 0;
    unsigned upper = count;
-   // searchHint(keyHead, lower, upper);
+   searchHint(head, lower, upper);
+   if (lower > 0) {
+      assert(head > keys[lower]);
+   }
+   if (upper < count) {
+      assert(head <= keys[upper]);
+   }
    while (lower < upper) {
       unsigned mid = ((upper - lower) / 2) + lower;
       if (head <= keys[mid]) {
@@ -361,5 +369,51 @@ void HeadNode<T>::removeSlot(unsigned int index)
    ASSUME(count > 0);
    memmove(keys + index, keys + index + 1, (count - index - 1) * sizeof(T));
    memmove(children() + index, children() + index + 1, (count - index) * sizeof(AnyNode*));
+   makeHint();
    count -= 1;
+}
+
+template <class T>
+void HeadNode<T>::makeHint()
+{
+   unsigned dist = count / (hintCount + 1);
+   for (unsigned i = 0; i < hintCount; i++)
+      hint[i] = keys[dist * (i + 1)];
+}
+
+template <class T>
+void HeadNode<T>::updateHint(unsigned slotId)
+{
+   unsigned dist = count / (hintCount + 1);
+   unsigned begin = 0;
+   if ((count > hintCount * 2 + 1) && (((count - 1) / (hintCount + 1)) == dist) && ((slotId / dist) > 1))
+      begin = (slotId / dist) - 1;
+   for (unsigned i = begin; i < hintCount; i++)
+      hint[i] = keys[dist * (i + 1)];
+}
+
+template <class T>
+void HeadNode<T>::validateHint()
+{
+   unsigned dist = count / (hintCount + 1);
+   for (unsigned i = 0; i < hintCount; i++)
+      assert(hint[i] == keys[dist * (i + 1)]);
+}
+
+template <class T>
+void HeadNode<T>::searchHint(T keyHead, unsigned& lowerOut, unsigned& upperOut)
+{
+   if (count > hintCount * 2) {
+      unsigned dist = upperOut / (hintCount + 1);
+      unsigned pos, pos2;
+      for (pos = 0; pos < hintCount; pos++)
+         if (hint[pos] >= keyHead)
+            break;
+      for (pos2 = pos; pos2 < hintCount; pos2++)
+         if (hint[pos2] != keyHead)
+            break;
+      lowerOut = pos * dist;
+      if (pos2 < hintCount)
+         upperOut = (pos2 + 1) * dist;
+   }
 }
