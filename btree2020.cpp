@@ -147,7 +147,7 @@ void BTreeNode::searchHint(uint32_t keyHead, unsigned& lowerOut, unsigned& upper
 // lower bound search, foundOut indicates if there is an exact match, returns slotId
 unsigned BTreeNode::lowerBound(uint8_t* key, unsigned keyLength, bool& foundOut)
 {
-   validateHint();
+   // validateHint();
    foundOut = false;
 
    // skip prefix
