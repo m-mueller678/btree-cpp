@@ -370,7 +370,7 @@ void BTreeNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, un
    // split this node into nodeLeft and nodeRight
    assert(sepSlot > 0);
    assert(sepSlot < (pageSize / sizeof(BTreeNode*)));
-   BTreeNode* nodeLeft = new BTreeNode(isLeaf());
+   BTreeNode* nodeLeft = (new AnyNode(BTreeNode{isLeaf()}))->basic();
    nodeLeft->setFences(getLowerFence(), lowerFence.length, sepKey, sepLength);
    BTreeNode tmp(isLeaf());
    BTreeNode* nodeRight = &tmp;
