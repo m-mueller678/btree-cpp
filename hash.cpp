@@ -22,15 +22,11 @@ void HashNode::print()
 {
    printf("# HashNode\n");
    for (unsigned i = 0; i < count; ++i) {
-      printf("%d: [%d] ", i, hashes()[i]);
+      printf("%4d: [%3d] ", i, hashes()[i]);
       for (unsigned j = 0; j < slot[i].keyLen; ++j) {
-         printf("%d, ", getKey(i)[j]);
+         printf("%3d, ", getKey(i)[j]);
       }
       printf("\n");
-      for (unsigned j = 0; j < i; ++j) {
-         assert(slot[i].keyLen == slot[j].keyLen);
-         assert(memcmp(getKey(i), getKey(j), slot[i].keyLen) != 0);
-      }
    }
 }
 
@@ -235,7 +231,7 @@ struct SlotProxy {
    {
       uint8_t* lptr = sortNode->ptr() + l.slot.offset;
       uint8_t* rptr = sortNode->ptr() + r.slot.offset;
-      return std::lexicographical_compare(lptr, lptr + l.slot.offset, rptr, rptr + r.slot.offset);
+      return std::lexicographical_compare(lptr, lptr + l.slot.keyLen, rptr, rptr + r.slot.keyLen);
    }
 };
 
