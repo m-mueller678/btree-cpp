@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <string_view>
 #include "btree2020.hpp"
+#include "head.hpp"
 uint8_t HashNode::compute_hash(uint8_t* key, unsigned keyLength)
 {
    // TODO benchmark hash function

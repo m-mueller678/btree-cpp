@@ -184,7 +184,7 @@ void HeadNode<T>::clone_from_basic(BTreeNode* src)
    storeUnaligned(children() + count, src->upper);
 }
 
-bool HeadNodeHead::requestChildConvertFromBasic(BTreeNode* node, unsigned newKeyLength)
+inline bool HeadNodeHead::requestChildConvertFromBasic(BTreeNode* node, unsigned newKeyLength)
 {
    newKeyLength -= node->prefixLength;
    if (newKeyLength >= 8) {
@@ -209,22 +209,22 @@ bool HeadNodeHead::requestChildConvertFromBasic(BTreeNode* node, unsigned newKey
    return true;
 }
 
-uint8_t* HeadNodeHead::getLowerFence()
+inline uint8_t* HeadNodeHead::getLowerFence()
 {
    return ptr() + pageSize - lowerFenceLen;
 }
 
-uint8_t* HeadNodeHead::getUpperFence()
+inline uint8_t* HeadNodeHead::getUpperFence()
 {
    return ptr() + fencesOffset();
 }
 
-unsigned HeadNodeHead::fencesOffset()
+inline unsigned HeadNodeHead::fencesOffset()
 {
    return pageSize - lowerFenceLen - upperFenceLen;
 }
 
-void HeadNodeHead::updatePrefixLength()
+inline void HeadNodeHead::updatePrefixLength()
 {
    uint8_t* uf = getUpperFence();
    uint8_t* lf = getLowerFence();
@@ -255,7 +255,7 @@ AnyNode** HeadNode<T>::children()
    return reinterpret_cast<AnyNode**>(keys + keyCapacity);
 }
 
-uint8_t* HeadNodeHead::ptr()
+inline uint8_t* HeadNodeHead::ptr()
 {
    return reinterpret_cast<uint8_t*>(this);
 }
