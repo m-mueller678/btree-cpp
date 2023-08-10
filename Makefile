@@ -1,6 +1,6 @@
 sources= *.cpp *.hpp
 cpps=btree2020.cpp test.cpp dense.cpp hash.cpp
-cc=clang++ -std=c++17
+cc=clang++-15 -std=c++17
 
 all: asan.elf test.elf optimized.elf
 

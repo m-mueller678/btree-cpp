@@ -10,12 +10,14 @@
 #include <functional>
 
 // maximum page size (in bytes) is 65536
-constexpr unsigned pageSize = 512;
+constexpr unsigned pageSize = 4096;
 constexpr bool enableDense = false;
-constexpr bool enableHash = false;
-constexpr bool enableHeadNode = true;
-constexpr bool hashUseSimd=false;
-constexpr unsigned hashSimdWidth=32;
+constexpr bool enableHash = true;
+constexpr bool enableHeadNode = false;
+
+typedef uint32_t HashSimdBitMask;
+constexpr bool hashUseSimd = true;
+constexpr unsigned hashSimdWidth = sizeof(HashSimdBitMask) * 8;
 
 inline unsigned min(unsigned a, unsigned b)
 {
@@ -400,11 +402,10 @@ struct HashNode : public HashNodeHeader {
                      uint8_t* keyOut,
                      const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
    unsigned int lowerBound(uint8_t* key, unsigned int keyLength);
-   
+
    int findIndexNoSimd(uint8_t* key, unsigned keyLength);
    int findIndexSimd(uint8_t* key, unsigned keyLength);
-   
-};
+} __attribute__((aligned(hashUseSimd ? hashSimdWidth : 2)));
 
 struct HeadNodeHead {
    Tag _tag;
