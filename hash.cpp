@@ -1,11 +1,11 @@
 #include <algorithm>
 #include <string_view>
 #include "btree2020.hpp"
+#include "crc32c/include/crc32c/crc32c.h"
+
 uint8_t HashNode::compute_hash(uint8_t* key, unsigned keyLength)
 {
-   // TODO benchmark hash function
-   std::hash<std::string_view> hasher;
-   return hasher(std::string_view{reinterpret_cast<const char*>(key), keyLength});
+   return crc32c_value(key, keyLength);
 }
 
 uint8_t* HashNode::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut)
