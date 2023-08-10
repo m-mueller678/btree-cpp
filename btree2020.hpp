@@ -14,6 +14,7 @@ constexpr unsigned pageSize = 4096;
 constexpr bool enableDense = false;
 constexpr bool enableHash = true;
 constexpr bool enableHeadNode = false;
+constexpr unsigned hintCount = 16;
 
 typedef uint32_t HashSimdBitMask;
 constexpr bool hashUseSimd = true;
@@ -125,7 +126,6 @@ struct BTreeNodeHeader {
    uint16_t dataOffset = static_cast<uint16_t>(pageSize);
    uint16_t prefixLength = 0;
 
-   static const unsigned hintCount = 16;
    uint32_t hint[hintCount];
    uint32_t padding;
 
