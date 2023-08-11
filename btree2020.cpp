@@ -563,6 +563,14 @@ uint8_t* BTree::lookupImpl(uint8_t* key, unsigned keyLength, unsigned& payloadSi
    }
 }
 
+void BTree::testing_update_payload(uint8_t* key, unsigned keyLength, uint8_t* payload)
+{
+#ifdef CHECK_TREE_OPS
+   auto found = std_map.find(toByteVector(key, keyLength));
+   memcpy(found->second.data(), payload, found->second.size());
+#endif
+}
+
 // point lookup
 uint8_t* BTree::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut)
 {

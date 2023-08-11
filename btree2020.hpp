@@ -585,4 +585,5 @@ struct BTree {
                               unsigned int keyLen,
                               uint8_t* keyOut,
                               const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
+   void testing_update_payload(uint8_t* key, unsigned int keyLength, uint8_t* payload);
 };

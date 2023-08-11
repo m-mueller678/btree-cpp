@@ -230,6 +230,7 @@ struct vmcacheAdapter {
       u8* value_ptr = tree->lookup(k, l, len_out);
       if (value_ptr) {
          fn(*reinterpret_cast<Record*>(value_ptr));
+         tree->testing_update_payload(k, l, value_ptr);
       }
    }
 
