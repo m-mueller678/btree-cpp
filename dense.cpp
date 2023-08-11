@@ -44,7 +44,7 @@ void DenseNode::restoreKey(uint8_t* prefix, uint8_t* dst, unsigned index)
 
 void DenseNode::changeUpperFence(uint8_t* fence, unsigned len)
 {
-   assert(upperFenceLen <= fullKeyLen);
+   assert(len <= fullKeyLen);
    upperFenceLen = len;
    memcpy(getUpperFence(), fence, len);
    updatePrefixLength();
