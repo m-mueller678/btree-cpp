@@ -109,6 +109,7 @@ bool DenseNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsig
    }
    assert(keyIndex >= 0);
    setSlotPresent(keyIndex);
+   occupiedCount += 1;
    memcpy(getVal(keyIndex), payload, payloadLength);
    return true;
 }
@@ -211,6 +212,7 @@ void DenseNode::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upper
    this->valLen = valLen;
    this->lowerFenceLen = lowerFenceLen;
    this->upperFenceLen = upperFenceLen;
+   occupiedCount = 0;
    assert(lowerFenceLen <= fullKeyLen);
    slotCount = computeSlotCount(valLen, fencesOffset());
    zeroMask();
@@ -307,6 +309,7 @@ bool DenseNode::remove(uint8_t* key, unsigned keyLength)
       return false;
    }
    unsetSlotPresent(index);
+   occupiedCount -= 1;
    return true;
 }
 
@@ -339,6 +342,7 @@ bool DenseNode::try_densify(BTreeNode* basicNode)
       setSlotPresent(index);
       memcpy(getVal(index), basicNode->getPayload(i), valLen1);
    }
+   occupiedCount = basicNode->count;
    return true;
 }
 

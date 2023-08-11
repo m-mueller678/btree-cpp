@@ -269,10 +269,11 @@ struct DenseNodeHeader {
    NumericPart arrayStart;
    uint16_t valLen;
    uint16_t slotCount;
+   uint16_t occupiedCount;
    uint16_t lowerFenceLen;
    uint16_t upperFenceLen;
    uint16_t prefixLength;
-   uint16_t _pad[3];
+   uint16_t _pad[2];
 };
 
 enum KeyError : int {
