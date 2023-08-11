@@ -130,15 +130,8 @@ bool HeadNode<T>::insertChild(uint8_t* key, unsigned int keyLength, AnyNode* chi
       updateHint(index);
       return true;
    } else {
-      ASSUME(false);  // TODO this is already handled in space request
-      bool convert8 = sizeof(T) == 4 && keyLength < 8 && convertToHead8WithSpace();
-      if (convert8) {
-         bool succ = this->any()->head8()->insertChild(key, keyLength, child);
-         ASSUME(succ);
-         return true;
-      } else {
-         return convertToBasicWithSpace(keyLength) && any()->basic()->insertChild(key, keyLength, child);
-      }
+      // this is already handled in space request
+      ASSUME(false);
    }
 }
 
