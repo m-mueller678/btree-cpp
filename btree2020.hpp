@@ -22,6 +22,12 @@ typedef uint32_t HashSimdBitMask;
 constexpr bool hashUseSimd = true;
 constexpr unsigned hashSimdWidth = sizeof(HashSimdBitMask) * 8;
 
+#define S(x) {"const." #x, x},
+
+static const std::vector<std::pair<const char*, unsigned>> btree_constexpr_settings{S(pageSize) S(enableDense) S(enableHash) S(enableHeadNode) S(
+    basicHintCount) S(headNode4HintCount) S(headNode8HintCount) S(hashUseSimd) S(hashSimdWidth)};
+#undef S
+
 inline unsigned min(unsigned a, unsigned b)
 {
    return a < b ? a : b;

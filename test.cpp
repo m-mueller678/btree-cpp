@@ -16,9 +16,9 @@ void runTest(PerfEvent& e, vector<string>& data)
 
    BTree t;
    uint64_t count = data.size();
-   e.setParam("type", "btr");
-   e.setParam("factr", "0");
-   e.setParam("base", "0");
+   for (auto x : btree_constexpr_settings) {
+      e.setParam(x.first, std::to_string(x.second));
+   }
    {
       // insert
       e.setParam("op", "insert");
