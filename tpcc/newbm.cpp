@@ -299,18 +299,27 @@ int main(int argc, char** argv)
 {
    exception_hack::init_phdr_cache();
 
-   PerfEvent e;
-   if (argc != 3) {
-      cout << "usage: " << argv[0] << " <threads> <datasize>" << endl;
+   if (argc != 1) {
+      cout << "usage: pass parameters via env vars WH and RUNFOR" << endl;
       exit(1);
    }
-   unsigned nthreads = 1;
-   u64 n = atof(argv[2]);
-   tbb::task_scheduler_init init(nthreads);
-   u64 runForSec = envOr("RUNFOR", 30);
-   bool isYcsb = envOr("YCSB", 0);
 
-   u64 statDiff = 1e8;
+   bool isYcsb = envOr("YCSB", 0);
+   if (isYcsb)
+      throw;
+
+   unsigned nthreads = 1;
+   tbb::task_scheduler_init init(nthreads);
+   u64 n = envOr("WH", 10);
+   u64 runForSec = envOr("RUNFOR", 30);
+   PerfEvent e;
+   for (auto x : btree_constexpr_settings) {
+      e.setParam(x.first, std::to_string(x.second));
+   }
+   e.setParam("op", "tpc-c");
+   e.setParam("tpcc.warehouses", n);
+   e.setParam("tpcc.runfor", runForSec);
+
    atomic<u64> txProgress(0);
    atomic<bool> keepRunning(true);
 
@@ -333,7 +342,6 @@ int main(int argc, char** argv)
                                      warehouseCount, true);
 
    {
-      // PerfEventBlock b(e, warehouseCount*644446ull);
       tpcc.loadItem();
       tpcc.loadWarehouse();
       tbb::parallel_for(tbb::blocked_range<Integer>(1, warehouseCount + 1), [&](const tbb::blocked_range<Integer>& range) {
@@ -366,34 +374,21 @@ int main(int argc, char** argv)
    */
 
    std::cerr << "setup complete" << std::endl;
-   vector<thread> threads;
 
-   for (unsigned worker = 0; worker < nthreads; worker++) {
-      threads.emplace_back([&, worker]() {
-         workerThreadId = worker;
-         u64 cnt = 0;
-         u64 start = rdtsc();
-         while (keepRunning.load()) {
-            int w_id = tpcc.urand(1, warehouseCount);  // wh crossing
-            tpcc.tx(w_id);
-            cnt++;
-            u64 stop = rdtsc();
-            if ((stop - start) > statDiff) {
-               txProgress += cnt;
-               start = stop;
-               cnt = 0;
-            }
-         }
-         txProgress += cnt;
-      });
-   }
+   thread worker([&]() {
+      PerfEventBlock b(e, 0);
+      workerThreadId = 0;
+      while (keepRunning.load()) {
+         int w_id = tpcc.urand(1, warehouseCount);  // wh crossing
+         tpcc.tx(w_id);
+         txProgress++;
+      }
+      b.scale = txProgress;
+   });
 
    sleep(runForSec);
    keepRunning = false;
-   for (auto& t : threads)
-      t.join();
-
-   // TODO print result
+   worker.join();
 
    return 0;
 }
