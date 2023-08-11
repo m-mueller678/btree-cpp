@@ -53,49 +53,9 @@ int HashNode::findIndexNoSimd(uint8_t* key, unsigned keyLength)
    return -1;
 }
 
-typedef uint8_t HashSimdVecByte __attribute__((vector_size(hashSimdWidth)));
-// this requires clang version >= 15
-typedef bool HashSimdVecBool __attribute__((ext_vector_type(hashSimdWidth)));
-
-inline HashSimdBitMask hashSimdEq(HashSimdVecByte* a, HashSimdVecByte* b)
-{
-   HashSimdVecBool equality = __builtin_convertvector(*a == *b, HashSimdVecBool);
-   HashSimdBitMask equality_bits;
-   memcpy(&equality_bits, &equality, sizeof(HashSimdBitMask));
-   return equality_bits;
-}
-
 int HashNode::findIndexSimd(uint8_t* key, unsigned keyLength)
 {
-   ASSUME(__builtin_is_aligned(this, alignof(HashSimdVecByte)));
-   key += prefixLength;
-   keyLength -= prefixLength;
-   int hashMisalign = hashOffset % alignof(HashSimdVecByte);
-   HashSimdVecByte* haystack_ptr = reinterpret_cast<HashSimdVecByte*>(hashes() - hashMisalign);
-   HashSimdVecByte needle = compute_hash(key, keyLength) - HashSimdVecByte{};
-   unsigned shift = hashMisalign;
-   HashSimdBitMask matches = hashSimdEq(haystack_ptr, &needle) >> shift;
-   unsigned shift_limit = shift + count;
-   while (shift < shift_limit) {
-      unsigned trailing_zeros = std::__countr_zero(matches);
-      if (trailing_zeros == hashSimdWidth) {
-         shift = shift - shift % hashSimdWidth + hashSimdWidth;
-         haystack_ptr += 1;
-         matches = hashSimdEq(haystack_ptr, &needle);
-      } else {
-         shift += trailing_zeros;
-         matches >>= trailing_zeros;
-         matches -= 1;
-         if (shift >= shift_limit) {
-            return -1;
-         }
-         unsigned elementIndex = shift - hashMisalign;
-         if (slot[elementIndex].keyLen == keyLength && memcmp(getKey(elementIndex), key, keyLength) == 0) {
-            return elementIndex;
-         }
-      }
-   }
-   return -1;
+   abort();
 }
 
 AnyNode* HashNode::makeRootLeaf()
