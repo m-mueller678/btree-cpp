@@ -16,7 +16,7 @@ optimized.elf: $(sources)
 	$(cc) $(test_cpps) -O3 -march=native -DNDEBUG -g -o optimized.elf
 
 clean:
-	rm test.elf optimized.elf asan.elf tpcc-optimzed.elf tpcc-debug.elf
+	rm -f test.elf optimized.elf asan.elf tpcc-optimzed.elf tpcc-debug.elf
 
 format:
 	clang-format -i *.?pp tpcc/*.?pp tpcc/tpcc/*.?pp
