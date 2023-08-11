@@ -11,9 +11,9 @@
 
 // maximum page size (in bytes) is 65536
 constexpr unsigned pageSize = 4096;
-constexpr bool enableDense = false;
+constexpr bool enableDense = true;
 constexpr bool enableHash = false;
-constexpr bool enableHeadNode = true;
+constexpr bool enableHeadNode = false;
 constexpr unsigned basicHintCount = 16;
 constexpr unsigned headNode4HintCount = 16;
 constexpr unsigned headNode8HintCount = 16;
@@ -351,7 +351,6 @@ struct DenseNode : public DenseNodeHeader {
    void updatePrefixLength();
    bool remove(uint8_t* key, unsigned int keyLength);
    bool is_underfull();
-   unsigned int occupiedCount();
    BTreeNode* convertToBasic();
    bool range_lookup(uint8_t* key,
                      unsigned int keyLen,

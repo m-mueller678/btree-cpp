@@ -223,18 +223,9 @@ void DenseNode::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upper
    updateArrayStart();
 }
 
-unsigned DenseNode::occupiedCount()
-{
-   // TODO keep track of occupied count
-   unsigned total = 0;
-   for (unsigned i = 0; i < maskWordCount(); ++i)
-      total += std::__popcount(mask[i]);
-   return total;
-}
-
 bool DenseNode::is_underfull()
 {
-   unsigned totalEntrySize = (fullKeyLen - prefixLength + valLen + sizeof(BTreeNode::Slot)) * occupiedCount();
+   unsigned totalEntrySize = (fullKeyLen - prefixLength + valLen + sizeof(BTreeNode::Slot)) * occupiedCount;
    return sizeof(BTreeNodeHeader) + totalEntrySize + lowerFenceLen + upperFenceLen < pageSize - BTreeNode::underFullSize;
 }
 
