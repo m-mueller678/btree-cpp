@@ -149,7 +149,7 @@ void DenseNode::splitNode(AnyNode* parent, uint8_t* key, unsigned keyLen)
          break;
    }
    uint8_t full_boundary[fullKeyLen];
-   restoreKey(key, full_boundary, slotCount - 1);
+   restoreKey(getLowerFence(), full_boundary, slotCount - 1);
 
    DenseNode* denseLeft = reinterpret_cast<DenseNode*>(new AnyNode());
    memcpy(denseLeft, this, sizeof(DenseNode));
