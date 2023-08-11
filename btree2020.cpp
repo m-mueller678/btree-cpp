@@ -779,9 +779,6 @@ void BTree::range_lookup(uint8_t* key,
    bool shouldContinue = true;
    auto keyVec = toByteVector(key, keyLen);
    auto std_iterator = std_map.lower_bound(keyVec);
-   if (std_iterator != std_map.end() && std_iterator != std_map.begin() && std_iterator->first > keyVec) {
-      --std_iterator;
-   }
    range_lookupImpl(key, keyLen, keyOut, [&](unsigned keyLen, uint8_t* payload, unsigned payloadLen) {
       assert(shouldContinue);
       assert(std_iterator != std_map.end());
@@ -887,6 +884,9 @@ void BTree::range_lookup_desc(uint8_t* key,
    bool shouldContinue = true;
    auto keyVec = toByteVector(key, keyLen);
    auto std_iterator = std_map.lower_bound(keyVec);
+   if (std_iterator != std_map.end() && std_iterator != std_map.begin() && std_iterator->first > keyVec) {
+      --std_iterator;
+   }
    bool stdExhausted = std_iterator == std_map.end();
    range_lookup_descImpl(key, keyLen, keyOut, [&](unsigned keyLen, uint8_t* payload, unsigned payloadLen) {
       assert(shouldContinue);
