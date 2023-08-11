@@ -63,6 +63,9 @@
 #include <cstddef>
 #include <vector>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+
 namespace exception_hack
 {
 using dl_iterate_fn = int (*)(int (*callback)(struct dl_phdr_info* info, size_t size, void* data), void* data);
@@ -131,3 +134,5 @@ extern "C" [[gnu::visibility("default")]] [[gnu::used]] int _Unwind_RaiseExcepti
    }
    return org(h);
 }
+
+#pragma clang diagnostic pop

@@ -1,7 +1,7 @@
 sources= *.?pp tpcc/*.?pp tpcc/tpcc/*.?pp
 core_cpps=btree2020.cpp dense.cpp hash.cpp anynode.cpp
 test_cpps=test.cpp $(core_cpps)
-tpcc_cpps=libbtree.cpp tpcc/newbm.cpp $(core_cpps)
+tpcc_cpps=tpcc/newbm.cpp $(core_cpps)
 cc=clang++-15 -std=c++17
 
 all: asan.elf test.elf optimized.elf

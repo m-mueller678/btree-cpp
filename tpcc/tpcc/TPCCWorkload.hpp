@@ -4,9 +4,14 @@
 #include "RandomGenerator.hpp"
 // -------------------------------------------------------------------------------------
 #include <algorithm>
-#include <vector>
-using std::vector;
 #include <iostream>
+#include <vector>
+
+using std::vector;
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-but-set-variable"
+
 using std::cout;
 using std::endl;
 // -------------------------------------------------------------------------------------
@@ -927,3 +932,5 @@ struct TPCCWorkload {
       return 4;
    }
 };
+
+#pragma clang diagnostic pop

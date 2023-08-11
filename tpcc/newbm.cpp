@@ -19,7 +19,6 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include "../libbtree.hpp"
 
 #define TBB_SUPPRESS_DEPRECATED_MESSAGES 1
 
@@ -32,6 +31,7 @@
 __thread uint16_t workerThreadId = 0;
 __thread int32_t tpcchistorycounter = 0;
 
+#include "../btree2020.hpp"
 #include "tpcc/TPCCWorkload.hpp"
 
 using namespace std;
@@ -73,7 +73,7 @@ void* allocHuge(size_t size)
    return p;
 }
 
-void yield(u64 counter)
+void yield(u64)
 {
    _mm_pause();
 }
@@ -152,8 +152,6 @@ struct PageState {
    void operator=(PageState&) = delete;
 };
 
-static const u64 pageSize = 4096;
-
 struct OLCRestartException {
 };
 
@@ -164,21 +162,6 @@ u64 envOr(const char* env, u64 value)
    return value;
 }
 
-static unsigned min(unsigned a, unsigned b)
-{
-   return a < b ? a : b;
-}
-
-template <class T>
-static T loadUnaligned(void* p)
-{
-   T x;
-   memcpy(&x, p, sizeof(T));
-   return x;
-}
-
-static unsigned btreeslotcounter = 0;
-
 typedef u64 KeyType;
 
 template <class Record>
@@ -186,22 +169,19 @@ struct vmcacheAdapter {
    BTree* tree;
 
   public:
-   vmcacheAdapter() { tree = btree_new(); }
+   vmcacheAdapter() { tree = new BTree(); }
 
    void scan(const typename Record::Key& key,
              const std::function<bool(const typename Record::Key&, const Record&)>& found_record_cb,
              std::function<void()> reset_if_scan_failed_cb)
    {
-      static u8 k[Record::maxFoldLength()];
-      static std::function<bool(const typename Record::Key&, const Record&)> const* found_record_cb_ptr;
-      u16 l = Record::foldKey(k, key);
-      static u8 kk[Record::maxFoldLength()];
-      found_record_cb_ptr = &found_record_cb;
-
-      btree_scan_asc(tree, k, l, kk, [](uint8_t const* payload) {
-         typename Record::Key typedKey;
-         Record::unfoldKey(kk, typedKey);
-         return (*found_record_cb_ptr)(typedKey, *reinterpret_cast<const Record*>(payload));
+      static u8 keyIn[Record::maxFoldLength()];
+      static u8 keyOut[Record::maxFoldLength()];
+      unsigned length = Record::foldKey(keyIn, key);
+      typename Record::Key typedKey;
+      tree->range_lookup(keyIn, length, keyOut, [&](unsigned, uint8_t* payload, unsigned) {
+         Record::unfoldKey(keyOut, typedKey);
+         return found_record_cb(typedKey, *reinterpret_cast<const Record*>(payload));
       });
    }
 
@@ -210,25 +190,7 @@ struct vmcacheAdapter {
                  const std::function<bool(const typename Record::Key&, const Record&)>& found_record_cb,
                  std::function<void()> reset_if_scan_failed_cb)
    {
-      // TODO
-      /*u8 k[Record::maxFoldLength()];
-      u16 l = Record::foldKey(k, key);
-      u8 kk[Record::maxFoldLength()];
-      bool first = true;
-
-      tree.scanDesc({k, l}, [&](BTreeNode &node, unsigned slot, bool exactMatch) {
-          if (first) { // XXX: hack
-              first = false;
-              if (!exactMatch)
-                  return true;
-          }
-          memcpy(kk, node.getPrefix(), node.prefixLen);
-          memcpy(kk + node.prefixLen, node.getKey(slot), node.slot[slot].keyLen);
-          typename Record::Key typedKey;
-          Record::unfoldKey(kk, typedKey);
-          return found_record_cb(typedKey, *reinterpret_cast<const Record *>(node.getPayload(slot).data()));
-      });
-       */
+      abort();
    }
 
    // -------------------------------------------------------------------------------------
@@ -236,7 +198,7 @@ struct vmcacheAdapter {
    {
       u8 k[Record::maxFoldLength()];
       u16 l = Record::foldKey(k, key);
-      btree_insert(tree, k, l, (u8*)(&record), sizeof(Record));
+      tree->insert(k, l, (u8*)(&record), sizeof(Record));
    }
 
    // -------------------------------------------------------------------------------------
@@ -246,7 +208,7 @@ struct vmcacheAdapter {
       u8 k[Record::maxFoldLength()];
       u16 l = Record::foldKey(k, key);
       u32 len_out;
-      u8* value_ptr = btree_lookup(tree, k, l, &len_out);
+      u8* value_ptr = tree->lookup(k, l, len_out);
       assert(value_ptr);
       fn(*reinterpret_cast<const Record*>(value_ptr));
    }
@@ -258,7 +220,7 @@ struct vmcacheAdapter {
       u8 k[Record::maxFoldLength()];
       u16 l = Record::foldKey(k, key);
       u32 len_out;
-      u8* value_ptr = btree_lookup(tree, k, l, &len_out);
+      u8* value_ptr = tree->lookup(k, l, len_out);
       if (value_ptr) {
          fn(*reinterpret_cast<Record*>(value_ptr));
       }
@@ -270,7 +232,7 @@ struct vmcacheAdapter {
    {
       u8 k[Record::maxFoldLength()];
       u16 l = Record::foldKey(k, key);
-      return btree_remove(tree, k, l);
+      return tree->remove(k, l);
    }
 
    // -------------------------------------------------------------------------------------
@@ -287,7 +249,7 @@ struct vmcacheAdapter {
       static u8 kk[Record::maxFoldLength()];
       static u64 cnt;
       cnt = 0;
-      btree_scan_asc(tree, (u8 const*)&cnt, 0, kk, [](u8 const* payload) {
+      btree_scan_asc(tree, (u8 const*)&cnt, 0, kk, [](u8 const*) {
          cnt++;
          return true;
       });
@@ -343,7 +305,6 @@ int main(int argc, char** argv)
    u64 statDiff = 1e8;
    atomic<u64> txProgress(0);
    atomic<bool> keepRunning(true);
-   auto systemName = "RustBTree";
 
    // TPC-C
    Integer warehouseCount = n;
@@ -424,7 +385,7 @@ int main(int argc, char** argv)
    for (auto& t : threads)
       t.join();
 
-   print_tpcc_result(runForSec, txProgress, warehouseCount);
+   // TODO print result
 
    return 0;
 }
