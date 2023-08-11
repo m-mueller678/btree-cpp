@@ -163,7 +163,7 @@ void DenseNode::splitNode(AnyNode* parent, uint8_t* key, unsigned keyLen)
       *right = BTreeNode{true};
       right->setFences(full_boundary, denseLeft->fullKeyLen, denseLeft->getUpperFence(), denseLeft->upperFenceLen);
    }
-   denseLeft->changeUpperFence(full_boundary, fullKeyLen);
+   denseLeft->changeUpperFence(full_boundary, denseLeft->fullKeyLen);
 }
 
 unsigned DenseNode::prefixDiffLen()
