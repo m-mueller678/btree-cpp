@@ -483,7 +483,7 @@ bool DenseNode::range_lookup_desc(uint8_t* key,
 
    int wordIndex = firstIndex / maskBitsPerWord;
    Mask word = mask[wordIndex];
-   unsigned shift = (maskBitsPerWord - firstIndex % maskBitsPerWord) % maskBitsPerWord;
+   unsigned shift = (maskBitsPerWord - 1 - firstIndex % maskBitsPerWord);
    word <<= shift;
    while (true) {
       unsigned leadingZeros = std::__countl_zero(word);
