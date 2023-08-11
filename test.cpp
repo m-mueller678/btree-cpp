@@ -57,13 +57,15 @@ void runTest(PerfEvent& e, vector<string>& data)
             foundIndex += 1;
             return foundIndex < 10;
          });
-         // TODO this should probably fail but does not
-         if (foundIndex != 10)
+         if (foundIndex > 10) {
             throw;
+         }
       }
    }
 
    {
+      e.setParam("op", "desc");
+      PerfEventBlock b(e, count / 4);
       for (uint64_t i = 0; i < count; i += 4) {
          uint8_t keyBuffer[BTreeNode::maxKVSize];
          unsigned foundIndex = 0;
@@ -75,8 +77,9 @@ void runTest(PerfEvent& e, vector<string>& data)
             foundIndex += 1;
             return foundIndex < 10;
          });
-         if (foundIndex != 10)
+         if (foundIndex > 10) {
             throw;
+         }
       }
    }
 

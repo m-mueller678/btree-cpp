@@ -769,6 +769,10 @@ void BTree::range_lookup(uint8_t* key,
          case Tag::Head8:
             ASSUME(false)
       }
+      if (keyLen == 1) {
+         // encountered empty upper fence
+         break;
+      }
    }
 }
 
@@ -833,6 +837,9 @@ void BTree::range_lookup_desc(uint8_t* key,
          case Tag::Head4:
          case Tag::Head8:
             ASSUME(false)
+      }
+      if (keyLen == 0) {
+         break;
       }
    }
 }
