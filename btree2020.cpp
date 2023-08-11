@@ -114,6 +114,8 @@ void BTreeNode::updateHint(unsigned slotId)
 
 void BTreeNode::searchHint(uint32_t keyHead, unsigned& lowerOut, unsigned& upperOut)
 {
+   if (hintCount == 0)
+      return;
    if (count > hintCount * 2) {
       unsigned dist = upperOut / (hintCount + 1);
       unsigned pos, pos2;

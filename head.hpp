@@ -461,6 +461,8 @@ void HeadNode<T>::validateHint()
 template <class T>
 void HeadNode<T>::searchHint(T keyHead, unsigned& lowerOut, unsigned& upperOut)
 {
+   if (hintCount == 0)
+      return;
    if (count > hintCount * 2) {
       unsigned dist = upperOut / (hintCount + 1);
       unsigned pos, pos2;
