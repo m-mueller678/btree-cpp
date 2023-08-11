@@ -1,5 +1,6 @@
 #pragma once
 #pragma clang diagnostic ignored "-Wvla-extension"
+#pragma clang diagnostic ignored "-Wzero-length-array"
 
 #include <bit>
 #include <cassert>
@@ -154,8 +155,8 @@ struct BTreeNode : public BTreeNodeHeader {
       uint16_t keyLen;
       uint16_t payloadLen;
       union {
-         uint32_t head;
-         uint8_t headBytes[4];
+         uint32_t head[enableBasicHead];
+         uint8_t headBytes[enableBasicHead ? 4 : 0];
       };
    } __attribute__((packed));
    union {

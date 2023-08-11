@@ -100,7 +100,7 @@ void BTreeNode::makeHint()
 {
    unsigned dist = count / (hintCount + 1);
    for (unsigned i = 0; i < hintCount; i++)
-      hint[i] = slot[dist * (i + 1)].head;
+      hint[i] = slot[dist * (i + 1)].head[0];
 }
 
 void BTreeNode::updateHint(unsigned slotId)
@@ -110,7 +110,7 @@ void BTreeNode::updateHint(unsigned slotId)
    if ((count > hintCount * 2 + 1) && (((count - 1) / (hintCount + 1)) == dist) && ((slotId / dist) > 1))
       begin = (slotId / dist) - 1;
    for (unsigned i = begin; i < hintCount; i++)
-      hint[i] = slot[dist * (i + 1)].head;
+      hint[i] = slot[dist * (i + 1)].head[0];
 }
 
 void BTreeNode::searchHint(uint32_t keyHead, unsigned& lowerOut, unsigned& upperOut)
@@ -153,9 +153,9 @@ unsigned BTreeNode::lowerBound(uint8_t* key, unsigned keyLength, bool& foundOut)
    // binary search on remaining range
    while (lower < upper) {
       unsigned mid = ((upper - lower) / 2) + lower;
-      if (keyHead < slot[mid].head) {
+      if (enableBasicHead && keyHead < slot[mid].head[0]) {
          upper = mid;
-      } else if (keyHead > slot[mid].head) {
+      } else if (enableBasicHead && keyHead > slot[mid].head[0]) {
          lower = mid + 1;
       } else {  // head is equal, check full key
          int cmp = memcmp(key, getKey(mid), min(keyLength, slot[mid].keyLen));
@@ -301,7 +301,9 @@ void BTreeNode::storeKeyValue(uint16_t slotId, uint8_t* key, unsigned keyLength,
    // slot
    key += prefixLength;
    keyLength -= prefixLength;
-   slot[slotId].head = head(key, keyLength);
+   if (enableBasicHead) {
+      slot[slotId].head[0] = head(key, keyLength);
+   }
    slot[slotId].keyLen = keyLength;
    slot[slotId].payloadLen = payloadLength;
    // key
@@ -326,7 +328,8 @@ void BTreeNode::copyKeyValueRange(BTreeNode* dst, uint16_t dstSlot, uint16_t src
          dst->slot[dstSlot + i].offset = dst->dataOffset;
          uint8_t* key = getKey(srcSlot + i) + diff;
          memcpy(dst->getKey(dstSlot + i), key, space);
-         dst->slot[dstSlot + i].head = head(key, newKeyLength);
+         if (enableBasicHead)
+            dst->slot[dstSlot + i].head[0] = head(key, newKeyLength);
          dst->slot[dstSlot + i].keyLen = newKeyLength;
          dst->slot[dstSlot + i].payloadLen = slot[srcSlot + i].payloadLen;
       }
@@ -985,6 +988,6 @@ void BTreeNode::validateHint()
    if (count > 0) {
       unsigned dist = count / (hintCount + 1);
       for (unsigned i = 0; i < hintCount; i++)
-         assert(hint[i] == slot[dist * (i + 1)].head);
+         assert(hint[i] == slot[dist * (i + 1)].head[0]);
    }
 }

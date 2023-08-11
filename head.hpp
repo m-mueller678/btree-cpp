@@ -108,7 +108,8 @@ void HeadNode<T>::copyKeyValueRangeToBasic(BTreeNode* dst, unsigned srcStart, un
       uint8_t* keyBytes = reinterpret_cast<uint8_t*>(&keyHead);
       memcpy(dst->getPayload(outSlot), &children()[i], sizeof(AnyNode*));
       memcpy(dst->getKey(outSlot), keyBytes + prefixDiff, keyLength - prefixDiff);
-      dst->slot[outSlot].head = head(dst->getKey(outSlot), dst->slot[outSlot].keyLen);
+      if (enableBasicHead)
+         dst->slot[outSlot].head[0] = head(dst->getKey(outSlot), dst->slot[outSlot].keyLen);
       outSlot += 1;
    }
    dst->count = outSlot;
