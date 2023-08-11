@@ -8,6 +8,11 @@
 #include <cstdlib>
 #include <cstring>
 #include <functional>
+#include <map>
+
+#ifndef NDEBUG
+#define CHECK_TREE_OPS
+#endif
 
 // maximum page size (in bytes) is 65536
 constexpr unsigned pageSize = 4096;
@@ -85,6 +90,11 @@ inline uint32_t head(uint8_t* key, unsigned keyLength)
       default:
          return __builtin_bswap32(loadUnaligned<uint32_t>(key));
    }
+}
+
+inline std::vector<uint8_t> toByteVector(uint8_t* b, unsigned l)
+{
+   return std::vector(b, b + l);
 }
 
 template <class T>
@@ -543,7 +553,9 @@ union AnyNode {
 
 struct BTree {
    AnyNode* root;
-
+#ifdef CHECK_TREE_OPS
+   std::map<std::vector<uint8_t>, std::vector<uint8_t>> std_map;
+#endif
    void splitNode(AnyNode* node, AnyNode* parent, uint8_t* key, unsigned keyLength);
    void ensureSpace(AnyNode* toSplit, uint8_t* key, unsigned keyLength);
 
@@ -563,4 +575,14 @@ struct BTree {
                           unsigned int keyLen,
                           uint8_t* keyOut,
                           const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
+   uint8_t* lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut);
+   bool removeImpl(uint8_t* key, unsigned int keyLength) const;
+   void range_lookupImpl(uint8_t* key,
+                         unsigned int keyLen,
+                         uint8_t* keyOut,
+                         const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
+   void range_lookup_descImpl(uint8_t* key,
+                              unsigned int keyLen,
+                              uint8_t* keyOut,
+                              const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
 };
