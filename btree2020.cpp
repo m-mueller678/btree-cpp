@@ -91,7 +91,8 @@ AnyNode* BTreeNode::getChild(unsigned slotId)
 // How much space would inserting a new key of length "getKeyLength" require?
 unsigned BTreeNode::spaceNeeded(unsigned keyLength, unsigned payloadLength)
 {
-   assert(keyLength >= prefixLength);  // fence key logic makes it impossible to insert a key that is shorter than prefix
+   ASSUME(enablePrefix || prefixLength == 0);
+   ASSUME(keyLength >= prefixLength);  // fence key logic makes it impossible to insert a key that is shorter than prefix
    return sizeof(Slot) + (keyLength - prefixLength) + payloadLength;
 }
 
@@ -138,6 +139,7 @@ unsigned BTreeNode::lowerBound(uint8_t* key, unsigned keyLength, bool& foundOut)
    foundOut = false;
 
    // skip prefix
+   ASSUME(enablePrefix || prefixLength == 0);
    assert(memcmp(key, getPrefix(), min(keyLength, prefixLength)) == 0);
    key += prefixLength;
    keyLength -= prefixLength;
@@ -250,6 +252,9 @@ bool BTreeNode::mergeNodes(unsigned slotId, AnyNode* parent, BTreeNode* right)
       assert(right->isLeaf());
       BTreeNode tmp(isLeaf());
       tmp.setFences(getLowerFence(), lowerFence.length, right->getUpperFence(), right->upperFence.length);
+      ASSUME(enablePrefix || prefixLength == 0);
+      ASSUME(enablePrefix || right->prefixLength == 0);
+      ASSUME(enablePrefix || tmp.prefixLength == 0);
       unsigned leftGrow = (prefixLength - tmp.prefixLength) * count;
       unsigned rightGrow = (right->prefixLength - tmp.prefixLength) * right->count;
       unsigned spaceUpperBound =
@@ -266,6 +271,9 @@ bool BTreeNode::mergeNodes(unsigned slotId, AnyNode* parent, BTreeNode* right)
       assert(right->isInner());
       BTreeNode tmp(isLeaf());
       tmp.setFences(getLowerFence(), lowerFence.length, right->getUpperFence(), right->upperFence.length);
+      ASSUME(enablePrefix || prefixLength == 0);
+      ASSUME(enablePrefix || right->prefixLength == 0);
+      ASSUME(enablePrefix || tmp.prefixLength == 0);
       unsigned leftGrow = (prefixLength - tmp.prefixLength) * count;
       unsigned rightGrow = (right->prefixLength - tmp.prefixLength) * right->count;
       unsigned extraKeyLength = parent->innerKeyLen(slotId);
@@ -289,6 +297,7 @@ bool BTreeNode::mergeNodes(unsigned slotId, AnyNode* parent, BTreeNode* right)
 // store key/value pair at slotId
 void BTreeNode::storeKeyValue(uint16_t slotId, uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
 {
+   ASSUME(enablePrefix || prefixLength == 0);
    // slot
    key += prefixLength;
    keyLength -= prefixLength;
@@ -307,7 +316,7 @@ void BTreeNode::storeKeyValue(uint16_t slotId, uint8_t* key, unsigned keyLength,
 
 void BTreeNode::copyKeyValueRange(BTreeNode* dst, uint16_t dstSlot, uint16_t srcSlot, unsigned srcCount)
 {
-   if (prefixLength <= dst->prefixLength) {  // prefix grows
+   if (enablePrefix && prefixLength <= dst->prefixLength) {  // prefix grows
       unsigned diff = dst->prefixLength - prefixLength;
       for (unsigned i = 0; i < srcCount; i++) {
          unsigned newKeyLength = slot[srcSlot + i].keyLen - diff;
@@ -331,6 +340,7 @@ void BTreeNode::copyKeyValueRange(BTreeNode* dst, uint16_t dstSlot, uint16_t src
 
 void BTreeNode::copyKeyValue(uint16_t srcSlot, BTreeNode* dst, uint16_t dstSlot)
 {
+   ASSUME(enablePrefix || prefixLength == 0);
    unsigned fullLength = slot[srcSlot].keyLen + prefixLength;
    uint8_t key[fullLength];
    memcpy(key, getPrefix(), prefixLength);
@@ -352,7 +362,8 @@ void BTreeNode::setFences(uint8_t* lowerKey, unsigned lowerLen, uint8_t* upperKe
 {
    insertFence(lowerFence, lowerKey, lowerLen);
    insertFence(upperFence, upperKey, upperLen);
-   for (prefixLength = 0; (prefixLength < min(lowerLen, upperLen)) && (lowerKey[prefixLength] == upperKey[prefixLength]); prefixLength++)
+   for (prefixLength = 0; enablePrefix && (prefixLength < min(lowerLen, upperLen)) && (lowerKey[prefixLength] == upperKey[prefixLength]);
+        prefixLength++)
       ;
 }
 
@@ -453,7 +464,8 @@ unsigned BTreeNode::commonPrefix(unsigned slotA, unsigned slotB)
 
 BTreeNode::SeparatorInfo BTreeNode::findSeparator()
 {
-   assert(count > 1);
+   ASSUME(count > 1);
+   ASSUME(enablePrefix || prefixLength == 0);
    if (isInner()) {
       // inner nodes are split in the middle
       unsigned slotId = count / 2;
@@ -487,6 +499,7 @@ BTreeNode::SeparatorInfo BTreeNode::findSeparator()
 
 void BTreeNode::restoreKey(uint8_t* sepKeyOut, unsigned len, unsigned index)
 {
+   ASSUME(enablePrefix || prefixLength == 0);
    memcpy(sepKeyOut, getPrefix(), prefixLength);
    memcpy(sepKeyOut + prefixLength, getKey(index), len - prefixLength);
 }
@@ -760,6 +773,7 @@ bool BTreeNode::range_lookup(uint8_t* key,
                              // scan continues if callback returns true
                              const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
+   ASSUME(enablePrefix || prefixLength == 0);
    memcpy(keyOut, key, prefixLength);
    for (unsigned i = lowerBound(key, keyLen); i < count; ++i) {
       memcpy(keyOut + prefixLength, getKey(i), slot[i].keyLen);
@@ -863,6 +877,7 @@ bool BTreeNode::range_lookup_desc(uint8_t* key,
                                   // scan continues if callback returns true
                                   const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
+   ASSUME(enablePrefix || prefixLength == 0);
    memcpy(keyOut, key, prefixLength);
    bool found;
    int lb = lowerBound(key, keyLen, found);
