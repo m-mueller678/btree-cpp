@@ -1,6 +1,5 @@
 #include <cstdint>
 #include "btree2020.hpp"
-#include "head.hpp"
 
 unsigned DenseNode::fencesOffset()
 {

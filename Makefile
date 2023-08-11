@@ -1,5 +1,5 @@
 sources= *.cpp *.hpp
-cpps=btree2020.cpp test.cpp dense.cpp hash.cpp
+cpps=btree2020.cpp test.cpp dense.cpp hash.cpp anynode.cpp
 cc=clang++ -std=c++17
 
 all: asan.elf test.elf optimized.elf
@@ -15,3 +15,6 @@ optimized.elf: $(sources)
 
 clean:
 	rm test.elf optimized.elf asan.elf
+
+format:
+	clang-format -i $(cpps) btree2020.hpp head.hpp

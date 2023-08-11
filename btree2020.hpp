@@ -493,251 +493,34 @@ union AnyNode {
    HeadNode4 _head4;
    HeadNode8 _head8;
 
-   Tag tag()
-   {
-      ASSUME(_tag == Tag::Inner || _tag == Tag::Leaf || _tag == Tag::Dense || _tag == Tag::Hash || _tag == Tag::Head4 || _tag == Tag::Head8);
-      ASSUME((enableDense && !enableHash) || _tag != Tag::Dense);
-      ASSUME(enableHash || _tag != Tag::Hash);
-      ASSUME(!enableHash || _tag != Tag::Leaf);
-      ASSUME(enableHeadNode || _tag != Tag::Head4);
-      ASSUME(enableHeadNode || _tag != Tag::Head8);
-      return _tag;
-   }
+   Tag tag();
 
-   AnyNode(BTreeNode basic) : _basic_node(basic) {}
-   AnyNode() {}
+   AnyNode(BTreeNode basic);
+   AnyNode();
 
-   void destroy()
-   {
-      switch (tag()) {
-         case Tag::Leaf:
-         case Tag::Inner:
-            return basic()->destroy();
-         case Tag::Dense:
-         case Tag::Hash:
-            return dealloc();
-         case Tag::Head4:
-            return head4()->destroy();
-         case Tag::Head8:
-            return head8()->destroy();
-      }
-   }
+   void destroy();
 
-   void dealloc() { delete this; }
+   void dealloc();
 
-   bool isAnyInner()
-   {
-      switch (tag()) {
-         case Tag::Leaf:
-         case Tag::Dense:
-         case Tag::Hash:
-            return false;
-         case Tag::Inner:
-         case Tag::Head4:
-         case Tag::Head8:
-            return true;
-      }
-   }
+   bool isAnyInner();
 
-   BTreeNode* basic()
-   {
-      ASSUME(_tag == Tag::Leaf || _tag == Tag::Inner);
-      return reinterpret_cast<BTreeNode*>(this);
-   }
-
-   DenseNode* dense()
-   {
-      ASSUME(_tag == Tag::Dense);
-      return reinterpret_cast<DenseNode*>(this);
-   }
-
-   HashNode* hash()
-   {
-      ASSUME(_tag == Tag::Hash);
-      return reinterpret_cast<HashNode*>(this);
-   }
-
-   HeadNode<uint32_t>* head4()
-   {
-      ASSUME(_tag == Tag::Head4);
-      return reinterpret_cast<HeadNode<uint32_t>*>(this);
-   }
-
-   HeadNode<uint64_t>* head8()
-   {
-      ASSUME(_tag == Tag::Head8);
-      return reinterpret_cast<HeadNode<uint64_t>*>(this);
-   }
-
-   bool insertChild(uint8_t* key, unsigned int keyLength, AnyNode* child)
-   {
-      switch (tag()) {
-         case Tag::Inner:
-            return basic()->insertChild(key, keyLength, child);
-         case Tag::Head4:
-            return head4()->insertChild(key, keyLength, child);
-         case Tag::Head8:
-            return head8()->insertChild(key, keyLength, child);
-         case Tag::Leaf:
-         case Tag::Hash:
-         case Tag::Dense:
-            ASSUME(false);
-      }
-   }
-
-   bool innerRequestSpaceFor(unsigned keyLen)
-   {
-      switch (tag()) {
-         case Tag::Inner: {
-            bool succ = basic()->requestSpaceFor(basic()->spaceNeeded(keyLen, sizeof(AnyNode*)));
-            if (enableHeadNode && !succ) {
-               return HeadNodeHead::requestChildConvertFromBasic(basic(), keyLen);
-            }
-            return succ;
-         }
-         case Tag::Head4:
-            return head4()->requestSpaceFor(keyLen);
-         case Tag::Head8:
-            return head8()->requestSpaceFor(keyLen);
-         case Tag::Leaf:
-         case Tag::Hash:
-         case Tag::Dense:
-            ASSUME(false);
-      }
-   }
-
-   AnyNode* lookupInner(uint8_t* key, unsigned keyLength)
-   {
-      switch (tag()) {
-         case Tag::Inner:
-            return basic()->lookupInner(key, keyLength);
-         case Tag::Head4:
-            return head4()->lookupInner(key, keyLength);
-         case Tag::Head8:
-            return head8()->lookupInner(key, keyLength);
-         case Tag::Leaf:
-         case Tag::Hash:
-         case Tag::Dense:
-            ASSUME(false);
-      }
-   }
+   BTreeNode* basic();
+   DenseNode* dense();
+   HashNode* hash();
+   HeadNode<uint32_t>* head4();
+   HeadNode<uint64_t>* head8();
+   bool insertChild(uint8_t* key, unsigned int keyLength, AnyNode* child);
+   bool innerRequestSpaceFor(unsigned keyLen);
+   AnyNode* lookupInner(uint8_t* key, unsigned keyLength);
    static AnyNode* makeRoot(AnyNode* child);
-
-   void print()
-   {
-      switch (tag()) {
-         case Tag::Inner:
-         case Tag::Leaf:
-            return basic()->print();
-         case Tag::Head8:
-            return head8()->print();
-         case Tag::Head4:
-            return head4()->print();
-         case Tag::Hash:
-            return hash()->print();
-         case Tag::Dense:
-            return;  // TODO
-      }
-   }
-
-   unsigned lookupInnerIndex(uint8_t* key, unsigned keyLength)
-   {
-      switch (tag()) {
-         case Tag::Inner:
-            return basic()->lowerBound(key, keyLength);
-         case Tag::Head4:
-            return head4()->lookupInnerIndex(key, keyLength);
-         case Tag::Head8:
-            return head8()->lookupInnerIndex(key, keyLength);
-         case Tag::Leaf:
-         case Tag::Dense:
-         case Tag::Hash:
-            ASSUME(false);
-      }
-   }
-
-   unsigned innerCount()
-   {
-      switch (tag()) {
-         case Tag::Inner:
-            return basic()->count;
-         case Tag::Head4:
-            return head4()->count;
-         case Tag::Head8:
-            return head8()->count;
-         case Tag::Leaf:
-         case Tag::Dense:
-         case Tag::Hash:
-            ASSUME(false);
-      }
-   }
-
-   AnyNode* getChild(unsigned index)
-   {
-      switch (tag()) {
-         case Tag::Inner: {
-            if (index == basic()->count)
-               return basic()->upper;
-            return basic()->getChild(index);
-         }
-         case Tag::Head4:
-            return loadUnaligned<AnyNode*>(head4()->children() + index);
-         case Tag::Head8:
-            return loadUnaligned<AnyNode*>(head8()->children() + index);
-         case Tag::Leaf:
-         case Tag::Dense:
-         case Tag::Hash:
-            ASSUME(false);
-      }
-   }
-
-   void innerRestoreKey(uint8_t* keyOut, unsigned len, unsigned index)
-   {
-      switch (tag()) {
-         case Tag::Inner:
-            return basic()->restoreKey(keyOut, len, index);
-         case Tag::Head4:
-            return head4()->restoreKey(keyOut, len, index);
-         case Tag::Head8:
-            return head8()->restoreKey(keyOut, len, index);
-         case Tag::Leaf:
-         case Tag::Dense:
-         case Tag::Hash:
-            ASSUME(false);
-      }
-   }
-
-   void innerRemoveSlot(unsigned int slotId)
-   {
-      switch (tag()) {
-         case Tag::Inner:
-            return basic()->removeSlot(slotId);
-         case Tag::Head4:
-            return head4()->removeSlot(slotId);
-         case Tag::Head8:
-            return head8()->removeSlot(slotId);
-         case Tag::Leaf:
-         case Tag::Dense:
-         case Tag::Hash:
-            ASSUME(false);
-      }
-   }
-
-   unsigned innerKeyLen(unsigned index)
-   {
-      switch (tag()) {
-         case Tag::Inner:
-            return basic()->slot[index].keyLen + basic()->prefixLength;
-         case Tag::Head4:
-            return head4()->getKeyLength(index);
-         case Tag::Head8:
-            return head8()->getKeyLength(index);
-         case Tag::Leaf:
-         case Tag::Dense:
-         case Tag::Hash:
-            ASSUME(false);
-      }
-   }
+   void print();
+   unsigned lookupInnerIndex(uint8_t* key, unsigned keyLength);
+   unsigned innerCount();
+   AnyNode* getChild(unsigned index);
+   void innerRestoreKey(uint8_t* keyOut, unsigned len, unsigned index);
+   void innerRemoveSlot(unsigned int slotId);
+   unsigned innerKeyLen(unsigned index);
+   bool splitNodeWithParent(AnyNode* parent, uint8_t* key, unsigned keyLength);
 };
 
 struct BTree {

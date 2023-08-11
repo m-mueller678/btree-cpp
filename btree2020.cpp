@@ -3,7 +3,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <functional>
-#include "head.hpp"
 
 BTreeNode::BTreeNode(bool isLeaf) : BTreeNodeHeader(isLeaf)
 {
@@ -72,20 +71,6 @@ bool BTreeNode::requestSpaceFor(unsigned spaceNeeded)
 AnyNode* BTreeNode::makeLeaf()
 {
    return new AnyNode(BTreeNode(true));
-}
-
-AnyNode* AnyNode::makeRoot(AnyNode* child)
-{
-   if (enableHeadNode) {
-      AnyNode* ptr = new AnyNode();
-      ptr->_head4.init(nullptr, 0, nullptr, 0);
-      storeUnaligned(ptr->head4()->children(), child);
-      return ptr;
-   } else {
-      AnyNode* ptr = new AnyNode(BTreeNode(false));
-      ptr->basic()->upper = child;
-      return ptr;
-   }
 }
 
 uint8_t* BTreeNode::getKey(unsigned slotId)
@@ -584,66 +569,9 @@ void BTree::splitNode(AnyNode* node, AnyNode* parent, uint8_t* key, unsigned key
       root = parent;
    }
 
-   switch (node->tag()) {
-      case Tag::Leaf:
-      case Tag::Inner: {
-         BTreeNode::SeparatorInfo sepInfo = node->basic()->findSeparator();
-         if (parent->innerRequestSpaceFor(sepInfo.length)) {  // is there enough space in the parent for the separator?
-            uint8_t sepKey[sepInfo.length];
-            node->basic()->getSep(sepKey, sepInfo);
-            node->basic()->splitNode(parent, sepInfo.slot, sepKey, sepInfo.length);
-         } else {
-            // must split parent first to make space for separator, restart from root to do this
-            ensureSpace(parent, key, keyLength);
-         }
-         break;
-      }
-      case Tag::Dense: {
-         if (parent->innerRequestSpaceFor(node->dense()->fullKeyLen)) {  // is there enough space in the parent for the separator?
-            node->dense()->splitNode(parent, key, keyLength);
-         } else {
-            ensureSpace(parent, key, keyLength);
-         }
-         break;
-      }
-      case Tag::Hash: {
-         node->hash()->sort();
-         BTreeNode::SeparatorInfo sepInfo = node->hash()->findSeparator();
-         if (parent->innerRequestSpaceFor(sepInfo.length)) {  // is there enough space in the parent for the separator?
-            uint8_t sepKey[sepInfo.length];
-            node->hash()->getSep(sepKey, sepInfo);
-            node->hash()->splitNode(parent, sepInfo.slot, sepKey, sepInfo.length);
-         } else {
-            // must split parent first to make space for separator, restart from root to do this
-            ensureSpace(parent, key, keyLength);
-         }
-         break;
-      }
-      case Tag::Head4: {
-         BTreeNode::SeparatorInfo sepInfo = node->head4()->findSeparator();
-         if (parent->innerRequestSpaceFor(sepInfo.length)) {  // is there enough space in the parent for the separator?
-            uint8_t sepKey[sepInfo.length];
-            node->head4()->getSep(sepKey, sepInfo);
-            node->head4()->splitNode(parent, sepInfo.slot, sepKey, sepInfo.length);
-         } else {
-            // must split parent first to make space for separator, restart from root to do this
-            ensureSpace(parent, key, keyLength);
-         }
-         break;
-      }
-      case Tag::Head8: {
-         BTreeNode::SeparatorInfo sepInfo = node->head8()->findSeparator();
-         if (parent->innerRequestSpaceFor(sepInfo.length)) {  // is there enough space in the parent for the separator?
-            uint8_t sepKey[sepInfo.length];
-            node->head8()->getSep(sepKey, sepInfo);
-            node->head8()->splitNode(parent, sepInfo.slot, sepKey, sepInfo.length);
-         } else {
-            // must split parent first to make space for separator, restart from root to do this
-            ensureSpace(parent, key, keyLength);
-         }
-         break;
-      }
-   }
+   if (!node->splitNodeWithParent(parent, key, keyLength))
+      // must split parent first to make space for separator, restart from root to do this
+      ensureSpace(parent, key, keyLength);
 }
 
 void BTree::ensureSpace(AnyNode* toSplit, uint8_t* key, unsigned keyLength)
