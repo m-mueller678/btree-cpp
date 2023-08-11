@@ -198,11 +198,14 @@ bool BTreeNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsig
    }
    bool found;
    unsigned slotId = lowerBound(key, keyLength, found);
-   assert(!found);
-   memmove(slot + slotId + 1, slot + slotId, sizeof(Slot) * (count - slotId));
-   storeKeyValue(slotId, key, keyLength, payload, payloadLength);
-   count++;
-   updateHint(slotId);
+   if (found) {
+      storeKeyValue(slotId, key, keyLength, payload, payloadLength);
+   } else {
+      memmove(slot + slotId + 1, slot + slotId, sizeof(Slot) * (count - slotId));
+      storeKeyValue(slotId, key, keyLength, payload, payloadLength);
+      count++;
+      updateHint(slotId);
+   }
    return true;
 }
 

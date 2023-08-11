@@ -212,14 +212,18 @@ void HashNode::compactify(unsigned newHashCapacity)
 bool HashNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
 {
    assert(freeSpace() < pageSize);
-   assert(findIndex(key, keyLength) < 0);
    assert(keyLength >= prefixLength);
    if (!requestSlotAndSpace(keyLength - prefixLength + payloadLength)) {
       assert(freeSpace() < pageSize);
       return false;
    }
-   storeKeyValue(count, key, keyLength, payload, payloadLength);
-   count += 1;
+   int index = findIndex(key, keyLength);
+   if (index < 0) {
+      storeKeyValue(count, key, keyLength, payload, payloadLength);
+      count += 1;
+   } else {
+      storeKeyValue(index, key, keyLength, payload, payloadLength);
+   }
    assert(freeSpace() < pageSize);
    return true;
 }

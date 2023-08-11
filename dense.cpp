@@ -108,8 +108,8 @@ bool DenseNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsig
          ASSUME(false);
    }
    assert(keyIndex >= 0);
+   occupiedCount += !isSlotPresent(keyIndex);
    setSlotPresent(keyIndex);
-   occupiedCount += 1;
    memcpy(getVal(keyIndex), payload, payloadLength);
    return true;
 }
