@@ -190,7 +190,14 @@ struct vmcacheAdapter {
                  const std::function<bool(const typename Record::Key&, const Record&)>& found_record_cb,
                  std::function<void()> reset_if_scan_failed_cb)
    {
-      abort();
+      static u8 keyIn[Record::maxFoldLength()];
+      static u8 keyOut[Record::maxFoldLength()];
+      unsigned length = Record::foldKey(keyIn, key);
+      typename Record::Key typedKey;
+      tree->range_lookup_desc(keyIn, length, keyOut, [&](unsigned, uint8_t* payload, unsigned) {
+         Record::unfoldKey(keyOut, typedKey);
+         return found_record_cb(typedKey, *reinterpret_cast<const Record*>(payload));
+      });
    }
 
    // -------------------------------------------------------------------------------------
