@@ -178,7 +178,7 @@ KeyError DenseNode::keyToIndex(uint8_t* truncatedKey, unsigned truncatedLen)
       return KeyError::WrongLen;
    }
    if (memcmp(getLowerFence() + prefixLength, truncatedKey, prefixDiffLen()) != 0) {
-      assert(memcmp(getLowerFence() + prefixLength, truncatedKey, prefixDiffLen()) > 0);
+      assert(memcmp(getLowerFence() + prefixLength, truncatedKey, prefixDiffLen()) < 0);
       return KeyError::NotNumericRange;
    }
    NumericPart numericPart = getNumericPart(truncatedKey + prefixDiffLen(), truncatedLen - prefixDiffLen());
@@ -263,9 +263,11 @@ void DenseNode::updateArrayStart()
 {
    if (lowerFenceLen < fullKeyLen) {
       // TODO this might be simplified
+      unsigned numericPrefixLength = computeNumericPrefixLength(prefixLength, fullKeyLen);
       uint8_t zeroPaddedLowerFenceTail[maxNumericPartLen];
-      unsigned lowerFenceTailLen = min(4, lowerFenceLen - prefixLength);
-      memcpy(zeroPaddedLowerFenceTail, getLowerFence() + lowerFenceLen - lowerFenceTailLen, lowerFenceTailLen);
+      ASSUME(lowerFenceLen >= numericPrefixLength);
+      unsigned lowerFenceTailLen = lowerFenceLen - numericPrefixLength;
+      memcpy(zeroPaddedLowerFenceTail, getLowerFence() + numericPrefixLength, lowerFenceTailLen);
       for (unsigned i = lowerFenceTailLen; i < maxNumericPartLen; ++i) {
          zeroPaddedLowerFenceTail[i] = 0;
       }
