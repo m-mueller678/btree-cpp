@@ -483,7 +483,7 @@ bool DenseNode::range_lookup_desc(uint8_t* key,
 
    int wordIndex = firstIndex / maskBitsPerWord;
    Mask word = mask[wordIndex];
-   unsigned shift = maskBitsPerWord - (firstIndex % maskBitsPerWord);
+   unsigned shift = (maskBitsPerWord - firstIndex % maskBitsPerWord) % maskBitsPerWord;
    word <<= shift;
    while (true) {
       unsigned leadingZeros = std::__countl_zero(word);
@@ -496,6 +496,7 @@ bool DenseNode::range_lookup_desc(uint8_t* key,
          word = mask[wordIndex];
       } else {
          shift += leadingZeros;
+         ASSUME(shift < maskBitsPerWord);
          word <<= leadingZeros;
          unsigned entryIndex = wordIndex * maskBitsPerWord + (maskBitsPerWord - 1 - shift);
          NumericPart numericPart = __builtin_bswap32(arrayStart + static_cast<NumericPart>(entryIndex));
