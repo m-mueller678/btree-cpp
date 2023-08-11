@@ -158,11 +158,9 @@ bool HeadNode<T>::convertToHead8WithSpace()
    for (unsigned i = 0; i < count; ++i) {
       tmp.keys[i] = static_cast<uint64_t>(keys[i] & ~static_cast<uint32_t>(255)) << 32 | static_cast<uint64_t>(keys[i] & 255);
    }
-   memcpy(tmp.children(), children(), sizeof(AnyNode*) * count + 1);
+   memcpy(tmp.children(), children(), sizeof(AnyNode*) * (count + 1));
    tmp.count = count;
    tmp.makeHint();
-   print();
-   tmp.print();
    memcpy(this, &tmp, pageSize);
    return true;
 }
@@ -180,11 +178,9 @@ bool HeadNode<T>::convertToHead4WithSpace()
    for (unsigned i = 0; i < count; ++i) {
       tmp.keys[i] = static_cast<uint32_t>(keys[i] >> 32) | static_cast<uint32_t>(keys[i] & 255);
    }
-   memcpy(tmp.children(), children(), sizeof(AnyNode*) * count + 1);
+   memcpy(tmp.children(), children(), sizeof(AnyNode*) * (count + 1));
    tmp.count = count;
    tmp.makeHint();
-   print();
-   tmp.print();
    memcpy(this, &tmp, pageSize);
    return true;
 }
@@ -419,6 +415,7 @@ void HeadNode<T>::print()
       }
       printf("-> %p\n", reinterpret_cast<void*>(loadUnaligned<AnyNode*>(children() + i)));
    }
+   printf("upper -> %p\n, ", reinterpret_cast<void*>(loadUnaligned<AnyNode*>(children() + count)));
 }
 
 template <class T>
