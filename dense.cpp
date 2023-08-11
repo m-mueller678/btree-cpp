@@ -465,3 +465,47 @@ bool DenseNode::range_lookup(uint8_t* key,
       }
    }
 }
+
+bool DenseNode::range_lookup_desc(uint8_t* key,
+                                  unsigned keyLen,
+                                  uint8_t* keyOut,
+                                  // called with keylen and value
+                                  // scan continues if callback returns true
+                                  const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
+{
+   AnyKeyIndex keyPosition = anyKeyIndex(key, keyLen);
+   int anyKeyIndex = keyPosition.index;
+   int firstIndex = anyKeyIndex - (keyPosition.rel == AnyKeyRel::Before);
+   if (firstIndex < 0)
+      return true;
+   unsigned nprefLen = computeNumericPrefixLength(prefixLength, fullKeyLen);
+   memcpy(keyOut, getLowerFence(), nprefLen);
+
+   int wordIndex = firstIndex / maskBitsPerWord;
+   Mask word = mask[wordIndex];
+   unsigned shift = maskBitsPerWord - (firstIndex % maskBitsPerWord);
+   word <<= shift;
+   while (true) {
+      unsigned leadingZeros = std::__countl_zero(word);
+      if (leadingZeros == maskBitsPerWord) {
+         wordIndex -= 1;
+         if (wordIndex < 0) {
+            return true;
+         }
+         shift = 0;
+         word = mask[wordIndex];
+      } else {
+         shift += leadingZeros;
+         word <<= leadingZeros;
+         unsigned entryIndex = wordIndex * maskBitsPerWord + (maskBitsPerWord - 1 - shift);
+         NumericPart numericPart = __builtin_bswap32(arrayStart + static_cast<NumericPart>(entryIndex));
+         unsigned numericPartLen = fullKeyLen - nprefLen;
+         memcpy(keyOut + nprefLen, reinterpret_cast<uint8_t*>(&numericPart) + sizeof(NumericPart) - numericPartLen, numericPartLen);
+         if (!found_record_cb(fullKeyLen, getVal(entryIndex), valLen)) {
+            return false;
+         }
+         shift += 1;
+         word <<= 1;
+      }
+   }
+}

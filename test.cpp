@@ -57,7 +57,25 @@ void runTest(PerfEvent& e, vector<string>& data)
             foundIndex += 1;
             return foundIndex < 10;
          });
-         if (foundIndex > 10 || (foundIndex < 10 && foundIndex + i != data.size()))
+         // TODO this should probably fail but does not
+         if (foundIndex != 10)
+            throw;
+      }
+   }
+
+   {
+      for (uint64_t i = 0; i < count; i += 4) {
+         uint8_t keyBuffer[BTreeNode::maxKVSize];
+         unsigned foundIndex = 0;
+         t.range_lookup_desc((uint8_t*)data[i].data(), data[i].size(), keyBuffer, [&](unsigned keyLen, uint8_t* payload, unsigned payloadLen) {
+            assert(payloadLen == sizeof(uint64_t));
+            uint64_t loadedPayload = loadUnaligned<uint64_t>(payload);
+            assert(data[loadedPayload].size() == keyLen);
+            assert(memcmp(keyBuffer, data[loadedPayload].data(), keyLen) == 0);
+            foundIndex += 1;
+            return foundIndex < 10;
+         });
+         if (foundIndex != 10)
             throw;
       }
    }

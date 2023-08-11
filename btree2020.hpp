@@ -260,6 +260,10 @@ struct BTreeNode : public BTreeNodeHeader {
    void print();
    void restoreKey(uint8_t* keyOut, unsigned len, unsigned index);
    void validateHint();
+   bool range_lookup_desc(uint8_t* key,
+                          unsigned int keyLen,
+                          uint8_t* keyOut,
+                          const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
 };
 
 typedef uint32_t NumericPart;
@@ -363,6 +367,10 @@ struct DenseNode : public DenseNodeHeader {
                      uint8_t* keyOut,
                      const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
    AnyKeyIndex anyKeyIndex(uint8_t* key, unsigned keyLen);
+   bool range_lookup_desc(uint8_t* key,
+                          unsigned int keyLen,
+                          uint8_t* keyOut,
+                          const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
 };
 
 struct HashNodeHeader {
@@ -426,10 +434,14 @@ struct HashNode : public HashNodeHeader {
                      unsigned int keyLen,
                      uint8_t* keyOut,
                      const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
-   unsigned int lowerBound(uint8_t* key, unsigned int keyLength);
+   unsigned int lowerBound(uint8_t* key, unsigned int keyLength, bool& found);
 
    int findIndexNoSimd(uint8_t* key, unsigned keyLength);
    int findIndexSimd(uint8_t* key, unsigned keyLength);
+   bool range_lookup_desc(uint8_t* key,
+                          unsigned int keyLen,
+                          uint8_t* keyOut,
+                          const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
 } __attribute__((aligned(hashUseSimd ? hashSimdWidth : 2)));
 
 struct HeadNodeHead {
@@ -547,4 +559,8 @@ struct BTree {
                      unsigned int keyLen,
                      uint8_t* keyOut,
                      const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
+   void range_lookup_desc(uint8_t* key,
+                          unsigned int keyLen,
+                          uint8_t* keyOut,
+                          const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
 };

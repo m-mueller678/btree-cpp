@@ -772,6 +772,71 @@ void BTree::range_lookup(uint8_t* key,
    }
 }
 
+bool BTreeNode::range_lookup_desc(uint8_t* key,
+                                  unsigned keyLen,
+                                  uint8_t* keyOut,
+                                  // called with keylen and value
+                                  // scan continues if callback returns true
+                                  const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
+{
+   memcpy(keyOut, key, prefixLength);
+   bool found;
+   int lb = lowerBound(key, keyLen, found);
+   for (int i = lb - !found; i >= 0; --i) {
+      memcpy(keyOut + prefixLength, getKey(i), slot[i].keyLen);
+      if (!found_record_cb(slot[i].keyLen + prefixLength, getPayload(i), slot[i].payloadLen)) {
+         return false;
+      }
+   }
+   return true;
+}
+
+void BTree::range_lookup_desc(uint8_t* key,
+                              unsigned keyLen,
+                              uint8_t* keyOut,
+                              // called with keylen and value
+                              // scan continues if callback returns true
+                              const std::function<bool(unsigned, uint8_t*, unsigned)>& found_record_cb)
+{
+   uint8_t startKeyBuffer[BTreeNode::maxKVSize];
+   while (true) {
+      AnyNode* node = root;
+      while (node->isAnyInner()) {
+         node = node->lookupInner(key, keyLen);
+      }
+      switch (node->tag()) {
+         case Tag::Leaf: {
+            if (!node->basic()->range_lookup_desc(key, keyLen, keyOut, found_record_cb))
+               return;
+            keyLen = node->basic()->lowerFence.length;
+            key = startKeyBuffer;
+            memcpy(key, node->basic()->getLowerFence(), keyLen);
+            break;
+         }
+         case Tag::Dense: {
+            if (!node->dense()->range_lookup_desc(key, keyLen, keyOut, found_record_cb))
+               return;
+            keyLen = node->dense()->lowerFenceLen;
+            key = startKeyBuffer;
+            memcpy(key, node->dense()->getLowerFence(), keyLen);
+            break;
+         }
+         case Tag::Hash: {
+            if (!node->hash()->range_lookup_desc(key, keyLen, keyOut, found_record_cb))
+               return;
+            keyLen = node->hash()->lowerFenceLen;
+            key = startKeyBuffer;
+            memcpy(key, node->hash()->getLowerFence(), keyLen);
+            break;
+         }
+         case Tag::Inner:
+         case Tag::Head4:
+         case Tag::Head8:
+            ASSUME(false)
+      }
+   }
+}
+
 void BTreeNode::validateHint()
 {
 #ifdef NDEBUG

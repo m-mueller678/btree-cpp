@@ -420,7 +420,28 @@ bool HashNode::range_lookup(uint8_t* key,
 {
    sort();
    memcpy(keyOut, key, prefixLength);
-   for (unsigned i = lowerBound(key, keyLen); i < count; ++i) {
+   bool found;
+   for (unsigned i = lowerBound(key, keyLen, found); i < count; ++i) {
+      memcpy(keyOut + prefixLength, getKey(i), slot[i].keyLen);
+      if (!found_record_cb(slot[i].keyLen + prefixLength, getPayload(i), slot[i].payloadLen)) {
+         return false;
+      }
+   }
+   return true;
+}
+
+bool HashNode::range_lookup_desc(uint8_t* key,
+                                 unsigned keyLen,
+                                 uint8_t* keyOut,
+                                 // called with keylen and value
+                                 // scan continues if callback returns true
+                                 const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
+{
+   sort();
+   memcpy(keyOut, key, prefixLength);
+   bool found;
+   int lb = lowerBound(key, keyLen, found);
+   for (int i = lb - !found; i >= 0; --i) {
       memcpy(keyOut + prefixLength, getKey(i), slot[i].keyLen);
       if (!found_record_cb(slot[i].keyLen + prefixLength, getPayload(i), slot[i].payloadLen)) {
          return false;
@@ -430,8 +451,9 @@ bool HashNode::range_lookup(uint8_t* key,
 }
 
 // lower bound search, foundOut indicates if there is an exact match, returns slotId
-unsigned HashNode::lowerBound(uint8_t* key, unsigned keyLength)
+unsigned HashNode::lowerBound(uint8_t* key, unsigned keyLength, bool& found)
 {
+   found = false;
    key += prefixLength;
    keyLength -= prefixLength;
    unsigned lower = 0;
@@ -449,6 +471,7 @@ unsigned HashNode::lowerBound(uint8_t* key, unsigned keyLength)
          } else if (keyLength > slot[mid].keyLen) {  // key is longer
             lower = mid + 1;
          } else {
+            found = true;
             return mid;
          }
       }
