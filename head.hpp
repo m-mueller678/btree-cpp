@@ -91,7 +91,6 @@ unsigned HeadNode<T>::getKeyLength(unsigned i)
 template <class T>
 void HeadNode<T>::copyKeyValueRangeToBasic(BTreeNode* dst, unsigned srcStart, unsigned srcEnd)
 {
-   assert(enablePrefix);
    ASSUME(dst->prefixLength >= prefixLength);
    ASSUME(dst->count == 0);
    unsigned prefixDiff = dst->prefixLength - prefixLength;
@@ -215,7 +214,6 @@ void HeadNode<T>::insertAt(unsigned index, T head, AnyNode* child)
 template <class T>
 void HeadNode<T>::clone_from_basic(BTreeNode* src)
 {
-   assert(enablePrefix);
    init(src->getLowerFence(), src->lowerFence.length, src->getUpperFence(), src->upperFence.length);
    ASSUME(src->count <= keyCapacity);
    count = src->count;
@@ -283,6 +281,7 @@ inline void HeadNodeHead::updatePrefixLength()
 template <class T>
 void HeadNode<T>::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen)
 {
+   assert(enablePrefix);
    assert(sizeof(HeadNode<T>) == pageSize);
    _tag = sizeof(T) == 4 ? Tag::Head4 : Tag::Head8;
    count = 0;

@@ -206,6 +206,7 @@ unsigned DenseNode::computeNumericPrefixLength(unsigned prefixLength, unsigned f
 
 void DenseNode::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen, unsigned fullKeyLen, unsigned valLen)
 {
+   assert(enablePrefix);
    assert(sizeof(DenseNode) == pageSize);
    tag = Tag::Dense;
    this->fullKeyLen = fullKeyLen;
