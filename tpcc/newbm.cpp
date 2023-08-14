@@ -25,13 +25,13 @@
 #include <tbb/parallel_for.h>
 #include <tbb/task_scheduler_init.h>
 
-#include "../PerfEvent.hpp"
+#include "../btree/PerfEvent.hpp"
 #include "exception_hack.hpp"
 
 __thread uint16_t workerThreadId = 0;
 __thread int32_t tpcchistorycounter = 0;
 
-#include "../btree2020.hpp"
+#include "../btree/btree2020.hpp"
 #include "tpcc/TPCCWorkload.hpp"
 
 using namespace std;

@@ -2,8 +2,8 @@
 #include <csignal>
 #include <fstream>
 #include <string>
-#include "PerfEvent.hpp"
-#include "btree2020.hpp"
+#include "btree/PerfEvent.hpp"
+#include "btree/btree2020.hpp"
 
 using namespace std;
 
