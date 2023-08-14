@@ -5,7 +5,7 @@ tpcc_cpps=tpcc/newbm.cpp $(core_cpps)
 cc=clang++-15 -std=c++17 -o $@
 named_config_headers = $(shell ls named-configs)
 config_names = $(named_config_headers:%.hpp=%)
-named_builds = $(config_names:%=named-build/%) $(config_names:%=named-build/%-opt-test) $(config_names:%=named-build/%-tpcc-debug)
+named_builds = $(config_names:%=named-build/%-tpcc) $(config_names:%=named-build/%-opt-test) $(config_names:%=named-build/%-debug-tpcc)
 named_args = -include named-configs/$*.hpp -DNAMED_CONFIG=\"$*\"
 
 all: asan.elf test.elf optimized.elf $(named_builds)
@@ -32,16 +32,16 @@ tpcc-optimzed.elf: $(sources)
 tpcc-debug.elf: $(sources)
 	$(cc) $(tpcc_cpps) -g  -ltbb  -Wall -Wextra -Wpedantic
 
-named-build/%-tpcc: $(sources)
+named-build:
 	mkdir -p named-build
+
+named-build/%-tpcc: $(sources) named-build
 	$(cc) $(tpcc_cpps) -O3 -march=native -DNDEBUG -g -fnon-call-exceptions -fasynchronous-unwind-tables -ltbb $(named_args)
 
-named-build/%-opt-test: $(sources)
-	mkdir -p named-build
+named-build/%-opt-test: $(sources) named-build
 	$(cc) $(test_cpps) -O3 -march=native -DNDEBUG -g $(named_args)
 
-named-build/%-debug-tpcc: $(sources)
-	mkdir -p named-build
+named-build/%-debug-tpcc: $(sources) named-build
 	$(cc) $(tpcc_cpps) -O3 -march=native -g -fnon-call-exceptions -fasynchronous-unwind-tables -ltbb $(named_args)
 
 .PHONY: always-rebuild
