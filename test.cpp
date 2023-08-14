@@ -113,7 +113,7 @@ void runTest(PerfEvent& e, vector<string>& data)
    data.clear();
 }
 
-int main(int argc, char** argv)
+int main()
 {
    PerfEvent e;
 

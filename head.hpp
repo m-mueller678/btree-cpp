@@ -170,7 +170,11 @@ bool HeadNode<T>::convertToHead4WithSpace()
    HeadNode4 tmp;
    tmp.init(getLowerFence(), lowerFenceLen, getUpperFence(), upperFenceLen);
    for (unsigned i = 0; i < count; ++i) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wshift-count-overflow"
+      // this is never runs for T = uint_32t, where the warning is generated
       tmp.keys[i] = static_cast<uint32_t>(keys[i] >> 32) | static_cast<uint32_t>(keys[i] & 255);
+#pragma clang diagnostic pop
    }
    memcpy(tmp.children(), children(), sizeof(AnyNode*) * (count + 1));
    tmp.count = count;
