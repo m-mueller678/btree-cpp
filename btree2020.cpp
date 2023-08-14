@@ -539,7 +539,9 @@ BTree::BTree()
 #endif
 {
 #ifndef NDEBUG
-   root->print();
+   // prevent print from being optimized out. It is otherwise never called, but nice for debugging
+   if (getenv("oMEeHAobn4"))
+      root->print();
 #endif
 }
 

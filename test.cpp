@@ -19,6 +19,7 @@ void runTest(PerfEvent& e, vector<string>& data)
    for (auto x : btree_constexpr_settings) {
       e.setParam(x.first, std::to_string(x.second));
    }
+   e.setParam("config-name", configName);
    {
       // insert
       e.setParam("op", "insert");
