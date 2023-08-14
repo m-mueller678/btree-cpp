@@ -35,22 +35,21 @@ tpcc-optimzed.elf: $(sources)
 tpcc-debug.elf: $(sources)
 	$(cc) $(tpcc_cpps) -g  -ltbb  -Wall -Wextra -Wpedantic
 
-named-build:
+named-build/%-tpcc: $(sources)
 	mkdir -p named-build
-
-named-build/%-tpcc: $(sources) named-build
 	$(cc) $(tpcc_cpps) -O3 -march=native -DNDEBUG -g -fnon-call-exceptions -fasynchronous-unwind-tables -ltbb $(named_args)
 
-named-build/%-opt-test: $(sources) named-build
+named-build/%-opt-test: $(sources)
+	mkdir -p named-build
 	$(cc) $(test_cpps) -O3 -march=native -DNDEBUG -g $(named_args)
 
-named-build/%-debug-tpcc: $(sources) named-build
+named-build/%-debug-tpcc: $(sources)
+	mkdir -p named-build
 	$(cc) $(tpcc_cpps) -O3 -march=native -g -fnon-call-exceptions -fasynchronous-unwind-tables -ltbb $(named_args)
 
 debug-named-tpcc: $(named_tpcc_debug_builds)
 	parallel --delay 0.5 --memfree 16G -j75% -q -- env RUNFOR=15 WH=5 {1} ::: $(named_tpcc_debug_builds)
 
-tpcc.csv: $(named_tpcc_opt_builds)
-	parallel --memfree 16G -q -- {1} ::: $(named_tpcc_opt_builds) | awk '/const/ {if(!header)print;header=1} !/const/' > $@
-
-.PHONY: always-rebuild
+.PHONY: tpcc
+tpcc: $(named_tpcc_opt_builds)
+	parallel --memfree 16G -q -- {1} ::: $(named_tpcc_opt_builds) | awk '/const/ {if(!header)print;header=1} !/const/' > tpcc.csv
