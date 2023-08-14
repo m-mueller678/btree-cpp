@@ -2,7 +2,7 @@ sources= btree/*.?pp tpcc/*.?pp tpcc/tpcc/*.?pp named-configs/*.hpp test.cpp
 core_cpps=btree/*.cpp
 test_cpps=test.cpp $(core_cpps)
 tpcc_cpps=tpcc/newbm.cpp $(core_cpps)
-cc=clang++-15 -std=c++17 -o $@ -march=native -g
+cc=clang++-17 -std=c++17 -o $@ -march=native -g
 
 named_config_headers = $(shell ls named-configs)
 config_names = $(named_config_headers:%.hpp=%)
@@ -17,7 +17,7 @@ asan.elf: $(sources)
 	$(cc) -fsanitize=address $(test_cpps)
 
 test.elf: $(sources)
-	$(cc) $(test_cpps) -g  -Wall -Wextra -Wpedantic
+	$(cc) $(test_cpps) -Wall -Wextra -Wpedantic
 
 optimized.elf: $(sources)
 	$(cc) $(test_cpps) -O3  -DNDEBUG
@@ -46,6 +46,10 @@ named-build/%-opt-test: $(sources)
 named-build/%-debug-tpcc: $(sources)
 	@mkdir -p named-build
 	$(cc) $(tpcc_cpps) -O3   -fnon-call-exceptions -fasynchronous-unwind-tables -ltbb $(named_args)
+
+named-build/%-debug-test: $(sources)
+	@mkdir -p named-build
+	$(cc) $(test_cpps) -Wall -Wextra -Wpedantic $(named_args)
 
 debug-named-tpcc: $(named_tpcc_debug_builds)
 	parallel --delay 0.5 --memfree 16G -j75% -q -- env RUNFOR=15 WH=5 {1} ::: $(named_tpcc_debug_builds)
