@@ -1,5 +1,5 @@
 *~
 /.idea/
 *.elf
-/data/
+/data
 /named-build/
