@@ -7,7 +7,8 @@ cc=clang++-15 -std=c++17 -o $@
 named_config_headers = $(shell ls named-configs)
 config_names = $(named_config_headers:%.hpp=%)
 named_tpcc_debug_builds = $(config_names:%=named-build/%-debug-tpcc)
-named_builds = $(config_names:%=named-build/%-tpcc) $(config_names:%=named-build/%-opt-test)  $(named_tpcc_debug_builds)
+named_tpcc_opt_builds = $(config_names:%=named-build/%-tpcc)
+named_builds =  $(config_names:%=named-build/%-opt-test)  $(named_tpcc_debug_builds) $(named_tpcc_opt_builds)
 named_args = -include named-configs/$*.hpp -DNAMED_CONFIG=\"$*\"
 
 all: asan.elf test.elf optimized.elf $(named_builds)
@@ -48,5 +49,8 @@ named-build/%-debug-tpcc: $(sources) named-build
 
 debug-named-tpcc: $(named_tpcc_debug_builds)
 	parallel --delay 0.5 --memfree 16G -j75% -q -- env RUNFOR=15 WH=5 {1} ::: $(named_tpcc_debug_builds)
+
+run-tpcc: $(named_tpcc_opt_builds)
+	parallel --memfree 16G -q -- {1} ::: $(named_tpcc_opt_builds)
 
 .PHONY: always-rebuild
