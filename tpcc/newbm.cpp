@@ -317,9 +317,9 @@ int main(int argc, char** argv)
       e.setParam(x.first, std::to_string(x.second));
    }
    e.setParam("op", "tpc-c");
-   e.setParam("tpcc-warehouses", n);
-   e.setParam("tpcc-runfor", runForSec);
-   e.setParam("config-name", configName);
+   e.setParam("tpcc_warehouses", n);
+   e.setParam("tpcc_runfor", runForSec);
+   e.setParam("config_name", configName);
 
    atomic<u64> txProgress(0);
    atomic<bool> keepRunning(true);
