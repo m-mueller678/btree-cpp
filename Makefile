@@ -50,7 +50,7 @@ named-build/%-debug-tpcc: $(sources) named-build
 debug-named-tpcc: $(named_tpcc_debug_builds)
 	parallel --delay 0.5 --memfree 16G -j75% -q -- env RUNFOR=15 WH=5 {1} ::: $(named_tpcc_debug_builds)
 
-run-tpcc: $(named_tpcc_opt_builds)
-	parallel --memfree 16G -q -- {1} ::: $(named_tpcc_opt_builds)
+tpcc.csv: $(named_tpcc_opt_builds)
+	parallel --memfree 16G -q -- {1} ::: $(named_tpcc_opt_builds) | awk '/const/ {if(!header)print;header=1} !/const/' > $@
 
 .PHONY: always-rebuild
