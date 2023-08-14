@@ -312,14 +312,7 @@ int main(int argc, char** argv)
    tbb::task_scheduler_init init(nthreads);
    u64 n = envOr("WH", 10);
    u64 runForSec = envOr("RUNFOR", 30);
-   PerfEvent e;
-   for (auto x : btree_constexpr_settings) {
-      e.setParam(x.first, std::to_string(x.second));
-   }
-   e.setParam("op", "tpc-c");
-   e.setParam("tpcc_warehouses", n);
-   e.setParam("tpcc_runfor", runForSec);
-   e.setParam("config_name", configName);
+   PerfEvent e = makePerfEvent("tpcc", false, n);
 
    atomic<u64> txProgress(0);
    atomic<bool> keepRunning(true);

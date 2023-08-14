@@ -7,19 +7,18 @@
 
 using namespace std;
 
-void runTest(PerfEvent& e, vector<string>& data)
+void runTest(vector<string>& data, std::string dataName)
 {
-   if (getenv("SHUF"))
-      random_shuffle(data.begin(), data.end());
-   if (getenv("SORT"))
+   bool sorted = getenv("SORT");
+   if (sorted)
       sort(data.begin(), data.end());
+   else
+      random_shuffle(data.begin(), data.end());
+
+   PerfEvent e = makePerfEvent(dataName, sorted, data.size());
 
    BTree t;
    uint64_t count = data.size();
-   for (auto x : btree_constexpr_settings) {
-      e.setParam(x.first, std::to_string(x.second));
-   }
-   e.setParam("config_name", configName);
    {
       // insert
       e.setParam("op", "insert");
@@ -116,8 +115,6 @@ void runTest(PerfEvent& e, vector<string>& data)
 
 int main()
 {
-   PerfEvent e;
-
    vector<string> data;
 
    if (getenv("INT")) {
@@ -131,7 +128,7 @@ int main()
          *(uint32_t*)(s.data()) = __builtin_bswap32(x);
          data.push_back(s);
       }
-      runTest(e, data);
+      runTest(data, "int");
    }
 
    if (getenv("LONG1")) {
@@ -142,7 +139,7 @@ int main()
             s.push_back('A');
          data.push_back(s);
       }
-      runTest(e, data);
+      runTest(data, "long1");
    }
 
    if (getenv("LONG2")) {
@@ -153,7 +150,7 @@ int main()
             s.push_back('A' + random() % 60);
          data.push_back(s);
       }
-      runTest(e, data);
+      runTest(data, "long2");
    }
 
    if (getenv("FILE")) {
@@ -161,7 +158,7 @@ int main()
       string line;
       while (getline(in, line))
          data.push_back(line);
-      runTest(e, data);
+      runTest(data, getenv("FILE"));
    }
 
    return 0;
