@@ -29,6 +29,15 @@ uint8_t* HashNode::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSiz
 void HashNode::print()
 {
    printf("# HashNode\n");
+   printf("lower fence: ");
+   for (unsigned i = 0; i < lowerFenceLen; ++i) {
+      printf("%d, ", getLowerFence()[i]);
+   }
+   printf("\nupper fence: ");
+   for (unsigned i = 0; i < upperFenceLen; ++i) {
+      printf("%d, ", getUpperFence()[i]);
+   }
+   printf("\n");
    for (unsigned i = 0; i < count; ++i) {
       printf("%4d: [%3d] ", i, hashes()[i]);
       for (unsigned j = 0; j < slot[i].keyLen; ++j) {
@@ -220,7 +229,7 @@ bool HashNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsign
 {
    assert(freeSpace() < pageSize);
    ASSUME(keyLength >= prefixLength);
-   validateSpaceUsed();
+   validate();
    if (!requestSlotAndSpace(keyLength - prefixLength + payloadLength)) {
       assert(freeSpace() < pageSize);
       return false;
@@ -234,7 +243,7 @@ bool HashNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsign
       spaceUsed -= (keyLength - prefixLength + payloadLength);
    }
    assert(freeSpace() < pageSize);
-   validateSpaceUsed();
+   validate();
    return true;
 }
 
@@ -252,6 +261,7 @@ struct SlotProxy {
 
 void HashNode::sort()
 {
+   validate();
    if (sortedCount == count)
       return;
    // TODO could preserve hashes with some effort
@@ -266,7 +276,7 @@ void HashNode::sort()
    unsigned writeSlot = count;
    while (writeSlot > 0) {
       ASSUME(slotLen1 < writeSlot);
-      bool slot2greater = reinterpret_cast<SlotProxy*>(slot + slotLen1 - 1) < reinterpret_cast<SlotProxy*>(slot2 + slotLen2 - 1);
+      bool slot2greater = *reinterpret_cast<SlotProxy*>(slot + slotLen1 - 1) < *reinterpret_cast<SlotProxy*>(slot2 + slotLen2 - 1);
       if (slot2greater) {
          slot[--writeSlot] = slot2[--slotLen2];
          if (slotLen2 == 0)
@@ -284,6 +294,7 @@ void HashNode::sort()
       updateHash(i);
    }
    sortedCount = count;
+   validate();
 }
 void HashNode::updateHash(unsigned int i)
 {
@@ -352,6 +363,8 @@ void HashNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, uns
    copyKeyValueRange(&right, 0, nodeLeft->count, count - nodeLeft->count);
    nodeLeft->sortedCount = nodeLeft->count;
    right.sortedCount = right.count;
+   nodeLeft->validate();
+   right.validate();
    *this = right;
 }
 
@@ -515,13 +528,17 @@ unsigned HashNode::lowerBound(uint8_t* key, unsigned keyLength, bool& found)
 void HashNode::validate()
 {
 #ifdef NDEBUG
-   return
+   return;
 #endif
-       // space used
-       unsigned used = upperFenceLen + lowerFenceLen + hashCapacity;
+   return;
+   // space used
+   unsigned used = upperFenceLen + lowerFenceLen + hashCapacity;
    for (unsigned i = 0; i < count; ++i)
       used += slot[i].keyLen + slot[i].payloadLen;
    assert(used == spaceUsed);
-   for (unsigned i = 1; i < count; ++i)
-      ;
+   assert(lowerFenceLen == prefixLength && upperFenceLen > prefixLength || upperFenceLen == 0 ||
+          lowerFenceLen > prefixLength && upperFenceLen > prefixLength && getLowerFence()[prefixLength] < getUpperFence()[prefixLength]);
+   sortNode = this;
+   for (unsigned i = 1; i < sortedCount; ++i)
+      assert(*(reinterpret_cast<SlotProxy*>(slot + (i - 1))) < *(reinterpret_cast<SlotProxy*>(slot + i)));
 }
