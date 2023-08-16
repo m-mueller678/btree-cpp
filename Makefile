@@ -56,11 +56,11 @@ named-build/%-d0-test: $(sources)
 
 named-build/%-d3-test: $(sources)
 	@mkdir -p named-build
-	$(cc) $(test_cpps) $(named_args)
+	$(cc) $(test_cpps) -O3 $(named_args)
 
 named-build/%-n3-test: $(sources)
 	@mkdir -p named-build
-	$(cc) $(test_cpps) -DNDEBUG $(named_args)
+	$(cc) $(test_cpps) -O3 -DNDEBUG $(named_args)
 
 #### phony
 
