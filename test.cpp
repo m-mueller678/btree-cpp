@@ -32,7 +32,6 @@ void runTest(vector<string>& data, std::string dataName)
          // for (uint64_t j=0; j<=i; j++) if (!t.lookup((uint8_t*)data[j].data(), data[j].size()-8)) throw;
       }
    }
-   return;
 
    {
       // lookup
