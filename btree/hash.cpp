@@ -268,34 +268,45 @@ void HashNode::sort()
    SlotProxy* slotProxy = reinterpret_cast<SlotProxy*>(slot);
    sortNode = this;
    std::sort(slotProxy + sortedCount, slotProxy + count);
+   if (hashSortUseStdMerge) {
+      std::inplace_merge(slotProxy, slotProxy + sortedCount, slotProxy + count);
+      for (unsigned i = 0; i < count; ++i) {
+         updateHash(i);
+      }
+   } else {
+      printf("this crashes on remove with INT=1e6 SORT=1");
+      abort();
 
-   unsigned slotLen1 = sortedCount;
-   unsigned slotLen2 = count - sortedCount;
-   HashSlot slot2[slotLen2];
-   memcpy(slot2, slot + slotLen1, slotLen2 * sizeof(HashSlot));
-   unsigned writeSlot = count;
-   while (writeSlot > 0) {
-      ASSUME(slotLen1 < writeSlot);
-      bool slot2greater = *reinterpret_cast<SlotProxy*>(slot + slotLen1 - 1) < *reinterpret_cast<SlotProxy*>(slot2 + slotLen2 - 1);
-      if (slot2greater) {
-         slot[--writeSlot] = slot2[--slotLen2];
-         if (slotLen2 == 0)
-            break;
+      unsigned slotLen1 = sortedCount;
+      unsigned slotLen2 = count - sortedCount;
+      HashSlot slot2[slotLen2];
+      memcpy(slot2, slot + slotLen1, slotLen2 * sizeof(HashSlot));
+      unsigned writeSlot = count;
+      while (writeSlot > 0) {
+         ASSUME(slotLen1 < writeSlot);
+         bool slot2greater = *reinterpret_cast<SlotProxy*>(slot + slotLen1 - 1) < *reinterpret_cast<SlotProxy*>(slot2 + slotLen2 - 1);
+         if (slot2greater) {
+            slot[--writeSlot] = slot2[--slotLen2];
+            if (slotLen2 == 0)
+               break;
 
-      } else {
-         slot[--writeSlot] = slot[--slotLen1];
-         if (slotLen1 == 0) {
-            memcpy(slot, slot2, slotLen2 * sizeof(HashSlot));
-            break;
+         } else {
+            slot[--writeSlot] = slot[--slotLen1];
+            if (slotLen1 == 0) {
+               memcpy(slot, slot2, slotLen2 * sizeof(HashSlot));
+               break;
+            }
          }
       }
+      for (unsigned i = slotLen1; i < count; ++i) {
+         updateHash(i);
+      }
    }
-   for (unsigned i = slotLen1; i < count; ++i) {
-      updateHash(i);
-   }
+
    sortedCount = count;
    validate();
 }
+
 void HashNode::updateHash(unsigned int i)
 {
    hashes()[i] = compute_hash(getKey(i), slot[i].keyLen);
