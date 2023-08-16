@@ -252,17 +252,14 @@ struct PerfEvent {
 
 #include "config.hpp"
 
-PerfEvent makePerfEvent(
-    std::string dataName,
-    bool dataSorted,
-    unsigned dataSize
-    ){
+PerfEvent makePerfEvent(std::string dataName, bool dataSorted, unsigned dataSize)
+{
    PerfEvent e;
-   e.setParam("op","none");
+   e.setParam("op", "none");
    e.setParam("config_name", configName);
 
-   e.setParam("data_name",dataName);
-   e.setParam("data_sorted",dataSorted);
+   e.setParam("data_name", dataName);
+   e.setParam("data_sorted", dataSorted);
    e.setParam("data_size", dataSize);
    for (auto x : btree_constexpr_settings) {
       e.setParam(x.first, std::to_string(x.second));

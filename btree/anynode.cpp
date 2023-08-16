@@ -12,12 +12,14 @@ Tag AnyNode::tag()
    return _tag;
 }
 
-AnyNode::AnyNode(BTreeNode basic) : AnyNode() {
-   _basic_node=basic;
+AnyNode::AnyNode(BTreeNode basic) : AnyNode()
+{
+   _basic_node = basic;
 }
 
-AnyNode::AnyNode() {
-   //COUNTER(anynode_new,1,1<<10);
+AnyNode::AnyNode()
+{
+   // COUNTER(anynode_new,1,1<<10);
 }
 
 void AnyNode::destroy()

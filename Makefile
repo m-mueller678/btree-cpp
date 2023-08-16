@@ -27,7 +27,7 @@ clean:
 	rm -rf named-build
 
 format:
-	clang-format -i *.?pp tpcc/*.?pp tpcc/tpcc/*.?pp named-configs/*
+	clang-format -i $(sources)
 
 tpcc-optimzed.elf: $(sources)
 	$(cc) $(tpcc_cpps) -O3  -DNDEBUG  -fnon-call-exceptions -fasynchronous-unwind-tables -ltbb

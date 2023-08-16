@@ -219,7 +219,8 @@ void HashNode::compactify(unsigned newHashCapacity)
 bool HashNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
 {
    assert(freeSpace() < pageSize);
-   assert(keyLength >= prefixLength);
+   ASSUME(keyLength >= prefixLength);
+   validateSpaceUsed();
    if (!requestSlotAndSpace(keyLength - prefixLength + payloadLength)) {
       assert(freeSpace() < pageSize);
       return false;
@@ -230,8 +231,10 @@ bool HashNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsign
       count += 1;
    } else {
       storeKeyValue(index, key, keyLength, payload, payloadLength);
+      spaceUsed -= (keyLength - prefixLength + payloadLength);
    }
    assert(freeSpace() < pageSize);
+   validateSpaceUsed();
    return true;
 }
 
@@ -255,29 +258,29 @@ void HashNode::sort()
    SlotProxy* slotProxy = reinterpret_cast<SlotProxy*>(slot);
    sortNode = this;
    std::sort(slotProxy + sortedCount, slotProxy + count);
-   
-   unsigned slotLen1=sortedCount;
-   unsigned slotLen2=count-sortedCount;
+
+   unsigned slotLen1 = sortedCount;
+   unsigned slotLen2 = count - sortedCount;
    HashSlot slot2[slotLen2];
-   memcpy(slot2,slot+slotLen1,slotLen2*sizeof(HashSlot));
+   memcpy(slot2, slot + slotLen1, slotLen2 * sizeof(HashSlot));
    unsigned writeSlot = count;
-   while(writeSlot>0){
-       ASSUME(slotLen1 < writeSlot);
-       bool slot2greater = reinterpret_cast<SlotProxy*>(slot+slotLen1-1) < reinterpret_cast<SlotProxy*>(slot2+slotLen2-1);
-       if(slot2greater){
-            slot[--writeSlot] = slot2[--slotLen2];
-            if(slotLen2==0)
-                break;
-            
-        }else{
-            slot[--writeSlot] = slot[--slotLen1];
-            if(slotLen1 == 0){
-                memcpy(slot,slot2,slotLen2*sizeof(HashSlot));
-                break;
-            }
-        }
-    }
-    for (unsigned i = slotLen1; i < count; ++i) {
+   while (writeSlot > 0) {
+      ASSUME(slotLen1 < writeSlot);
+      bool slot2greater = reinterpret_cast<SlotProxy*>(slot + slotLen1 - 1) < reinterpret_cast<SlotProxy*>(slot2 + slotLen2 - 1);
+      if (slot2greater) {
+         slot[--writeSlot] = slot2[--slotLen2];
+         if (slotLen2 == 0)
+            break;
+
+      } else {
+         slot[--writeSlot] = slot[--slotLen1];
+         if (slotLen1 == 0) {
+            memcpy(slot, slot2, slotLen2 * sizeof(HashSlot));
+            break;
+         }
+      }
+   }
+   for (unsigned i = slotLen1; i < count; ++i) {
       updateHash(i);
    }
    sortedCount = count;
@@ -347,8 +350,8 @@ void HashNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, uns
    assert(succ);
    copyKeyValueRange(nodeLeft, 0, 0, sepSlot + 1);
    copyKeyValueRange(&right, 0, nodeLeft->count, count - nodeLeft->count);
-   nodeLeft->sortedCount=nodeLeft->count;
-   right.sortedCount=right.count;
+   nodeLeft->sortedCount = nodeLeft->count;
+   right.sortedCount = right.count;
    *this = right;
 }
 
@@ -507,4 +510,15 @@ unsigned HashNode::lowerBound(uint8_t* key, unsigned keyLength, bool& found)
       }
    }
    return lower;
+}
+
+void HashNode::validateSpaceUsed()
+{
+#ifdef NDEBUG
+   return
+#endif
+       unsigned used = upperFenceLen + lowerFenceLen + hashCapacity;
+   for (unsigned i = 0; i < count; ++i)
+      used += slot[i].keyLen + slot[i].payloadLen;
+   assert(used == spaceUsed);
 }

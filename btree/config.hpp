@@ -15,7 +15,7 @@ constexpr unsigned pageSize = 4096;
 
 constexpr unsigned headNode4HintCount = 16;
 constexpr unsigned headNode8HintCount = 16;
-constexpr bool hashUseCrc32=false;
+constexpr bool hashUseCrc32 = false;
 constexpr bool hashUseSimd = true;
 constexpr unsigned hashSimdWidth = sizeof(HashSimdBitMask) * 8;
 
