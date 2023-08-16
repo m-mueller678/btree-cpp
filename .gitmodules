@@ -1,0 +1,3 @@
+[submodule "leanstore"]
+	path = leanstore
+	url = git@github.com:m-mueller678/leanstore.git
