@@ -16,6 +16,7 @@ void runTest(vector<string>& data, std::string dataName)
       random_shuffle(data.begin(), data.end());
 
    BTreeCppPerfEvent e = makePerfEvent(dataName, sorted, data.size());
+   e.setParam("payload_size", sizeof(uint64_t));
 
    BTree t;
    uint64_t count = data.size();
