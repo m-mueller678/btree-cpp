@@ -25,7 +25,7 @@
 #include <tbb/parallel_for.h>
 #include <tbb/task_scheduler_init.h>
 
-#include "../btree/PerfEvent.hpp"
+#include "../btree/BtreeCppPerfEvent.hpp"
 #include "exception_hack.hpp"
 
 __thread uint16_t workerThreadId = 0;
@@ -312,7 +312,7 @@ int main(int argc, char** argv)
    tbb::task_scheduler_init init(nthreads);
    u64 n = envOr("WH", 10);
    u64 runForSec = envOr("RUNFOR", 30);
-   PerfEvent e = makePerfEvent("tpcc", false, n);
+   BTreeCppPerfEvent e = makePerfEvent("tpcc", false, n);
 
    atomic<u64> txProgress(0);
    atomic<bool> keepRunning(true);
@@ -370,7 +370,7 @@ int main(int argc, char** argv)
    std::cerr << "setup complete" << std::endl;
 
    thread worker([&]() {
-      PerfEventBlock b(e, 0);
+      BTreeCppPerfEventBlock b(e, 0);
       workerThreadId = 0;
       while (keepRunning.load()) {
          int w_id = tpcc.urand(1, warehouseCount);  // wh crossing

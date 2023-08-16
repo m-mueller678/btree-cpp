@@ -40,7 +40,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-struct PerfEvent {
+struct BTreeCppPerfEvent {
    struct event {
       struct read_format {
          uint64_t value;
@@ -68,7 +68,7 @@ struct PerfEvent {
    std::map<std::string, std::string> params;
    bool printHeader;
 
-   PerfEvent() : printHeader(true)
+   BTreeCppPerfEvent() : printHeader(true)
    {
       registerCounter("cycle", PERF_TYPE_HARDWARE, PERF_COUNT_HW_CPU_CYCLES);
       registerCounter("kcycle", PERF_TYPE_HARDWARE, PERF_COUNT_HW_CPU_CYCLES, true);
@@ -125,7 +125,7 @@ struct PerfEvent {
       startTime = std::chrono::steady_clock::now();
    }
 
-   ~PerfEvent()
+   ~BTreeCppPerfEvent()
    {
       for (auto& event : events) {
          close(event.fd);
@@ -171,7 +171,7 @@ struct PerfEvent {
    {
       std::stringstream stream;
       stream << std::fixed << std::setprecision(3) << counterValue;
-      PerfEvent::printCounter(headerOut, dataOut, name, stream.str(), addComma);
+      BTreeCppPerfEvent::printCounter(headerOut, dataOut, name, stream.str(), addComma);
    }
 
    void printReport(std::ostream& out, uint64_t normalizationConstant)
@@ -219,19 +219,19 @@ struct PerfEvent {
    }
 };
 
-struct PerfEventBlock {
-   PerfEvent& e;
+struct BTreeCppPerfEventBlock {
+   BTreeCppPerfEvent& e;
    uint64_t scale;
 
-   PerfEventBlock(PerfEvent& e, uint64_t scale = 1) : e(e), scale(scale) { e.startCounters(); }
+   BTreeCppPerfEventBlock(BTreeCppPerfEvent& e, uint64_t scale = 1) : e(e), scale(scale) { e.startCounters(); }
 
-   ~PerfEventBlock()
+   ~BTreeCppPerfEventBlock()
    {
       e.stopCounters();
       std::stringstream header;
       std::stringstream data;
       e.printParams(header, data);
-      PerfEvent::printCounter(header, data, "time", e.getDuration());
+      BTreeCppPerfEvent::printCounter(header, data, "time", e.getDuration());
       e.printReport(header, data, scale);
       if (e.printHeader) {
          std::cout << header.str() << std::endl;
@@ -243,7 +243,7 @@ struct PerfEventBlock {
 
 #else
 #include <ostream>
-struct PerfEvent {
+struct BTreeCppPerfEvent {
    void startCounters() {}
    void stopCounters() {}
    void printReport(std::ostream&, uint64_t) {}
@@ -252,9 +252,9 @@ struct PerfEvent {
 
 #include "config.hpp"
 
-PerfEvent makePerfEvent(std::string dataName, bool dataSorted, unsigned dataSize)
+BTreeCppPerfEvent makePerfEvent(std::string dataName, bool dataSorted, unsigned dataSize)
 {
-   PerfEvent e;
+   BTreeCppPerfEvent e;
    e.setParam("op", "none");
    e.setParam("config_name", configName);
 
