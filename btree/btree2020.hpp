@@ -435,7 +435,7 @@ struct HashNode : public HashNodeHeader {
                           unsigned int keyLen,
                           uint8_t* keyOut,
                           const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
-   void validateSpaceUsed();
+   void validate();
 } __attribute__((aligned(hashUseSimd ? hashSimdWidth : 2)));
 
 struct HeadNodeHead {

@@ -24,6 +24,9 @@ void runTest(vector<string>& data, std::string dataName)
       e.setParam("op", "insert");
       PerfEventBlock b(e, count);
       for (uint64_t i = 0; i < count; i++) {
+         if (i == 894102) {
+            printf("now");
+         }
          t.insert((uint8_t*)data[i].data(), data[i].size(), reinterpret_cast<uint8_t*>(&i), sizeof(uint64_t));
 
          // for (uint64_t j=0; j<=i; j+=1) if (!t.lookup((uint8_t*)data[j].data(), data[j].size())) throw;

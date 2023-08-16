@@ -512,13 +512,16 @@ unsigned HashNode::lowerBound(uint8_t* key, unsigned keyLength, bool& found)
    return lower;
 }
 
-void HashNode::validateSpaceUsed()
+void HashNode::validate()
 {
 #ifdef NDEBUG
    return
 #endif
+       // space used
        unsigned used = upperFenceLen + lowerFenceLen + hashCapacity;
    for (unsigned i = 0; i < count; ++i)
       used += slot[i].keyLen + slot[i].payloadLen;
    assert(used == spaceUsed);
+   for (unsigned i = 1; i < count; ++i)
+      ;
 }
