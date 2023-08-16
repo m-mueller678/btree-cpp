@@ -80,8 +80,7 @@ tpcc: $(named_tpcc_n3_builds)
 
 .PHONY: ycsb
 ycsb:
-	git submodule update --remote --init leanstore/
 	@mkdir -p leanstore/build
 	cd leanstore/build; cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -D CMAKE_C_COMPILER=$(cc_base) -D CMAKE_CXX_COMPILER=$(cxx_base) ..
 	cd leanstore/build; make $(config_names:%=btree_cpp_ycsb_%) btree_cpp_ycsb
-	parallel --memfree 16G -q -- {1} --ycsb_tuple_count 10000000  --run_for_seconds 30 \$RUNFOR ::: $(ycsb_binaries) | awk '/const/ {if(!header)print;header=1} !/const/' > ycsb.csv
+	parallel --memfree 16G -q -- {1} --ycsb_tuple_count 10000000  --run_for_seconds 30 ::: $(ycsb_binaries) | awk '/const/ {if(!header)print;header=1} !/const/' > ycsb.csv
