@@ -172,7 +172,7 @@ bool HeadNode<T>::convertToHead4WithSpace()
    for (unsigned i = 0; i < count; ++i) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wshift-count-overflow"
-      // this is never runs for T = uint_32t, where the warning is generated
+      // this is never runs for T = uint32_t, where the warning is generated
       tmp.keys[i] = static_cast<uint32_t>(keys[i] >> 32) | static_cast<uint32_t>(keys[i] & 255);
 #pragma clang diagnostic pop
    }
@@ -318,7 +318,6 @@ unsigned HeadNode<T>::lowerBound(T head, bool& foundOut)
    // check hint
    unsigned lower = 0;
    unsigned upper = count;
-   validateHint();
    searchHint(head, lower, upper);
    if (lower > 0) {
       assert(head > keys[lower]);
@@ -440,7 +439,7 @@ void HeadNode<T>::makeHint()
 {
    unsigned dist = count / (hintCount + 1);
    for (unsigned i = 0; i < hintCount; i++)
-      hint[i] = keys[dist * (i + 1)];
+      hint[i] = static_cast<uint32_t>(keys[dist * (i + 1)] >> (sizeof(T) * 8 - 32));
 }
 
 template <class T>
@@ -451,7 +450,7 @@ void HeadNode<T>::updateHint(unsigned slotId)
    if ((count > hintCount * 2 + 1) && (((count - 1) / (hintCount + 1)) == dist) && ((slotId / dist) > 1))
       begin = (slotId / dist) - 1;
    for (unsigned i = begin; i < hintCount; i++)
-      hint[i] = keys[dist * (i + 1)];
+      hint[i] = static_cast<uint32_t>(keys[dist * (i + 1)] >> (sizeof(T) * 8 - 32));
 }
 
 template <class T>
@@ -460,13 +459,14 @@ void HeadNode<T>::validateHint()
    if (count > 0) {
       unsigned dist = count / (hintCount + 1);
       for (unsigned i = 0; i < hintCount; i++)
-         assert(hint[i] == keys[dist * (i + 1)]);
+         assert(hint[i] == static_cast<uint32_t>(keys[dist * (i + 1)] >> (sizeof(T) * 8 - 32)));
    }
 }
 
 template <class T>
-void HeadNode<T>::searchHint(T keyHead, unsigned& lowerOut, unsigned& upperOut)
+void HeadNode<T>::searchHint(T fullKeyHead, unsigned& lowerOut, unsigned& upperOut)
 {
+   uint32_t keyHead = static_cast<uint32_t>(fullKeyHead >> (sizeof(T) * 8 - 32));
    if (hintCount == 0)
       return;
    if (count > hintCount * 2) {

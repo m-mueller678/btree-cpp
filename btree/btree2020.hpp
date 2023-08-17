@@ -457,7 +457,7 @@ struct HeadNodeHead {
 template <class T>
 struct HeadNode : public HeadNodeHead {
    static constexpr unsigned hintCount = headNodeHintCount<T>(0);
-   T hint[hintCount];
+   uint32_t hint[hintCount];
    static constexpr unsigned paddedHeadSize = (sizeof(HeadNodeHead) + alignof(T) - 1) / alignof(T) * alignof(T) + sizeof(hint);
    union {
       T keys[(pageSize - paddedHeadSize) / sizeof(T)];
