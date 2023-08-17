@@ -20,7 +20,7 @@ constexpr double ZIPF_PARAMETER = 1.5;
 uint64_t envu64(const char* env)
 {
    if (getenv(env))
-      return atoi(getenv(env));
+      return atof(getenv(env));
    std::cerr << "missing env " << env << std::endl;
    abort();
 }
@@ -32,6 +32,9 @@ void runTest(vector<string>& data, std::string dataName)
    unsigned keyCount = data.size();
    BTreeCppPerfEvent e = makePerfEvent(dataName, false, data.size());
    e.setParam("payload_size", payloadSize);
+   if (getenv("RUN_ID")) {
+      e.setParam("run_id", envu64("RUN_ID"));
+   }
 
    ZipfGenerator* generator = zipf_init_generator(keyCount, ZIPF_PARAMETER);
 
@@ -115,7 +118,7 @@ int main()
    }
    if (keyCount > data.size()) {
       std::cerr << "not enough keys in " << keySet << std::endl;
-      abort();
+      exit(0);
    }
    random_shuffle(data.begin(), data.end());
    data.resize(keyCount);
