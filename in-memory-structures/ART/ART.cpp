@@ -16,6 +16,15 @@
 #include <algorithm>   // std::random_shuffle
 #include <iostream>
 #include "../../btree/btree2020.hpp"
+
+struct ArtTuple {
+   uint16_t keyLen;
+   uint16_t payloadLen;
+   uint8_t data[];
+
+   uint8_t* payload() { return data + keyLen; }
+};
+
 namespace art
 {
 
@@ -117,7 +126,8 @@ void loadKey(uintptr_t tid, uint8_t key[])
 {
    // Store the key of the tuple into the key vector
    // Implementation is database specific
-   reinterpret_cast<uint64_t*>(key)[0] = __builtin_bswap64(tid);
+   ArtTuple* tuple = reinterpret_cast<ArtTuple*>(tid);
+   memcpy(key, tuple->data, tuple->keyLen);
 }
 
 // This address is used to communicate that search failed
@@ -752,51 +762,37 @@ int main(int argc, char** argv)
 
 }  // namespace art
 
-// most significant bit is used by art for tagging.
-// next artPayloadLenBits are used for payload length
-// remaining bits are pointer;
-constexpr unsigned artPayloadLenBits = 11;
-constexpr unsigned artPayloadPtrBits = 64 - 1 - artPayloadLenBits;
-
-uint64_t makeArtValue(uint8_t* payload, unsigned length)
+uintptr_t makeArtTuple(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
 {
-   if (length < static_cast<uint64_t>(1) << artPayloadLenBits) {
-      uint8_t* buffer = new uint8_t[length];
-      memcpy(buffer, payload, length);
-      uint64_t ptr = reinterpret_cast<uint64_t>(buffer);
-      if (ptr < static_cast<uint64_t>(1) << artPayloadPtrBits) {
-         return static_cast<uint64_t>(length) << artPayloadPtrBits | ptr;
-      } else {
-         std::cerr << "max payload pointer address for art exceeded" << std::endl;
-         abort();
-      }
-   } else {
-      std::cerr << "max payload length for art exceeded" << std::endl;
-      abort();
-   }
+   ArtTuple* tuple = reinterpret_cast<ArtTuple*>(malloc(sizeof(ArtTuple) + keyLength + payloadLength));
+   tuple->keyLen = keyLength;
+   tuple->payloadLen = payloadLength;
+   memcpy(tuple->data, key, keyLength);
+   memcpy(tuple->data + keyLength, payload, payloadLength);
+   return reinterpret_cast<uintptr_t>(tuple);
 }
 
-uint8_t* artValuePtr(uint64_t value)
+uint8_t* artTuplePayloadPtr(uintptr_t tuple)
 {
-   return reinterpret_cast<uint8_t*>(value & ((static_cast<uint64_t>(1) << artPayloadPtrBits) - 1));
+   return reinterpret_cast<ArtTuple*>(tuple)->payload();
 }
 
-unsigned artValueLen(uint64_t value)
+unsigned artTuplePayloadLen(uintptr_t tuple)
 {
-   return (value >> artPayloadPtrBits) & ((static_cast<uint64_t>(1) << artPayloadLenBits) - 1);
+   return reinterpret_cast<ArtTuple*>(tuple)->payloadLen;
 }
 
 ArtBTreeAdapter::ArtBTreeAdapter() : root(nullptr) {}
 
 uint8_t* ArtBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut)
 {
-   uint64_t value = reinterpret_cast<uint64_t>(art::lookup(root, key, keyLength, 0, BTreeNode::maxKVSize));
-   payloadSizeOut = artValueLen(value);
-   return artValuePtr(value);
+   uint64_t value = getLeafValue(art::lookup(root, key, keyLength, 0, BTreeNode::maxKVSize));
+   payloadSizeOut = artTuplePayloadLen(value);
+   return artTuplePayloadPtr(value);
 }
 void ArtBTreeAdapter::insertImpl(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
 {
-   art::insert(root, &root, key, 0, makeArtValue(payload, payloadLength), BTreeNode::maxKVSize);
+   art::insert(root, &root, key, 0, makeArtTuple(key, keyLength, payload, payloadLength), BTreeNode::maxKVSize);
 }
 bool ArtBTreeAdapter::removeImpl(uint8_t* key, unsigned int keyLength) const
 {
