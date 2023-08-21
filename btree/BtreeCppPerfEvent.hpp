@@ -185,20 +185,21 @@ struct BTreeCppPerfEvent {
 
    void printReport(std::ostream& headerOut, std::ostream& dataOut, uint64_t normalizationConstant)
    {
+      double maybeNan = normalizationConstant == 0 ? 0.0 / 0.0 : 1.0;
       if (!events.size())
          return;
 
       // print all metrics
       for (unsigned i = 0; i < events.size(); i++) {
-         printCounter(headerOut, dataOut, names[i], events[i].readCounter() / normalizationConstant);
+         printCounter(headerOut, dataOut, names[i], events[i].readCounter() / normalizationConstant * maybeNan);
       }
 
-      printCounter(headerOut, dataOut, "scale", normalizationConstant);
+      printCounter(headerOut, dataOut, "scale", normalizationConstant * maybeNan);
 
       // derived metrics
-      printCounter(headerOut, dataOut, "IPC", getIPC());
-      printCounter(headerOut, dataOut, "CPU", getCPUs());
-      printCounter(headerOut, dataOut, "GHz", getGHz(), false);
+      printCounter(headerOut, dataOut, "IPC", getIPC() * maybeNan);
+      printCounter(headerOut, dataOut, "CPU", getCPUs() * maybeNan);
+      printCounter(headerOut, dataOut, "GHz", getGHz() * maybeNan, false);
    }
 
    void setParam(const std::string& name, const std::string& value) { params[name] = value; }

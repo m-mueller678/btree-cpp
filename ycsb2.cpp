@@ -25,24 +25,21 @@ uint64_t envu64(const char* env)
    abort();
 }
 
-void runTest(vector<string>& data, std::string dataName)
+void runTest(BTreeCppPerfEvent e, vector<string>& data, unsigned payloadSize, unsigned opCount)
 {
-   unsigned payloadSize = envu64("PAYLOAD_SIZE");
-   unsigned opCount = envu64("OP_COUNT");
    unsigned keyCount = data.size();
-   BTreeCppPerfEvent e = makePerfEvent(dataName, false, data.size());
-   e.setParam("payload_size", payloadSize);
-   if (getenv("RUN_ID")) {
-      e.setParam("run_id", envu64("RUN_ID"));
-   }
 
-   ZipfGenerator* generator = zipf_init_generator(keyCount, ZIPF_PARAMETER);
+   unsigned* zipf_indices = new unsigned[ZIPF_GEN_SIZE];
+   if (keyCount > 0) {
+      ZipfGenerator* generator = zipf_init_generator(keyCount, ZIPF_PARAMETER);
+      zipf_generate(generator, zipf_indices, ZIPF_GEN_SIZE);
+   } else if (opCount != 0) {
+      std::cerr << "no keys" << std::endl;
+      throw;
+   }
 
    uint8_t payload[payloadSize];
    memset(payload, 42, payloadSize);
-
-   unsigned* zipf_indices = new unsigned[ZIPF_GEN_SIZE];
-   zipf_generate(generator, zipf_indices, ZIPF_GEN_SIZE);
 
    BTree t;
    {
@@ -116,12 +113,20 @@ int main()
       while (getline(in, line))
          data.push_back(line);
    }
-   if (keyCount > data.size()) {
+   unsigned payloadSize = envu64("PAYLOAD_SIZE");
+   unsigned opCount = envu64("OP_COUNT");
+   BTreeCppPerfEvent e = makePerfEvent(keySet, false, data.size());
+   e.setParam("payload_size", payloadSize);
+   e.setParam("run_id", envu64("RUN_ID"));
+
+   if (keyCount <= data.size()) {
+      random_shuffle(data.begin(), data.end());
+      data.resize(keyCount);
+      runTest(e, data, payloadSize, opCount);
+   } else {
       std::cerr << "not enough keys in " << keySet << std::endl;
-      exit(0);
+      data.resize(0);
+      runTest(e, data, 0, 0);
    }
-   random_shuffle(data.begin(), data.end());
-   data.resize(keyCount);
-   runTest(data, keySet);
    return 0;
 }
