@@ -14,6 +14,7 @@
 #include <string.h>    // memset, memcpy
 #include <sys/time.h>  // gettime
 #include <algorithm>   // std::random_shuffle
+#include <iostream>
 #include "../../btree/btree2020.hpp"
 namespace art
 {
@@ -751,6 +752,40 @@ int main(int argc, char** argv)
 
 }  // namespace art
 
+// most significant bit is used by art for tagging.
+// next artPayloadLenBits are used for payload length
+// remaining bits are pointer;
+constexpr unsigned artPayloadLenBits = 11;
+constexpr unsigned artPayloadPtrBits = 64 - 1 - artPayloadLenBits;
+
+uint64_t makeArtValue(uint8_t* payload, unsigned length)
+{
+   if (length < static_cast<uint64_t>(1) << artPayloadLenBits) {
+      uint8_t* buffer = new uint8_t[length];
+      memcpy(buffer, payload, length);
+      uint64_t ptr = reinterpret_cast<uint64_t>(buffer);
+      if (ptr < static_cast<uint64_t>(1) << artPayloadPtrBits) {
+         return static_cast<uint64_t>(length) << artPayloadPtrBits | ptr;
+      } else {
+         std::cerr << "max payload pointer address for art exceeded" << std::endl;
+         abort();
+      }
+   } else {
+      std::cerr << "max payload length for art exceeded" << std::endl;
+      abort();
+   }
+}
+
+uint8_t* artValuePtr(uint64_t value)
+{
+   return reinterpret_cast<uint8_t*>(value & ((static_cast<uint64_t>(1) << artPayloadPtrBits) - 1));
+}
+
+unsigned artValueLen(uint64_t value)
+{
+   return (value >> artPayloadPtrBits) & ((static_cast<uint64_t>(1) << artPayloadLenBits) - 1);
+}
+
 ArtBTreeAdapter::ArtBTreeAdapter() {}
 
 uint8_t* ArtBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut)
@@ -759,7 +794,7 @@ uint8_t* ArtBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsig
 }
 void ArtBTreeAdapter::insertImpl(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
 {
-   abort();
+   art::insert(root, &root, key, 0, makeArtValue(payload, payloadLength), BTreeNode::maxKVSize);
 }
 bool ArtBTreeAdapter::removeImpl(uint8_t* key, unsigned int keyLength) const
 {
