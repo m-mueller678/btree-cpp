@@ -1,5 +1,5 @@
 zipf_sources = $(zipfc/Cargo.toml zipfc/Cargo.lock zipfc/src/lib.rs)
-cpp_sources=btree/*.?pp tpcc/*.?pp tpcc/tpcc/*.?pp named-configs/*.hpp test.cpp ycsb2.cpp
+cpp_sources=btree/*.?pp tpcc/*.?pp tpcc/tpcc/*.?pp named-configs/*.hpp test.cpp ycsb2.cpp in-memory-structures/ART/*.cpp
 sources= $(cpp_sources) $(zipf_sources)
 core_cpps=btree/*.cpp
 test_cpps=test.cpp $(core_cpps)
