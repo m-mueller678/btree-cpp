@@ -786,7 +786,7 @@ unsigned artValueLen(uint64_t value)
    return (value >> artPayloadPtrBits) & ((static_cast<uint64_t>(1) << artPayloadLenBits) - 1);
 }
 
-ArtBTreeAdapter::ArtBTreeAdapter() {}
+ArtBTreeAdapter::ArtBTreeAdapter() : root(nullptr) {}
 
 uint8_t* ArtBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut)
 {
