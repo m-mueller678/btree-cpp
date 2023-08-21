@@ -4,6 +4,8 @@
   leis@in.tum.de
  */
 
+#pragma clang diagnostic ignored "-Wvla-extension"
+
 #include <assert.h>
 #include <emmintrin.h>  // x86 SSE intrinsics
 #include <stdint.h>     // integer types
@@ -12,7 +14,7 @@
 #include <string.h>    // memset, memcpy
 #include <sys/time.h>  // gettime
 #include <algorithm>   // std::random_shuffle
-
+#include "../../btree/btree2020.hpp"
 namespace art
 {
 
@@ -748,3 +750,32 @@ int main(int argc, char** argv)
 }
 
 }  // namespace art
+
+ArtBTreeAdapter::ArtBTreeAdapter() {}
+
+uint8_t* ArtBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut)
+{
+   abort();
+}
+void ArtBTreeAdapter::insertImpl(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
+{
+   abort();
+}
+bool ArtBTreeAdapter::removeImpl(uint8_t* key, unsigned int keyLength) const
+{
+   abort();
+}
+void ArtBTreeAdapter::range_lookupImpl(uint8_t* key,
+                                       unsigned int keyLen,
+                                       uint8_t* keyOut,
+                                       const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
+{
+   abort();
+}
+void ArtBTreeAdapter::range_lookup_descImpl(uint8_t* key,
+                                            unsigned int keyLen,
+                                            uint8_t* keyOut,
+                                            const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
+{
+   abort();
+}
