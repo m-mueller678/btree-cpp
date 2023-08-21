@@ -166,10 +166,10 @@ typedef u64 KeyType;
 
 template <class Record>
 struct vmcacheAdapter {
-   BTree* tree;
+   DataStructureWrapper* tree;
 
   public:
-   vmcacheAdapter() { tree = new BTree(); }
+   vmcacheAdapter() { tree = new DataStructureWrapper(); }
 
    void scan(const typename Record::Key& key,
              const std::function<bool(const typename Record::Key&, const Record&)>& found_record_cb,

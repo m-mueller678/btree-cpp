@@ -1,6 +1,7 @@
 #pragma once
 
 #ifndef NAMED_CONFIG
+#define USE_STRUCTURE_BTREE
 constexpr const char* configName = "none";
 constexpr bool enablePrefix = true;
 constexpr bool enableBasicHead = true;
@@ -8,6 +9,8 @@ constexpr bool enableDense = false;
 constexpr bool enableHash = false;
 constexpr bool enableHeadNode = false;
 constexpr unsigned basicHintCount = 16;
+#else
+constexpr const char* configName = NAMED_CONFIG;
 #endif
 
 typedef uint32_t HashSimdBitMask;  // maximum page size (in bytes) is 65536

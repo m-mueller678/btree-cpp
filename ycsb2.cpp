@@ -41,7 +41,7 @@ void runTest(BTreeCppPerfEvent e, vector<string>& data, unsigned payloadSize, un
    uint8_t payload[payloadSize];
    memset(payload, 42, payloadSize);
 
-   BTree t;
+   DataStructureWrapper t;
    {
       // insert
       e.setParam("op", "insert");

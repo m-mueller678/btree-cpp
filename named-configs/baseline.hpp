@@ -1,4 +1,4 @@
-constexpr const char* configName = NAMED_CONFIG;
+#define USE_STRUCTURE_BTREE
 constexpr bool enablePrefix = false;
 constexpr bool enableBasicHead = false;
 constexpr bool enableDense = false;

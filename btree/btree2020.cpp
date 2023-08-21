@@ -531,12 +531,7 @@ void BTreeNode::destroy()
    this->any()->dealloc();
 }
 
-BTree::BTree()
-    : root(enableHash ? HashNode::makeRootLeaf() : BTreeNode::makeLeaf())
-#ifdef CHECK_TREE_OPS
-      ,
-      std_map()
-#endif
+BTree::BTree() : root(enableHash ? HashNode::makeRootLeaf() : BTreeNode::makeLeaf())
 {
 #ifndef NDEBUG
    // prevent print from being optimized out. It is otherwise never called, but nice for debugging
@@ -583,7 +578,7 @@ uint8_t* BTree::lookupImpl(uint8_t* key, unsigned keyLength, unsigned& payloadSi
    }
 }
 
-void BTree::testing_update_payload(uint8_t* key, unsigned keyLength, uint8_t* payload)
+void DataStructureWrapper::testing_update_payload(uint8_t* key, unsigned keyLength, uint8_t* payload)
 {
 #ifdef CHECK_TREE_OPS
    auto found = std_map.find(toByteVector(key, keyLength));
@@ -592,9 +587,9 @@ void BTree::testing_update_payload(uint8_t* key, unsigned keyLength, uint8_t* pa
 }
 
 // point lookup
-uint8_t* BTree::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut)
+uint8_t* DataStructureWrapper::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut)
 {
-   uint8_t* payload = lookupImpl(key, keyLength, payloadSizeOut);
+   uint8_t* payload = impl.lookupImpl(key, keyLength, payloadSizeOut);
 #ifdef CHECK_TREE_OPS
    auto found = std_map.find(toByteVector(key, keyLength));
    if (found == std_map.end()) {
@@ -606,12 +601,6 @@ uint8_t* BTree::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOu
    }
 #endif
    return payload;
-}
-
-bool BTree::lookup(uint8_t* key, unsigned keyLength)
-{
-   unsigned x;
-   return lookup(key, keyLength, x) != nullptr;
 }
 
 void BTree::splitNode(AnyNode* node, AnyNode* parent, uint8_t* key, unsigned keyLength)
@@ -638,11 +627,16 @@ void BTree::ensureSpace(AnyNode* toSplit, uint8_t* key, unsigned keyLength)
    splitNode(toSplit, parent, key, keyLength);
 }
 
-void BTree::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
+void DataStructureWrapper::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
 {
 #ifdef CHECK_TREE_OPS
    std_map[toByteVector(key, keyLength)] = toByteVector(payload, payloadLength);
 #endif
+   return impl.insertImpl(key, keyLength, payload, payloadLength);
+}
+
+void BTree::insertImpl(uint8_t* key, unsigned int keyLength, uint8_t* payload, unsigned int payloadLength)
+{
    assert((keyLength + payloadLength) <= BTreeNode::maxKVSize);
    AnyNode* node = root;
    AnyNode* parent = nullptr;
@@ -674,7 +668,7 @@ void BTree::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned 
    }
    // node is full: split and restart
    splitNode(node, parent, key, keyLength);
-   insert(key, keyLength, payload, payloadLength);
+   insertImpl(key, keyLength, payload, payloadLength);
 }
 
 bool BTreeNode::is_underfull()
@@ -682,9 +676,9 @@ bool BTreeNode::is_underfull()
    return freeSpaceAfterCompaction() >= BTreeNode::underFullSize;
 }
 
-bool BTree::remove(uint8_t* key, unsigned keyLength)
+bool DataStructureWrapper::remove(uint8_t* key, unsigned keyLength)
 {
-   bool removed = removeImpl(key, keyLength);
+   bool removed = impl.removeImpl(key, keyLength);
 #ifdef CHECK_TREE_OPS
    auto found = std_map.find(toByteVector(key, keyLength));
    if (found == std_map.end()) {
@@ -789,18 +783,18 @@ bool BTreeNode::range_lookup(uint8_t* key,
    return true;
 }
 
-void BTree::range_lookup(uint8_t* key,
-                         unsigned keyLen,
-                         uint8_t* keyOut,
-                         // called with keylen and value
-                         // scan continues if callback returns true
-                         const std::function<bool(unsigned, uint8_t*, unsigned)>& found_record_cb)
+void DataStructureWrapper::range_lookup(uint8_t* key,
+                                        unsigned keyLen,
+                                        uint8_t* keyOut,
+                                        // called with keylen and value
+                                        // scan continues if callback returns true
+                                        const std::function<bool(unsigned, uint8_t*, unsigned)>& found_record_cb)
 {
 #ifdef CHECK_TREE_OPS
    bool shouldContinue = true;
    auto keyVec = toByteVector(key, keyLen);
    auto std_iterator = std_map.lower_bound(keyVec);
-   range_lookupImpl(key, keyLen, keyOut, [&](unsigned keyLen, uint8_t* payload, unsigned payloadLen) {
+   impl.range_lookupImpl(key, keyLen, keyOut, [&](unsigned keyLen, uint8_t* payload, unsigned payloadLen) {
       assert(shouldContinue);
       assert(std_iterator != std_map.end());
       assert(std_iterator->first.size() == keyLen);
@@ -815,7 +809,7 @@ void BTree::range_lookup(uint8_t* key,
       assert(std_iterator == std_map.end());
    }
 #else
-   range_lookupImpl(key, keyLen, keyOut, std::move(found_record_cb));
+   impl.range_lookupImpl(key, keyLen, keyOut, std::move(found_record_cb));
 #endif
 }
 
@@ -895,12 +889,12 @@ bool BTreeNode::range_lookup_desc(uint8_t* key,
    return true;
 }
 
-void BTree::range_lookup_desc(uint8_t* key,
-                              unsigned keyLen,
-                              uint8_t* keyOut,
-                              // called with keylen and value
-                              // scan continues if callback returns true
-                              const std::function<bool(unsigned, uint8_t*, unsigned)>& found_record_cb)
+void DataStructureWrapper::range_lookup_desc(uint8_t* key,
+                                             unsigned keyLen,
+                                             uint8_t* keyOut,
+                                             // called with keylen and value
+                                             // scan continues if callback returns true
+                                             const std::function<bool(unsigned, uint8_t*, unsigned)>& found_record_cb)
 {
 #ifdef CHECK_TREE_OPS
    bool shouldContinue = true;
@@ -910,7 +904,7 @@ void BTree::range_lookup_desc(uint8_t* key,
       --std_iterator;
    }
    bool stdExhausted = std_iterator == std_map.end();
-   range_lookup_descImpl(key, keyLen, keyOut, [&](unsigned keyLen, uint8_t* payload, unsigned payloadLen) {
+   impl.range_lookup_descImpl(key, keyLen, keyOut, [&](unsigned keyLen, uint8_t* payload, unsigned payloadLen) {
       assert(shouldContinue);
       assert(!stdExhausted);
       assert(std_iterator->first.size() == keyLen);
@@ -929,7 +923,7 @@ void BTree::range_lookup_desc(uint8_t* key,
       assert(stdExhausted);
    }
 #else
-   range_lookup_descImpl(key, keyLen, keyOut, std::move(found_record_cb));
+   impl.range_lookup_descImpl(key, keyLen, keyOut, std::move(found_record_cb));
 #endif
 }
 
@@ -993,3 +987,10 @@ void BTreeNode::validateHint()
          assert(hint[i] == slot[dist * (i + 1)].head[0]);
    }
 }
+
+DataStructureWrapper::DataStructureWrapper()
+    :
+#ifdef CHECK_TREE_OPS
+      std_map(),
+#endif
+      impl(){};

@@ -13,6 +13,9 @@
 #include <sys/time.h>  // gettime
 #include <algorithm>   // std::random_shuffle
 
+namespace art
+{
+
 // Constants for the node types
 static const int8_t NodeType4 = 0;
 static const int8_t NodeType16 = 1;
@@ -743,3 +746,5 @@ int main(int argc, char** argv)
 
    return 0;
 }
+
+}  // namespace art

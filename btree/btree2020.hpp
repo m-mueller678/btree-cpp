@@ -536,19 +536,62 @@ union AnyNode {
 };
 
 struct BTree {
-   AnyNode* root;
-#ifdef CHECK_TREE_OPS
-   std::map<std::vector<uint8_t>, std::vector<uint8_t>> std_map;
-#endif
-   void splitNode(AnyNode* node, AnyNode* parent, uint8_t* key, unsigned keyLength);
-   void ensureSpace(AnyNode* toSplit, uint8_t* key, unsigned keyLength);
-
-  public:
    BTree();
    ~BTree();
 
+   AnyNode* root;
+   uint8_t* lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut);
+   void insertImpl(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength);
+   bool removeImpl(uint8_t* key, unsigned int keyLength) const;
+   void range_lookupImpl(uint8_t* key,
+                         unsigned int keyLen,
+                         uint8_t* keyOut,
+                         const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
+   void range_lookup_descImpl(uint8_t* key,
+                              unsigned int keyLen,
+                              uint8_t* keyOut,
+                              const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
+   void splitNode(AnyNode* node, AnyNode* parent, uint8_t* key, unsigned keyLength);
+   void ensureSpace(AnyNode* toSplit, uint8_t* key, unsigned keyLength);
+};
+
+namespace art
+{
+struct Node;
+}
+
+struct ArtBTreeAdapter {
+   art::Node* root;
+   uint8_t* lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut);
+   void insertImpl(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength);
+   bool removeImpl(uint8_t* key, unsigned int keyLength) const;
+   void range_lookupImpl(uint8_t* key,
+                         unsigned int keyLen,
+                         uint8_t* keyOut,
+                         const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
+   void range_lookup_descImpl(uint8_t* key,
+                              unsigned int keyLen,
+                              uint8_t* keyOut,
+                              const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
+};
+
+struct DataStructureWrapper {
+   DataStructureWrapper();
+#ifdef CHECK_TREE_OPS
+   std::map<std::vector<uint8_t>, std::vector<uint8_t>> std_map;
+#endif
+#if defined(USE_STRUCTURE_BTREE)
+   BTree impl;
+#elif defined(USE_STRUCTURE_ART)
+   ArtBTreeAdapter impl;
+#endif
+
    uint8_t* lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut);
-   bool lookup(uint8_t* key, unsigned keyLength);
+   bool lookup(uint8_t* key, unsigned keyLength)
+   {
+      unsigned ignore;
+      return lookup(key, keyLength, ignore) != nullptr;
+   }
    void insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength);
    bool remove(uint8_t* key, unsigned keyLength);
    void range_lookup(uint8_t* key,
@@ -559,15 +602,5 @@ struct BTree {
                           unsigned int keyLen,
                           uint8_t* keyOut,
                           const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
-   uint8_t* lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut);
-   bool removeImpl(uint8_t* key, unsigned int keyLength) const;
-   void range_lookupImpl(uint8_t* key,
-                         unsigned int keyLen,
-                         uint8_t* keyOut,
-                         const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
-   void range_lookup_descImpl(uint8_t* key,
-                              unsigned int keyLen,
-                              uint8_t* keyOut,
-                              const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
    void testing_update_payload(uint8_t* key, unsigned int keyLength, uint8_t* payload);
 };

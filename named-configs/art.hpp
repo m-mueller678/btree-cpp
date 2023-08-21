@@ -1,6 +1,6 @@
-#define USE_STRUCTURE_BTREE
-constexpr bool enablePrefix = true;
-constexpr bool enableBasicHead = true;
+#define USE_STRUCTURE_ART
+constexpr bool enablePrefix = false;
+constexpr bool enableBasicHead = false;
 constexpr bool enableDense = false;
 constexpr bool enableHash = false;
 constexpr bool enableHeadNode = false;
