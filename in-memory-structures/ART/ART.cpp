@@ -790,7 +790,9 @@ ArtBTreeAdapter::ArtBTreeAdapter() {}
 
 uint8_t* ArtBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut)
 {
-   abort();
+   uint64_t value = reinterpret_cast<uint64_t>(art::lookup(root, key, keyLength, 0, BTreeNode::maxKVSize));
+   payloadSizeOut = artValueLen(value);
+   return artValuePtr(value);
 }
 void ArtBTreeAdapter::insertImpl(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
 {

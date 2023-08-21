@@ -40,7 +40,9 @@ void runTest(vector<string>& data, std::string dataName)
       BTreeCppPerfEventBlock b(e, count);
       for (uint64_t i = 0; i < count; i++) {
          unsigned payloadSize;
-         uint8_t* payload = t.lookup((uint8_t*)data[i].data(), data[i].size(), payloadSize);
+         uint8_t* keyPtr = (uint8_t*)data[i].data();
+         unsigned keyLen = data[i].size();
+         uint8_t* payload = t.lookup(keyPtr, keyLen, payloadSize);
          if (!payload || (payloadSize != sizeof(uint64_t)) || *reinterpret_cast<uint64_t*>(payload) != i)
             throw;
       }
