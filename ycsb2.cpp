@@ -237,7 +237,6 @@ void runYcsbE(BTreeCppPerfEvent e, vector<string>& data, unsigned avgKeyCount, u
             unsigned scanLength = scanLengthDistribution(generator);
             while (true) {
                unsigned keyIndex = zipf_indices[sampleIndex % ZIPF_GEN_SIZE];
-               COUNTER(zipf_reject_rate, !(keyIndex < insertedCount), 1 << 17);
                if (keyIndex < insertedCount) {
                   uint8_t keyBuffer[BTreeNode::maxKVSize];
                   unsigned foundIndex = 0;
