@@ -172,10 +172,16 @@ int main()
       abort();
    }
    std::string keySet = getenv("DATA");
+   unsigned payloadSize = envu64("PAYLOAD_SIZE");
+   unsigned opCount = envu64("OP_COUNT");
+   BTreeCppPerfEvent e = makePerfEvent(keySet, false, data.size());
+   e.setParam("payload_size", payloadSize);
+   e.setParam("run_id", envu64("RUN_ID"));
 
    if (keySet == "int") {
+      unsigned genCount = envu64("YCSB_VARIANT") == 3 ? keyCount : keyCount + opCount;
       vector<uint32_t> v;
-      for (uint32_t i = 0; i < keyCount; i++)
+      for (uint32_t i = 0; i < genCount; i++)
          v.push_back(i);
       string s;
       s.resize(4);
@@ -204,14 +210,6 @@ int main()
       while (getline(in, line))
          data.push_back(line);
    }
-   unsigned payloadSize = envu64("PAYLOAD_SIZE");
-   unsigned opCount = envu64("OP_COUNT");
-   BTreeCppPerfEvent e = makePerfEvent(keySet, false, data.size());
-   e.setParam("payload_size", payloadSize);
-   e.setParam("run_id", envu64("RUN_ID"));
-
-   unsigned maxExpectedKeyCount = keyCount + opCount / 20;
-
    switch (envu64("YCSB_VARIANT")) {
       case 3: {
          runYcsbC(e, data, keyCount, payloadSize, opCount);
