@@ -877,7 +877,7 @@ bool scan(Node* n,
             Node4* node = static_cast<Node4*>(n);
             for (unsigned i = 0; i < node->count; i++)
                if (node->key[i] >= keyByte) {
-                  if (!scan(node->child[i], key, keyLength, depth, maxKeyLength, keyOut, found_record_cb))
+                  if (!scan(node->child[i], key, keyLength, depth + 1, maxKeyLength, keyOut, found_record_cb))
                      return false;
                   for (unsigned j = i + 1; j < node->count; ++j)
                      if (!iterateAll(node->child[j], keyOut, found_record_cb))
@@ -891,7 +891,7 @@ bool scan(Node* n,
             Node16* node = static_cast<Node16*>(n);
             for (unsigned i = 0; i < node->count; i++)
                if (node->key[i] >= keyByte) {
-                  if (!scan(node->child[i], key, keyLength, depth, maxKeyLength, keyOut, found_record_cb))
+                  if (!scan(node->child[i], key, keyLength, depth + 1, maxKeyLength, keyOut, found_record_cb))
                      return false;
                   for (unsigned j = i + 1; j < node->count; ++j)
                      if (!iterateAll(node->child[j], keyOut, found_record_cb))
@@ -904,7 +904,7 @@ bool scan(Node* n,
             Node48* node = static_cast<Node48*>(n);
             for (unsigned i = keyByte; i < 256; ++i) {
                if (node->childIndex[i] != emptyMarker) {
-                  if (!scan(node->child[node->childIndex[i]], key, keyLength, depth, maxKeyLength, keyOut, found_record_cb))
+                  if (!scan(node->child[node->childIndex[i]], key, keyLength, depth + 1, maxKeyLength, keyOut, found_record_cb))
                      return false;
                   for (unsigned j = node->childIndex[i] + 1; j < node->count; ++j)
                      if (!iterateAll(node->child[j], keyOut, found_record_cb))
@@ -918,7 +918,7 @@ bool scan(Node* n,
             Node256* node = static_cast<Node256*>(n);
             for (unsigned i = keyByte; i < 256; ++i) {
                if (node->child[i] != nullptr) {
-                  if (!scan(node->child[i], key, keyLength, depth, maxKeyLength, keyOut, found_record_cb))
+                  if (!scan(node->child[i], key, keyLength, depth + 1, maxKeyLength, keyOut, found_record_cb))
                      return false;
                   for (unsigned j = i + 1; j < 256; ++j)
                      if (node->child[j] != nullptr && !iterateAll(node->child[j], keyOut, found_record_cb))
