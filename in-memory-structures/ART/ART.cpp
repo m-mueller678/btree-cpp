@@ -759,7 +759,6 @@ int main(int argc, char** argv)
 
    return 0;
 }
-
 }  // namespace art
 
 uintptr_t makeArtTuple(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
@@ -777,10 +776,162 @@ uint8_t* artTuplePayloadPtr(uintptr_t tuple)
    return reinterpret_cast<ArtTuple*>(tuple)->payload();
 }
 
+uint8_t* artTupleKeyPtr(uintptr_t tuple)
+{
+   return reinterpret_cast<ArtTuple*>(tuple)->data;
+}
+
 unsigned artTuplePayloadLen(uintptr_t tuple)
 {
    return reinterpret_cast<ArtTuple*>(tuple)->payloadLen;
 }
+
+unsigned artTupleKeyLen(uintptr_t tuple)
+{
+   return reinterpret_cast<ArtTuple*>(tuple)->keyLen;
+}
+
+namespace art
+{
+bool iterateAll(Node* n, uint8_t* keyOut, const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
+{
+   if (isLeaf(n)) {
+      auto value = getLeafValue(n);
+      loadKey(value, keyOut);
+      return found_record_cb(artTupleKeyLen(value), artTuplePayloadPtr(value), artTuplePayloadLen(value));
+   } else {
+      switch (n->type) {
+         case NodeType4: {
+            Node4* node = static_cast<Node4*>(n);
+            for (unsigned i = 0; i < node->count; i++)
+               if (!iterateAll(node->child[i], keyOut, found_record_cb))
+                  return false;
+            return true;
+         }
+         case NodeType16: {
+            Node16* node = static_cast<Node16*>(n);
+            for (unsigned i = 0; i < node->count; i++)
+               if (!iterateAll(node->child[i], keyOut, found_record_cb))
+                  return false;
+            return true;
+         }
+         case NodeType48: {
+            Node48* node = static_cast<Node48*>(n);
+            for (unsigned i = 0; i < 256; ++i) {
+               if (node->childIndex[i] != emptyMarker)
+                  if (!iterateAll(node->child[node->childIndex[i]], keyOut, found_record_cb))
+                     return false;
+            }
+            return true;
+         }
+         case NodeType256: {
+            Node256* node = static_cast<Node256*>(n);
+            for (unsigned i = 0; i < 256; ++i) {
+               if (node->child[i] != nullptr)
+                  if (!iterateAll(node->child[i], keyOut, found_record_cb))
+                     return false;
+            }
+            return true;
+         }
+      }
+      throw;  // Unreachable
+   }
+}
+
+bool scan(Node* n,
+          uint8_t key[],
+          unsigned keyLength,
+          unsigned depth,
+          unsigned maxKeyLength,
+          uint8_t* keyOut,
+          const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
+{
+   if (isLeaf(n)) {
+      if (depth != keyLength) {
+         auto value = getLeafValue(n);
+         uint8_t* leafKey = artTupleKeyPtr(value);
+         unsigned leafKeyLen = artTupleKeyLen(value);
+         ASSUME(depth <= leafKeyLen);
+         unsigned cmpLen = min(leafKeyLen, keyLength);
+         for (unsigned i = depth; i < cmpLen; i++)
+            if (leafKey[i] != key[i]) {
+               if (leafKey[i] > key[i]) {
+                  return iterateAll(n, keyOut, found_record_cb);
+               } else {
+                  return true;
+               }
+            }
+         if (leafKeyLen <= keyLength) {
+            return iterateAll(n, keyOut, found_record_cb);
+         } else {
+            return true;
+         }
+      } else {
+         return iterateAll(n, keyOut, found_record_cb);
+      }
+   } else {
+      uint8_t keyByte = key[depth];
+      switch (n->type) {
+         case NodeType4: {
+            Node4* node = static_cast<Node4*>(n);
+            for (unsigned i = 0; i < node->count; i++)
+               if (node->key[i] >= keyByte) {
+                  if (!scan(node->child[i], key, keyLength, depth + 1, maxKeyLength, keyOut, found_record_cb))
+                     return false;
+                  for (unsigned j = i + 1; j < node->count; ++j)
+                     if (!iterateAll(node->child[j], keyOut, found_record_cb))
+                        return false;
+                  break;
+               }
+            return true;
+         }
+         case NodeType16: {
+            Node16* node = static_cast<Node16*>(n);
+            for (unsigned i = 0; i < node->count; i++)
+               if (node->key[i] >= keyByte) {
+                  if (!scan(node->child[i], key, keyLength, depth + 1, maxKeyLength, keyOut, found_record_cb))
+                     return false;
+                  for (unsigned j = i + 1; j < node->count; ++j)
+                     if (!iterateAll(node->child[j], keyOut, found_record_cb))
+                        return false;
+                  break;
+               }
+            return true;
+         }
+         case NodeType48: {
+            Node48* node = static_cast<Node48*>(n);
+            for (unsigned i = keyByte; i < 256; ++i) {
+               if (node->childIndex[i] != emptyMarker) {
+                  if (!scan(node->child[node->childIndex[i]], key, keyLength, depth + 1, maxKeyLength, keyOut, found_record_cb))
+                     return false;
+                  for (unsigned j = node->childIndex[i] + 1; j < node->count; ++j)
+                     if (!iterateAll(node->child[j], keyOut, found_record_cb))
+                        return false;
+                  break;
+               }
+            }
+            return true;
+         }
+         case NodeType256: {
+            Node256* node = static_cast<Node256*>(n);
+            for (unsigned i = keyByte; i < 256; ++i) {
+               if (node->child[i] != nullptr) {
+                  if (!scan(node->child[i], key, keyLength, depth + 1, maxKeyLength, keyOut, found_record_cb))
+                     return false;
+                  for (unsigned j = i + 1; j < 256; ++j)
+                     if (node->child[j] != nullptr && !iterateAll(node->child[j], keyOut, found_record_cb))
+                        return false;
+                  break;
+               }
+            }
+            return true;
+         }
+      }
+   }
+
+   throw;  // Unreachable
+}
+}  // namespace art
 
 ArtBTreeAdapter::ArtBTreeAdapter() : root(nullptr) {}
 
@@ -803,7 +954,7 @@ void ArtBTreeAdapter::range_lookupImpl(uint8_t* key,
                                        uint8_t* keyOut,
                                        const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
-   abort();
+   art::scan(root, key, keyLen, 0, BTreeNode::maxKVSize, keyOut, found_record_cb);
 }
 void ArtBTreeAdapter::range_lookup_descImpl(uint8_t* key,
                                             unsigned int keyLen,
