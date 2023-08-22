@@ -99,13 +99,23 @@ void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
 
 void runYcsbD(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsigned payloadSize, unsigned opCount)
 {
-   if (keyCount < opCount / 40) {
+   bool configValid = false;
+   unsigned initialKeyCount = 0;
+   if (keyCount > opCount / 40) {
+      initialKeyCount = keyCount - opCount / 40;
+      unsigned expectedInsertions = opCount / 20;
+      if (initialKeyCount + expectedInsertions * 2 <= data.size()) {
+         configValid = true;
+      } else {
+         std::cerr << "not enough keys" << std::endl;
+      }
+   } else {
       std::cerr << "too many ops for data size" << std::endl;
    }
-   unsigned initialKeyCount = keyCount - opCount / 40;
-   unsigned expectedInsertions = opCount / 20;
-   if (initialKeyCount + expectedInsertions * 2 > data.size()) {
-      std::cerr << "not enough keys" << std::endl;
+   if (!configValid) {
+      opCount = 0;
+      initialKeyCount = 0;
+      data.resize(0);
    }
 
    random_shuffle(data.begin(), data.end());
@@ -142,7 +152,7 @@ void runYcsbD(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
             ++insertedCount;
          } else {
             while (true) {
-               unsigned zipfSample = zipf_indices[sampleIndex % ZIPF_GEN_SIZE] - 1;
+               unsigned zipfSample = zipf_indices[sampleIndex % ZIPF_GEN_SIZE];
                if (zipfSample < insertedCount) {
                   unsigned keyIndex = insertedCount - zipfSample;
                   unsigned payloadSizeOut;
@@ -153,7 +163,6 @@ void runYcsbD(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
                      throw;
                   break;
                } else {
-                  std::cerr << "rejected zipf sample" << std::endl;
                   ++sampleIndex;
                }
             }
