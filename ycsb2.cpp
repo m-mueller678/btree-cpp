@@ -192,7 +192,7 @@ void runYcsbE(BTreeCppPerfEvent e, vector<string>& data, unsigned avgKeyCount, u
    unsigned* zipf_indices = makeZipfIndexArray(ZIPF_GEN_SIZE, data.size());
    bool* op_array = makeOpArray(OP_GEN_SIZE, 0.05);
 
-   {  // permute zipf indices
+   if (data.size() > 0) {  // permute zipf indices
       unsigned* permutation = new unsigned[data.size()];
       for (unsigned i = 0; i < data.size(); ++i) {
          permutation[i] = i;
