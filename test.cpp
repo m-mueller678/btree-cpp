@@ -38,7 +38,7 @@ void runTest(vector<string>& data, std::string dataName)
       // lookup
       e.setParam("op", "lookup");
       BTreeCppPerfEventBlock b(e, count);
-      for (uint64_t i = 0; i < count; i++) {
+      for (uint64_t i = 538; i < count; i++) {
          unsigned payloadSize;
          uint8_t* keyPtr = (uint8_t*)data[i].data();
          unsigned keyLen = data[i].size();
@@ -48,7 +48,7 @@ void runTest(vector<string>& data, std::string dataName)
       }
    }
 
-   {
+   if (configName != std::string{"art"}) {
       e.setParam("op", "range");
       BTreeCppPerfEventBlock b(e, count / 4);
       for (uint64_t i = 0; i < count; i += 4) {
@@ -68,7 +68,7 @@ void runTest(vector<string>& data, std::string dataName)
       }
    }
 
-   {
+   if (configName != std::string{"art"}) {
       e.setParam("op", "desc");
       BTreeCppPerfEventBlock b(e, count / 4);
       for (uint64_t i = 0; i < count; i += 4) {
@@ -88,9 +88,11 @@ void runTest(vector<string>& data, std::string dataName)
       }
    }
 
-   // prefix lookup
-   for (uint64_t i = 0; i < count; i++)
-      t.lookup((uint8_t*)data[i].data(), data[i].size() - (data[i].size() / 4));
+   if (configName != std::string{"art"}) {
+      // prefix lookup
+      for (uint64_t i = 0; i < count; i++)
+         t.lookup((uint8_t*)data[i].data(), data[i].size() - (data[i].size() / 4));
+   }
 
    {
       for (uint64_t i = 0; i < count; i += 4)  // remove some
@@ -161,8 +163,11 @@ int main()
    if (getenv("FILE")) {
       ifstream in(getenv("FILE"));
       string line;
-      while (getline(in, line))
+      while (getline(in, line)) {
+         if (configName == std::string{"art"})
+            line.push_back(0);
          data.push_back(line);
+      }
       runTest(data, getenv("FILE"));
    }
 

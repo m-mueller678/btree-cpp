@@ -307,8 +307,11 @@ int main()
       ifstream in(keySet);
       keySet = "file:" + keySet;
       string line;
-      while (getline(in, line))
+      while (getline(in, line)) {
+         if (configName == std::string{"art"})
+            line.push_back(0);
          data.push_back(line);
+      }
    }
    switch (envu64("YCSB_VARIANT")) {
       case 3: {
