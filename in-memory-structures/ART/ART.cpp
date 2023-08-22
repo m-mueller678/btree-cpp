@@ -870,6 +870,37 @@ bool scan(Node* n,
          return iterateAll(n, keyOut, found_record_cb);
       }
    } else {
+      {
+         // Compare the key with the prefix of the node, return the number matching bytes
+         unsigned pos;
+         if (n->prefixLength > maxPrefixLength) {
+            for (pos = 0; pos < maxPrefixLength; pos++)
+               if (key[depth + pos] != n->prefix[pos]) {
+                  if (key[depth + pos] < n->prefix[pos])
+                     return iterateAll(n, keyOut, found_record_cb);
+                  else
+                     return true;
+               }
+            uint8_t minKey[maxKeyLength];
+            loadKey(getLeafValue(minimum(n)), minKey);
+            for (; pos < n->prefixLength; pos++)
+               if (key[depth + pos] != minKey[depth + pos]) {
+                  if (key[depth + pos] < n->prefix[pos])
+                     return iterateAll(n, keyOut, found_record_cb);
+                  else
+                     return true;
+               }
+         } else {
+            for (pos = 0; pos < n->prefixLength; pos++)
+               if (key[depth + pos] != n->prefix[pos]) {
+                  if (key[depth + pos] < n->prefix[pos])
+                     return iterateAll(n, keyOut, found_record_cb);
+                  else
+                     return true;
+               }
+         }
+      }
+
       depth += n->prefixLength;
       uint8_t keyByte = key[depth];
       switch (n->type) {
@@ -887,10 +918,9 @@ bool scan(Node* n,
             return true;
          }
          case NodeType16: {
-            keyByte = flipSign(keyByte);
             Node16* node = static_cast<Node16*>(n);
             for (unsigned i = 0; i < node->count; i++)
-               if (node->key[i] >= keyByte) {
+               if (flipSign(node->key[i]) >= keyByte) {
                   if (!scan(node->child[i], key, keyLength, depth + 1, maxKeyLength, keyOut, found_record_cb))
                      return false;
                   for (unsigned j = i + 1; j < node->count; ++j)
@@ -947,7 +977,7 @@ void ArtBTreeAdapter::insertImpl(uint8_t* key, unsigned keyLength, uint8_t* payl
 {
    art::insert(root, &root, key, 0, makeArtTuple(key, keyLength, payload, payloadLength), BTreeNode::maxKVSize);
 }
-bool ArtBTreeAdapter::removeImpl(uint8_t* key, unsigned int keyLength) const
+bool ArtBTreeAdapter::removeImpl(uint8_t*, unsigned int) const
 {
    abort();
 }
@@ -958,10 +988,7 @@ void ArtBTreeAdapter::range_lookupImpl(uint8_t* key,
 {
    art::scan(root, key, keyLen, 0, BTreeNode::maxKVSize, keyOut, found_record_cb);
 }
-void ArtBTreeAdapter::range_lookup_descImpl(uint8_t* key,
-                                            unsigned int keyLen,
-                                            uint8_t* keyOut,
-                                            const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
+void ArtBTreeAdapter::range_lookup_descImpl(uint8_t*, unsigned int, uint8_t*, const std::function<bool(unsigned int, uint8_t*, unsigned int)>&)
 {
    abort();
 }
