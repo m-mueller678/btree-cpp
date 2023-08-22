@@ -97,14 +97,14 @@ void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
    data.clear();
 }
 
-void runYcsbD(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsigned payloadSize, unsigned opCount)
+bool computeInitialKeyCount(unsigned avgKeyCount, unsigned availableKeyCount, unsigned opCount, unsigned& initialKeyCount)
 {
    bool configValid = false;
-   unsigned initialKeyCount = 0;
-   if (keyCount > opCount / 40) {
-      initialKeyCount = keyCount - opCount / 40;
+   initialKeyCount = 0;
+   if (avgKeyCount > opCount / 40) {
+      initialKeyCount = avgKeyCount - opCount / 40;
       unsigned expectedInsertions = opCount / 20;
-      if (initialKeyCount + expectedInsertions * 2 <= data.size()) {
+      if (initialKeyCount + expectedInsertions * 2 <= availableKeyCount) {
          configValid = true;
       } else {
          std::cerr << "not enough keys" << std::endl;
@@ -112,7 +112,13 @@ void runYcsbD(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
    } else {
       std::cerr << "too many ops for data size" << std::endl;
    }
-   if (!configValid) {
+   return configValid;
+}
+
+void runYcsbD(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsigned payloadSize, unsigned opCount)
+{
+   unsigned initialKeyCount = 0;
+   if (!computeInitialKeyCount(keyCount, data.size(), opCount, initialKeyCount)) {
       opCount = 0;
       initialKeyCount = 0;
       data.resize(0);
