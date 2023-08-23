@@ -7,6 +7,7 @@ CONFIG_NAMES = c('baseline', 'prefix', 'heads', 'hints', 'hash', 'dense', 'inner
 r = read.csv('d2.csv', strip.white = TRUE)
 r$config_name = ordered(r$config_name, levels = CONFIG_NAMES, labels = CONFIG_NAMES)
 
+# payload size
 ggplot(sqldf('
 select * from r
 where true
@@ -19,6 +20,21 @@ and run_id=1
 ')) +
   facet_nested(data_name~op + config_name,scales = 'free_y') +
   geom_line(aes(payload_size, scale / time)) +
+  scale_x_log10()
+
+# data size
+ggplot(sqldf('
+select * from r
+where true
+and op in ("ycsb_c","ycsb_d")
+and payload_size=8
+--and data_size=1000000
+and run_id=1
+--and config_name="hints"
+--and data_name="data/urls"
+')) +
+  facet_nested(data_name~op + config_name,scales = 'free_y') +
+  geom_line(aes(data_size, scale / time)) +
   scale_x_log10()
 
 ggplot(sqldf('
