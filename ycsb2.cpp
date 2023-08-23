@@ -49,7 +49,8 @@ bool* makeOpArray(unsigned genSize, double trueRate)
 
 uint8_t* makePayload(unsigned len)
 {
-   uint8_t* payload = new uint8_t[len];
+   // add one to support zero length payload
+   uint8_t* payload = new uint8_t[len + 1];
    memset(payload, 42, len);
    return payload;
 }
@@ -90,7 +91,7 @@ void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
          uint8_t* key = (uint8_t*)data[keyIndex].data();
          unsigned long length = data[keyIndex].size();
          uint8_t* payload = t.lookup(key, length, payloadSizeOut);
-         if (!payload || (payloadSize != payloadSizeOut) || *payload != 42)
+         if (!payload || (payloadSize != payloadSizeOut) || (payloadSize > 0 && *payload != 42))
             throw;
       }
    }
