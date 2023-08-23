@@ -19,7 +19,8 @@ named_test_n3_builds = $(config_names:%=named-build/%-n3-test)
 named_test_d0_builds = $(config_names:%=named-build/%-d0-test)
 named_ycsb_n3_builds = $(config_names:%=named-build/%-n3-ycsb)
 named_ycsb_d0_builds = $(config_names:%=named-build/%-d0-ycsb)
-named_builds = $(named_tpcc_d3_builds) $(named_tpcc_n3_builds) $(named_test_d3_builds) $(named_test_n3_builds) $(named_test_d0_builds) $(named_ycsb_n3_builds)
+named_ycsb_d3_builds = $(config_names:%=named-build/%-d3-ycsb)
+named_builds = $(named_tpcc_d3_builds) $(named_tpcc_n3_builds) $(named_test_d3_builds) $(named_test_n3_builds) $(named_test_d0_builds) $(named_ycsb_n3_builds) $(named_ycsb_d0_builds) $(named_ycsb_d3_builds)
 named_args = -include named-configs/$*.hpp -DNAMED_CONFIG=\"$*\"
 
 all: test.elf optimized.elf $(named_builds)
@@ -82,6 +83,11 @@ named-build/%-n3-ycsb: $(sources) zipfc/target/release/libzipfc.a
 named-build/%-d0-ycsb: $(sources) zipfc/target/release/libzipfc.a
 	@mkdir -p named-build
 	$(cxx) $(ycsb_cpps) $(named_args) $(zipfc_link_arg)
+
+
+named-build/%-d3-ycsb: $(sources) zipfc/target/release/libzipfc.a
+	@mkdir -p named-build
+	$(cxx) $(ycsb_cpps) -O3 $(named_args) $(zipfc_link_arg)
 
 #### phony
 
