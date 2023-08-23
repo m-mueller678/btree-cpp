@@ -3,7 +3,7 @@ library(sqldf)
 
 CONFIG_NAMES = c('baseline', 'prefix', 'heads', 'hints', 'hash', 'dense', 'inner', 'art')
 
-r = read.csv('d1.csv', strip.white = TRUE)
+r = read.csv('d2.csv', strip.white = TRUE)
 r$config_name = ordered(r$config_name, levels = CONFIG_NAMES, labels = CONFIG_NAMES)
 
 ggplot(sqldf('
@@ -11,11 +11,10 @@ select * from r
 where true
 and op="ycsb_c"
 --and payload_size=8
--- and data_size=1000000
+and data_size=1000000
 and run_id=1
---and config_name="baseline"
---and data_name="file:data/urls"
---and (config_name in ("hints","hash","dense","inner"))
+--and config_name="hints"
+--and data_name="data/urls"
 ')) +
   facet_grid(data_name ~ config_name) +
   geom_line(aes(payload_size, scale / time)) +
@@ -28,11 +27,10 @@ select * from r
 where true
 --and op="ycsb_c"
 and payload_size=8
--- and data_size=1000000
+and data_size=1000000
 and run_id=1
---and config_name="baseline"
---and data_name="file:data/urls"
---and (config_name in ("hints","hash","dense","inner"))
+--and config_name="hints"
+--and data_name="data/urls"
 ')) +
   facet_grid(data_name ~ op) +
   geom_col(aes(config_name, scale / time)) +
