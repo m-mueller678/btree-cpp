@@ -916,7 +916,15 @@ bool scan(Node* n,
          }
          case NodeType16: {
             Node16* node = static_cast<Node16*>(n);
-            for (unsigned i = 0; i < node->count; i++) {
+            uint8_t keyByteFlipped = flipSign(keyByte);
+            __m128i cmp = _mm_cmpgt_epi8(_mm_set1_epi8(keyByteFlipped), _mm_loadu_si128(reinterpret_cast<__m128i*>(node->key)));
+            uint16_t bitfield = _mm_movemask_epi8(cmp) & (0xFFFF >> (16 - node->count));
+            unsigned skipCount = (~bitfield) ? ctz(~bitfield) : node->count;
+            if (skipCount > 0)
+               assert(flipSign(node->key[skipCount - 1]) < keyByte);
+            if (skipCount < node->count)
+               assert(flipSign(node->key[skipCount]) >= keyByte);
+            for (unsigned i = skipCount; i < node->count; i++) {
                uint8_t flipped = flipSign(node->key[i]);
                if (flipped == keyByte && !scan(node->child[i], key, keyLength, depth + 1, maxKeyLength, keyOut, found_record_cb))
                   return false;
