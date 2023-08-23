@@ -11,14 +11,14 @@ r$config_name = ordered(r$config_name, levels = CONFIG_NAMES, labels = CONFIG_NA
 ggplot(sqldf('
 select * from r
 where true
-and op in ("ycsb_c","ycsb_d")
+and op in ("ycsb_c","ycsb_d","ycsb_e")
 --and payload_size=8
 and data_size=1000000
 and run_id=1
 --and config_name="hints"
 --and data_name="data/urls"
 ')) +
-  facet_nested(data_name~op + config_name,scales = 'free_y') +
+  facet_nested(data_name ~ op + config_name, scales = 'free_y') +
   geom_line(aes(payload_size, scale / time)) +
   scale_x_log10()
 
@@ -26,14 +26,14 @@ and run_id=1
 ggplot(sqldf('
 select * from r
 where true
-and op in ("ycsb_c","ycsb_d")
+and op in ("ycsb_c","ycsb_d","ycsb_e")
 and payload_size=8
 --and data_size=1000000
 and run_id=1
 --and config_name="hints"
 --and data_name="data/urls"
 ')) +
-  facet_nested(data_name~op + config_name,scales = 'free_y') +
+  facet_nested(data_name ~ op + config_name, scales = 'free_y') +
   geom_line(aes(data_size, scale / time)) +
   scale_x_log10()
 
