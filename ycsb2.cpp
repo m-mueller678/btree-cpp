@@ -272,7 +272,7 @@ int main()
    std::string keySet = getenv("DATA");
    unsigned payloadSize = envu64("PAYLOAD_SIZE");
    unsigned opCount = envu64("OP_COUNT");
-   BTreeCppPerfEvent e = makePerfEvent(keySet, false, data.size());
+   BTreeCppPerfEvent e = makePerfEvent(keySet, false, keyCount);
    e.setParam("payload_size", payloadSize);
    e.setParam("run_id", envu64("RUN_ID"));
    e.setParam("ycsb_zipf", ZIPF_PARAMETER);
