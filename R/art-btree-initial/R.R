@@ -2,7 +2,7 @@ library(ggplot2)
 library(sqldf)
 library(ggh4x)
 
-CONFIG_NAMES = c('baseline', 'prefix', 'heads', 'hints', 'hash', 'dense', 'inner', 'art')
+CONFIG_NAMES = c('baseline', 'prefix', 'heads', 'hints', 'hash', 'dense', 'inner', 'art','art_no_simd_range')
 
 r = read.csv('d2.csv', strip.white = TRUE)
 r$config_name = ordered(r$config_name, levels = CONFIG_NAMES, labels = CONFIG_NAMES)
