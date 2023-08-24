@@ -17,7 +17,6 @@ void zipf_generate(ZipfGenerator*, uint32_t*, uint32_t);
 constexpr unsigned ZIPF_GEN_SIZE = 1 << 23;
 constexpr unsigned OP_GEN_SIZE = ZIPF_GEN_SIZE << 2;
 constexpr double ZIPF_PARAMETER = 1.5;
-constexpr unsigned MAX_SCAN_LENGTH = 20;
 
 uint64_t envu64(const char* env)
 {
@@ -179,7 +178,7 @@ void runYcsbD(BTreeCppPerfEvent e, vector<string>& data, unsigned avgKeyCount, u
    }
 }
 
-void runYcsbE(BTreeCppPerfEvent e, vector<string>& data, unsigned avgKeyCount, unsigned payloadSize, unsigned opCount)
+void runYcsbE(BTreeCppPerfEvent e, vector<string>& data, unsigned avgKeyCount, unsigned payloadSize, unsigned opCount, unsigned maxScanLength)
 {
    unsigned initialKeyCount = 0;
    if (!computeInitialKeyCount(avgKeyCount, data.size(), opCount, initialKeyCount)) {
@@ -217,7 +216,7 @@ void runYcsbE(BTreeCppPerfEvent e, vector<string>& data, unsigned avgKeyCount, u
    }
 
    std::minstd_rand generator(0xabcdef42);
-   std::uniform_int_distribution<unsigned> scanLengthDistribution{1, MAX_SCAN_LENGTH};
+   std::uniform_int_distribution<unsigned> scanLengthDistribution{1, maxScanLength};
 
    unsigned insertedCount = initialKeyCount;
    unsigned sampleIndex = 0;
@@ -277,7 +276,8 @@ int main()
    e.setParam("payload_size", payloadSize);
    e.setParam("run_id", envu64("RUN_ID"));
    e.setParam("ycsb_zipf", ZIPF_PARAMETER);
-   e.setParam("ycsb_range_len", MAX_SCAN_LENGTH);
+   unsigned maxScanLength = envu64("SCAN_LENGTH");
+   e.setParam("ycsb_range_len", maxScanLength);
 
    if (keySet == "int") {
       unsigned genCount = envu64("YCSB_VARIANT") == 3 ? keyCount : keyCount + opCount;
@@ -335,7 +335,7 @@ int main()
          break;
       }
       case 5: {
-         runYcsbE(e, data, keyCount, payloadSize, opCount);
+         runYcsbE(e, data, keyCount, payloadSize, opCount, maxScanLength);
          break;
       }
       default: {
