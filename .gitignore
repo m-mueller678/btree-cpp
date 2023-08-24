@@ -3,3 +3,4 @@
 *.elf
 /data
 /named-build/
+/page-size-builds/

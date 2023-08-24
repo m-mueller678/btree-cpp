@@ -14,7 +14,12 @@ constexpr const char* configName = NAMED_CONFIG;
 #endif
 
 typedef uint32_t HashSimdBitMask;  // maximum page size (in bytes) is 65536
+
+#ifdef PAGE_SIZE
+constexpr unsigned pageSize = PAGE_SIZE;
+#else
 constexpr unsigned pageSize = 4096;
+#endif
 
 constexpr unsigned headNode4HintCount = 16;
 constexpr unsigned headNode8HintCount = 16;
