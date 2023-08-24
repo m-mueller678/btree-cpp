@@ -314,6 +314,17 @@ int main()
          data.push_back(line);
       }
    }
+
+   for (unsigned i = 0; i < data.size(); ++i) {
+      if (data[i].size() + payloadSize > BTreeNode::maxKVSize) {
+         std::cerr << "key too long for page size" << std::endl;
+         // this forces the key count check to fail and emits nan values.
+         data.clear();
+         keyCount = 1;
+         break;
+      }
+   }
+
    switch (envu64("YCSB_VARIANT")) {
       case 3: {
          runYcsbC(e, data, keyCount, payloadSize, opCount);
