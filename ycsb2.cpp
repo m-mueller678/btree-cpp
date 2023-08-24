@@ -167,7 +167,7 @@ void runYcsbD(BTreeCppPerfEvent e, vector<string>& data, unsigned avgKeyCount, u
                   uint8_t* key = (uint8_t*)data[keyIndex].data();
                   unsigned long length = data[keyIndex].size();
                   uint8_t* payload = t.lookup(key, length, payloadSizeOut);
-                  if (!payload || (payloadSize != payloadSizeOut) || *payload != 42)
+                  if (!payload || (payloadSize != payloadSizeOut) || (payloadSize > 0 && *payload != 42))
                      throw;
                   break;
                } else {
