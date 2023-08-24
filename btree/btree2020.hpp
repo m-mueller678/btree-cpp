@@ -605,3 +605,5 @@ struct DataStructureWrapper {
                           const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
    void testing_update_payload(uint8_t* key, unsigned int keyLength, uint8_t* payload);
 };
+
+void printKey(uint8_t* key,unsigned length);

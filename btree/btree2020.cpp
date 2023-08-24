@@ -429,19 +429,13 @@ void BTreeNode::print()
 {
    printf("# BTreeNode\n");
    printf("lower fence: ");
-   for (unsigned i = 0; i < lowerFence.length; ++i) {
-      printf("%d, ", getLowerFence()[i]);
-   }
+   printKey(getLowerFence(), lowerFence.length);
    printf("\nupper fence: ");
-   for (unsigned i = 0; i < upperFence.length; ++i) {
-      printf("%d, ", getUpperFence()[i]);
-   }
+   printKey(getUpperFence(), upperFence.length);
    printf("\n");
    for (unsigned i = 0; i < count; ++i) {
       printf("%d: ", i);
-      for (unsigned j = 0; j < slot[i].keyLen; ++j) {
-         printf("%d, ", getKey(i)[j]);
-      }
+      printKey(getKey(i), slot[i].keyLen);
       if (isInner()) {
          printf("-> %p\n", reinterpret_cast<void*>(getChild(i)));
       } else {
@@ -994,3 +988,20 @@ DataStructureWrapper::DataStructureWrapper()
       std_map(),
 #endif
       impl(){};
+
+void printKey(uint8_t* key, unsigned length)
+{
+   if (length <= 4) {
+      for (unsigned i = 0; i < length; ++i) {
+         printf("%3d, ", key[i]);
+      }
+      printf("|  ");
+   }
+   for (unsigned i = 0; i < length; ++i) {
+      if (key[i] >= ' ' && key[i] <= '~') {
+         putchar(key[i]);
+      } else {
+         printf("\%02x", key[i]);
+      }
+   }
+}
