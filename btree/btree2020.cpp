@@ -194,7 +194,8 @@ bool BTreeNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsig
 {
    if (!requestSpaceFor(spaceNeeded(keyLength, payloadLength))) {
       AnyNode tmp;
-      if (enableDense && _tag == Tag::Leaf && tmp._dense.try_densify(this)) {
+      if (enableDense && _tag == Tag::Leaf && keyLength - prefixLength == slot[0].keyLen && payloadLength == slot[0].payloadLen &&
+          tmp._dense.try_densify(this)) {
          *this->any() = tmp;
          return this->any()->dense()->insert(key, keyLength, payload, payloadLength);
       }

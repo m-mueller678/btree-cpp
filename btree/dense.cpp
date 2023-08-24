@@ -95,9 +95,13 @@ bool DenseNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsig
 {
    assert(keyLength >= prefixLength);
    if (payloadLength != valLen || keyLength != fullKeyLen) {
-      // TODO chek capacity
-      BTreeNode* basicNode = convertToBasic();
-      return basicNode->insert(key, keyLength, payload, payloadLength);
+      unsigned entrySize = occupiedCount * (fullKeyLen - prefixLength + payloadLength + sizeof(BTreeNode::Slot));
+      if (entrySize + lowerFenceLen + upperFenceLen + sizeof(BTreeNodeHeader) <= pageSize) {
+         BTreeNode* basicNode = convertToBasic();
+         return basicNode->insert(key, keyLength, payload, payloadLength);
+      } else {
+         return false;
+      }
    }
    KeyError keyIndex = keyToIndex(key + prefixLength, keyLength - prefixLength);
    switch (keyIndex) {
@@ -215,7 +219,7 @@ void DenseNode::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upper
    this->lowerFenceLen = lowerFenceLen;
    this->upperFenceLen = upperFenceLen;
    occupiedCount = 0;
-   assert(lowerFenceLen <= fullKeyLen);
+   // assert(lowerFenceLen <= fullKeyLen);
    slotCount = computeSlotCount(valLen, fencesOffset());
    zeroMask();
    memcpy(this->getLowerFence(), lowerFence, lowerFenceLen);
