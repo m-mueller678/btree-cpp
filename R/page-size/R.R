@@ -50,3 +50,13 @@ and payload_size=0
 ')) +
   facet_nested(config_name ~ data_name) +
   geom_line(aes(pageSize, instr, col = op))
+
+ggplot(sqldf('
+select * from r
+where true
+and op in ("ycsb_c_init","ycsb_d_init","ycsb_e_init")
+and data_name in ("data/wiki","int")
+and payload_size=0
+')) +
+  facet_nested(config_name ~ data_name, scales = "free_y") +
+  geom_line(aes(pageSize, instr, col = op))
