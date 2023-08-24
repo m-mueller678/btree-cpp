@@ -8,10 +8,10 @@ targets=""
 
 # Iterate through the array of files
 for file in named-configs/*; do
-    # Remove file extension
-    filename=$(basename "$file")
-    # Append the name to the variable
-    targets="${targets} named-build/${filename%.*}-d0-ycsb named-build/${filename%.*}-d3-ycsb"
+  # Remove file extension
+  filename=$(basename "$file")
+  # Append the name to the variable
+  targets="${targets} named-build/${filename%.*}-d0-ycsb named-build/${filename%.*}-n3-ycsb"
 done
 
 echo $targets
