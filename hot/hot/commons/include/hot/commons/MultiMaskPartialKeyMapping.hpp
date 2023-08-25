@@ -384,7 +384,7 @@ template<> inline void MultiMaskPartialKeyMapping<4u>::initializeDataAndPosition
 	_mm256_storeu_si256(reinterpret_cast<__m256i*>(mExtractionData.data()), zero);
 }
 
-template<unsigned int numberExtractionMasks> inline typename MultiMaskPartialKeyMapping<numberExtractionMasks>::ExtractionDataArray MultiMaskPartialKeyMapping<numberExtractionMasks>::mapInput(uint8_t const __restrict__ * keyBytes) const {
+template<unsigned int numberExtractionMasks> inline typename MultiMaskPartialKeyMapping<numberExtractionMasks>::ExtractionDataArray MultiMaskPartialKeyMapping<numberExtractionMasks>::mapInput(uint8_t const * __restrict__ keyBytes) const {
 	ExtractionDataArray mappedInput = zeroInitializedArray();
 	uint8_t* __restrict__ mappedInputBytes = reinterpret_cast<uint8_t*>(mappedInput.data());
 	uint8_t const * __restrict__ positions = reinterpret_cast<uint8_t const* >(mExtractionPositions.data());

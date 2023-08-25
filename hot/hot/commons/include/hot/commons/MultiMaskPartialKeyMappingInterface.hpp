@@ -182,7 +182,7 @@ private:
 
 	inline void initializeDataAndPositionsWithZero();
 
-	inline ExtractionDataArray mapInput(uint8_t const __restrict__ *keyBytes) const;
+	inline ExtractionDataArray mapInput(uint8_t const * __restrict__keyBytes) const;
 
 	inline uint32_t extractMaskForMappedInput(ExtractionDataArray const &mappedInputData) const;
 

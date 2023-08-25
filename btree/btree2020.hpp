@@ -11,7 +11,10 @@
 #include <functional>
 #include <map>
 #include "config.hpp"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wall"
 #include "../hot/hot/single-threaded/include/hot/singlethreaded/HOTSingleThreaded.hpp"
+#pragma clang diagnostic pop
 
 #ifndef NDEBUG
 #define CHECK_TREE_OPS
