@@ -260,7 +260,7 @@ void runYcsbE(BTreeCppPerfEvent e, vector<string>& data, unsigned avgKeyCount, u
    }
 }
 
-int main()
+int main(int argc, char* argv[])
 {
    vector<string> data;
 
@@ -276,6 +276,7 @@ int main()
    e.setParam("payload_size", payloadSize);
    e.setParam("run_id", envu64("RUN_ID"));
    e.setParam("ycsb_zipf", ZIPF_PARAMETER);
+   e.setParam("bin_name", std::string{argv[0]});
    unsigned maxScanLength = envu64("SCAN_LENGTH");
    e.setParam("ycsb_range_len", maxScanLength);
 
