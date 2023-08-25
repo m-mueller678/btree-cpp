@@ -28,7 +28,7 @@ unsigned HashNode::estimateCapacity()
 
 uint8_t* HashNode::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut)
 {
-   int index = findIndex(key, keyLength);
+   int index = findIndex(key, keyLength, compute_hash(key + prefixLength, keyLength - prefixLength));
    if (index >= 0) {
       payloadSizeOut = slot[index].payloadLen;
       return getPayload(index);
@@ -57,20 +57,19 @@ void HashNode::print()
    }
 }
 
-int HashNode::findIndex(uint8_t* key, unsigned keyLength)
+int HashNode::findIndex(uint8_t* key, unsigned keyLength, uint8_t hash)
 {
    if (hashUseSimd) {
-      return findIndexSimd(key, keyLength);
+      return findIndexSimd(key, keyLength, hash);
    } else {
-      return findIndexNoSimd(key, keyLength);
+      return findIndexNoSimd(key, keyLength, hash);
    }
 }
 
-int HashNode::findIndexNoSimd(uint8_t* key, unsigned keyLength)
+int HashNode::findIndexNoSimd(uint8_t* key, unsigned keyLength, uint8_t needle)
 {
    key += prefixLength;
    keyLength -= prefixLength;
-   uint8_t needle = compute_hash(key, keyLength);
    for (unsigned i = 0; i < count; ++i) {
       if (hashes()[i] == needle && keyLength == slot[i].keyLen && memcmp(getKey(i), key, keyLength) == 0) {
          return i;
@@ -91,14 +90,14 @@ inline HashSimdBitMask hashSimdEq(HashSimdVecByte* a, HashSimdVecByte* b)
    return equality_bits;
 }
 
-int HashNode::findIndexSimd(uint8_t* key, unsigned keyLength)
+int HashNode::findIndexSimd(uint8_t* key, unsigned keyLength, uint8_t hash)
 {
    ASSUME(__builtin_is_aligned(this, alignof(HashSimdVecByte)));
    key += prefixLength;
    keyLength -= prefixLength;
    int hashMisalign = hashOffset % alignof(HashSimdVecByte);
    HashSimdVecByte* haystack_ptr = reinterpret_cast<HashSimdVecByte*>(hashes() - hashMisalign);
-   HashSimdVecByte needle = compute_hash(key, keyLength) - HashSimdVecByte{};
+   HashSimdVecByte needle = hash - HashSimdVecByte{};
    unsigned shift = hashMisalign;
    HashSimdBitMask matches = hashSimdEq(haystack_ptr, &needle) >> shift;
    unsigned shift_limit = shift + count;
@@ -247,12 +246,13 @@ bool HashNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsign
       assert(freeSpace() < pageSize);
       return false;
    }
-   int index = findIndex(key, keyLength);
+   uint8_t hash = compute_hash(key + prefixLength, keyLength - prefixLength);
+   int index = findIndex(key, keyLength, hash);
    if (index < 0) {
-      storeKeyValue(count, key, keyLength, payload, payloadLength);
+      storeKeyValue(count, key, keyLength, payload, payloadLength, hash);
       count += 1;
    } else {
-      storeKeyValue(index, key, keyLength, payload, payloadLength);
+      storeKeyValue(index, key, keyLength, payload, payloadLength, hash);
       spaceUsed -= (keyLength - prefixLength + payloadLength);
    }
    assert(freeSpace() < pageSize);
@@ -423,10 +423,10 @@ void HashNode::copyKeyValue(unsigned srcSlot, HashNode* dst, unsigned dstSlot)
    uint8_t key[fullLength];
    memcpy(key, getLowerFence(), prefixLength);
    memcpy(key + prefixLength, getKey(srcSlot), slot[srcSlot].keyLen);
-   dst->storeKeyValue(dstSlot, key, fullLength, getPayload(srcSlot), slot[srcSlot].payloadLen);
+   dst->storeKeyValue(dstSlot, key, fullLength, getPayload(srcSlot), slot[srcSlot].payloadLen, hashes()[srcSlot]);
 }
 
-void HashNode::storeKeyValue(unsigned slotId, uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
+void HashNode::storeKeyValue(unsigned slotId, uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength, uint8_t hash)
 {
    // slot
    key += prefixLength;
@@ -441,12 +441,12 @@ void HashNode::storeKeyValue(unsigned slotId, uint8_t* key, unsigned keyLength, 
    assert(getKey(slotId) >= reinterpret_cast<uint8_t*>(&slot[slotId]));
    memcpy(getKey(slotId), key, keyLength);
    memcpy(getPayload(slotId), payload, payloadLength);
-   updateHash(slotId);
+   hashes()[slotId] = hash;
 }
 
 bool HashNode::remove(uint8_t* key, unsigned keyLength)
 {
-   int index = findIndex(key, keyLength);
+   int index = findIndex(key, keyLength, compute_hash(key + prefixLength, keyLength - prefixLength));
    if (index < 0)
       return false;
    return removeSlot(index);

@@ -406,7 +406,7 @@ struct HashNode : public HashNodeHeader {
    uint8_t* getUpperFence();
    void updatePrefixLength();
    bool insert(uint8_t* key, unsigned int keyLength, uint8_t* payload, unsigned int payloadLength);
-   int findIndex(uint8_t* key, unsigned keyLength);
+   int findIndex(uint8_t* key, unsigned keyLength, uint8_t hash);
    unsigned int freeSpace();
    unsigned int freeSpaceAfterCompaction();
    bool requestSpace(unsigned int spaceNeeded);
@@ -420,7 +420,7 @@ struct HashNode : public HashNodeHeader {
    AnyNode* any() { return reinterpret_cast<AnyNode*>(this); }
    void updateHash(unsigned int i);
    void copyKeyValue(unsigned srcSlot, HashNode* dst, unsigned dstSlot);
-   void storeKeyValue(unsigned int slotId, uint8_t* key, unsigned int keyLength, uint8_t* payload, unsigned int payloadLength);
+   void storeKeyValue(unsigned int slotId, uint8_t* key, unsigned int keyLength, uint8_t* payload, unsigned int payloadLength, uint8_t hash);
    void copyKeyValueRange(HashNode* dst, unsigned int dstSlot, unsigned int srcSlot, unsigned int srcCount);
    bool removeSlot(unsigned int slotId);
    bool remove(uint8_t* key, unsigned int keyLength);
@@ -432,8 +432,8 @@ struct HashNode : public HashNodeHeader {
                      const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
    unsigned int lowerBound(uint8_t* key, unsigned int keyLength, bool& found);
 
-   int findIndexNoSimd(uint8_t* key, unsigned keyLength);
-   int findIndexSimd(uint8_t* key, unsigned keyLength);
+   int findIndexNoSimd(uint8_t* key, unsigned keyLength, uint8_t hash);
+   int findIndexSimd(uint8_t* key, unsigned keyLength, uint8_t hash);
    bool range_lookup_desc(uint8_t* key,
                           unsigned int keyLen,
                           uint8_t* keyOut,
