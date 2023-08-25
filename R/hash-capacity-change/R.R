@@ -20,6 +20,7 @@ rr <- rr %>%
   mutate(bin_name = case_when(
     bin_name == './hash-bad-cap-b9f47e8a18377416f0a2774c84b1c83c519906c0' ~ 'old',
     bin_name == './hash-smart-cap-cdb9a778c94679727d5f5361866ebd212f06b7cb' ~ 'new',
+    bin_name == './hash-lazy-d912146c3856a1eda466237cbb4980a3ff9e4c55' ~ 'lazy',
     TRUE ~ NA
   ))
 
@@ -44,5 +45,6 @@ where true
 and op="ycsb_d_init"
 ')) +
   facet_nested(data_name + op ~ ., scales = 'free_y') +
-  geom_smooth(aes(data_size, scale / time, col = bin_name))
+  #geom_smooth(aes(data_size, scale / time, col = bin_name))
+  geom_line(aes(data_size, scale / time, col = bin_name), stat = 'summary', fun = mean)
 #geom_line(aes(data_size, instr, col = bin_name),stat='summary',fun=mean)
