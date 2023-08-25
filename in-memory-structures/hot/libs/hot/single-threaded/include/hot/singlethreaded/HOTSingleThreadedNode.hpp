@@ -124,8 +124,8 @@ template<typename DiscriminativeBitsRepresentation, typename PartialKeyType> tem
 	HOTSingleThreadedChildPointer const * __restrict__ existingPointers = sourceNode.getPointers();
 	HOTSingleThreadedChildPointer * __restrict__ targetPointers = getPointers();
 
-	SourcePartialKeyType __restrict__ const * existingMasks = sourceNode.mPartialKeys.mEntries;
-	PartialKeyType __restrict__ * targetMasks = mPartialKeys.mEntries;
+	SourcePartialKeyType const * __restrict__ existingMasks = sourceNode.mPartialKeys.mEntries;
+	PartialKeyType * __restrict__ targetMasks = mPartialKeys.mEntries;
 
 	hot::commons::DiscriminativeBit const & keyInformation = insertInformation.mKeyInformation;
 	PartialKeyConversionInformation const & conversionInformation = getConversionInformation(sourceNode, keyInformation);
@@ -205,8 +205,8 @@ template<typename DiscriminativeBitsRepresentation, typename PartialKeyType> tem
 	HOTSingleThreadedChildPointer const * __restrict__ existingPointers = sourceNode.getPointers();
 	HOTSingleThreadedChildPointer * __restrict__ targetPointers = getPointers();
 
-	SourcePartialKeyType __restrict__ const * existingMasks = sourceNode.mPartialKeys.mEntries;
-	PartialKeyType __restrict__ * targetMasks = mPartialKeys.mEntries;
+	SourcePartialKeyType const * __restrict__ existingMasks = sourceNode.mPartialKeys.mEntries;
+	PartialKeyType * __restrict__ targetMasks = mPartialKeys.mEntries;
 
 	for(unsigned int targetIndex = 0; targetIndex < numberEntriesBeforeAffectedSubtree; ++targetIndex) {
 		unsigned int sourceIndex = firstIndexInRange + targetIndex;

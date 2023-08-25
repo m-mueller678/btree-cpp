@@ -5,7 +5,6 @@
 #include <string>
 #include "btree/BtreeCppPerfEvent.hpp"
 #include "btree/btree2020.hpp"
-#include "in-memory-structures/hot/libs/hot/single-threaded/include/hot/singlethreaded/HOTSingleThreaded.hpp"
 
 using namespace std;
 
