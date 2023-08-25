@@ -220,7 +220,7 @@ bool HashNode::requestSlotAndSpace(unsigned kvSize)
       }
    }
    // not worth compacting for a few more keys
-   if (onCompactifyCapacity <= count + count / 32)
+   if (onCompactifyCapacity <= count + (unsigned)(count) *3 / 128)
       return false;
    compactify(onCompactifyCapacity);
    return true;
