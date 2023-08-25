@@ -63,8 +63,8 @@ struct BTreeCppPerfEvent {
 
    std::vector<event> events;
    std::vector<std::string> names;
-   std::chrono::time_point<std::chrono::steady_clock> startTime;
-   std::chrono::time_point<std::chrono::steady_clock> stopTime;
+   std::chrono::time_point<std::chrono::steady_clock> startTime = std::chrono::time_point<std::chrono::steady_clock>::min();
+   std::chrono::time_point<std::chrono::steady_clock> stopTime = std::chrono::time_point<std::chrono::steady_clock>::min();
    std::map<std::string, std::string> params;
    bool printHeader;
 
@@ -118,11 +118,26 @@ struct BTreeCppPerfEvent {
       for (unsigned i = 0; i < events.size(); i++) {
          auto& event = events[i];
          ioctl(event.fd, PERF_EVENT_IOC_RESET, 0);
-         ioctl(event.fd, PERF_EVENT_IOC_ENABLE, 0);
          if (read(event.fd, &event.prev, sizeof(uint64_t) * 3) != sizeof(uint64_t) * 3)
             std::cerr << "Error reading counter " << names[i] << std::endl;
       }
-      startTime = std::chrono::steady_clock::now();
+      enableCounters();
+   }
+
+   void enableCounters()
+   {
+      for (unsigned i = 0; i < events.size(); i++) {
+         ioctl(events[i].fd, PERF_EVENT_IOC_ENABLE, 0);
+      }
+      startTime = std::chrono::steady_clock::now() - (stopTime - startTime);
+   }
+
+   void disableCounters()
+   {
+      for (unsigned i = 0; i < events.size(); i++) {
+         ioctl(events[i].fd, PERF_EVENT_IOC_DISABLE, 0);
+      }
+      stopTime = std::chrono::steady_clock::now();
    }
 
    ~BTreeCppPerfEvent()
@@ -134,12 +149,11 @@ struct BTreeCppPerfEvent {
 
    void stopCounters()
    {
-      stopTime = std::chrono::steady_clock::now();
+      disableCounters();
       for (unsigned i = 0; i < events.size(); i++) {
          auto& event = events[i];
          if (read(event.fd, &event.data, sizeof(uint64_t) * 3) != sizeof(uint64_t) * 3)
             std::cerr << "Error reading counter " << names[i] << std::endl;
-         ioctl(event.fd, PERF_EVENT_IOC_DISABLE, 0);
       }
    }
 
