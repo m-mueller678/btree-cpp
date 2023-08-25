@@ -370,6 +370,8 @@ struct HashNodeHeader {
    Tag _tag;
    uint16_t count;
    uint16_t sortedCount;
+   // includes keys, payloads, and fences
+   // excludes slots and hash array
    uint16_t spaceUsed;
    uint16_t dataOffset;
    uint16_t prefixLength;

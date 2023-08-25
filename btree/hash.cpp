@@ -19,7 +19,7 @@ uint8_t HashNode::compute_hash(uint8_t* key, unsigned keyLength)
 unsigned HashNode::estimateCapacity()
 {
    unsigned available = pageSize - sizeof(HashNodeHeader) - upperFenceLen - lowerFenceLen;
-   unsigned entrySpaceUse = spaceUsed - upperFenceLen - lowerFenceLen - hashCapacity + count * sizeof(HashSlot);
+   unsigned entrySpaceUse = spaceUsed - upperFenceLen - lowerFenceLen + count * sizeof(HashSlot);
    // equivalent to `available / (entrySpaceUse/count +1)`
    unsigned capacity = count == 0 ? pageSize / 64 : available * count / (entrySpaceUse + count);
    ASSUME(capacity >= count);
@@ -157,8 +157,8 @@ void HashNode::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperF
    _tag = Tag::Hash;
    count = 0;
    sortedCount = 0;
-   spaceUsed = upperFenceLen + lowerFenceLen + hashCapacity;
-   dataOffset = pageSize - spaceUsed;
+   spaceUsed = upperFenceLen + lowerFenceLen;
+   dataOffset = pageSize - spaceUsed - hashCapacity;
    hashOffset = dataOffset;
    this->hashCapacity = hashCapacity;
    this->lowerFenceLen = lowerFenceLen;
@@ -194,7 +194,7 @@ unsigned HashNode::freeSpace()
 
 unsigned HashNode::freeSpaceAfterCompaction()
 {
-   return pageSize - (reinterpret_cast<uint8_t*>(slot + count) - ptr()) - spaceUsed + hashCapacity;
+   return pageSize - (reinterpret_cast<uint8_t*>(slot + count) - ptr()) - spaceUsed;
 }
 
 bool HashNode::requestSlotAndSpace(unsigned kvSize)
@@ -212,7 +212,6 @@ bool HashNode::requestSlotAndSpace(unsigned kvSize)
          dataOffset -= hashGrowCapacity;
          memcpy(ptr() + dataOffset, hashes(), count);
          hashOffset = dataOffset;
-         spaceUsed += hashGrowCapacity - hashCapacity;
          hashCapacity = hashGrowCapacity;
          return true;
       } else if (onCompactifyCapacity + kvSize + sizeof(HashSlot) > freeSpaceAfterCompaction()) {
@@ -220,7 +219,7 @@ bool HashNode::requestSlotAndSpace(unsigned kvSize)
       }
    }
    // not worth compacting for a few more keys
-   if (onCompactifyCapacity <= count + (unsigned)(count) *3 / 128)
+   if (onCompactifyCapacity <= count + (unsigned)(count)*3 / 128)
       return false;
    compactify(onCompactifyCapacity);
    return true;
@@ -472,8 +471,8 @@ bool HashNode::mergeNodes(unsigned slotId, AnyNode* parent, HashNode* right)
    tmp.init(getLowerFence(), lowerFenceLen, right->getUpperFence(), right->upperFenceLen, newHashCapacity);
    unsigned leftGrow = (prefixLength - tmp.prefixLength) * count;
    unsigned rightGrow = (right->prefixLength - tmp.prefixLength) * right->count;
-   unsigned spaceUpperBound = spaceUsed - hashCapacity + right->spaceUsed - right->hashCapacity + newHashCapacity +
-                              (reinterpret_cast<uint8_t*>(slot + count + right->count) - ptr()) + leftGrow + rightGrow;
+   unsigned spaceUpperBound =
+       spaceUsed + right->spaceUsed + newHashCapacity + (reinterpret_cast<uint8_t*>(slot + count + right->count) - ptr()) + leftGrow + rightGrow;
    if (spaceUpperBound > pageSize)
       return false;
    copyKeyValueRange(&tmp, 0, 0, count);
@@ -558,7 +557,7 @@ void HashNode::validate()
 #endif
    return;
    // space used
-   unsigned used = upperFenceLen + lowerFenceLen + hashCapacity;
+   unsigned used = upperFenceLen + lowerFenceLen;
    for (unsigned i = 0; i < count; ++i)
       used += slot[i].keyLen + slot[i].payloadLen;
    assert(used == spaceUsed);
