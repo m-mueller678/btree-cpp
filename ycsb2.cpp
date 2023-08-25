@@ -16,10 +16,8 @@ void zipf_generate(ZipfGenerator*, uint32_t*, uint32_t);
 
 constexpr double ZIPF_PARAMETER = 1.5;
 static ZipfGenerator* ZIPF_GENERATOR = nullptr;
-static
 
-    unsigned
-    zipf_next(BTreeCppPerfEvent& e)
+unsigned zipf_next(BTreeCppPerfEvent& e)
 {
    constexpr unsigned GEN_SIZE = 1 << 25;
    static unsigned ARRAY[GEN_SIZE];
