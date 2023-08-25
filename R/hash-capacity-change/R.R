@@ -21,6 +21,7 @@ rr <- rr %>%
     bin_name == './hash-bad-cap-b9f47e8a18377416f0a2774c84b1c83c519906c0' ~ 'old',
     bin_name == './hash-smart-cap-cdb9a778c94679727d5f5361866ebd212f06b7cb' ~ 'new',
     bin_name == './hash-lazy-d912146c3856a1eda466237cbb4980a3ff9e4c55' ~ 'lazy',
+    bin_name == './hash-space-b2d292c1003c466a10bc99412af861b2948c4048' ~ 'space',
     TRUE ~ NA
   ))
 
