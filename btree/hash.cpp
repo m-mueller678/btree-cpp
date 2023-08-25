@@ -219,6 +219,9 @@ bool HashNode::requestSlotAndSpace(unsigned kvSize)
          return false;
       }
    }
+   // not worth compacting for a few more keys
+   if (onCompactifyCapacity <= count + count / 32)
+      return false;
    compactify(onCompactifyCapacity);
    return true;
 }
