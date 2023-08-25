@@ -391,6 +391,7 @@ struct HashNode : public HashNodeHeader {
       uint8_t heap[pageSize - sizeof(HashNodeHeader)];                        // grows from back
    };
 
+   unsigned estimateCapacity();
    uint8_t* lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut);
    static uint8_t compute_hash(uint8_t* key, unsigned int keyLength);
    uint8_t* ptr();
@@ -606,4 +607,4 @@ struct DataStructureWrapper {
    void testing_update_payload(uint8_t* key, unsigned int keyLength, uint8_t* payload);
 };
 
-void printKey(uint8_t* key,unsigned length);
+void printKey(uint8_t* key, unsigned length);

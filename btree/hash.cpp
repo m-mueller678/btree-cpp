@@ -16,6 +16,16 @@ uint8_t HashNode::compute_hash(uint8_t* key, unsigned keyLength)
    return hash;
 }
 
+unsigned HashNode::estimateCapacity()
+{
+   unsigned available = pageSize - sizeof(HashNodeHeader) - upperFenceLen - lowerFenceLen;
+   unsigned entrySpaceUse = spaceUsed - upperFenceLen - lowerFenceLen - hashCapacity + count * sizeof(HashSlot);
+   // equivalent to `available / (entrySpaceUse/count +1)`
+   unsigned capacity = count == 0 ? pageSize / 64 : available * count / (entrySpaceUse + count);
+   ASSUME(capacity >= count);
+   return capacity;
+}
+
 uint8_t* HashNode::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut)
 {
    int index = findIndex(key, keyLength);
@@ -117,7 +127,7 @@ int HashNode::findIndexSimd(uint8_t* key, unsigned keyLength)
 AnyNode* HashNode::makeRootLeaf()
 {
    AnyNode* ptr = new AnyNode;
-   ptr->_hash.init(nullptr, 0, nullptr, 0, 64);
+   ptr->_hash.init(nullptr, 0, nullptr, 0, pageSize / 64);
    return ptr;
 }
 
@@ -189,26 +199,27 @@ unsigned HashNode::freeSpaceAfterCompaction()
 
 bool HashNode::requestSlotAndSpace(unsigned kvSize)
 {
-   int onCompactHashCapacity = count * 2;
+   unsigned onCompactifyCapacity = max(estimateCapacity(), count + 1);
    if (count < hashCapacity) {
       if (kvSize + sizeof(HashSlot) <= freeSpace()) {
          return true;
-      } else if (onCompactHashCapacity + kvSize + sizeof(HashSlot) > freeSpaceAfterCompaction()) {
+      } else if (onCompactifyCapacity + kvSize + sizeof(HashSlot) > freeSpaceAfterCompaction()) {
          return false;
       }
    } else {
-      if (hashCapacity * 2 + kvSize + sizeof(HashSlot) <= freeSpace()) {
-         dataOffset -= hashCapacity * 2;
+      unsigned hashGrowCapacity = onCompactifyCapacity;
+      if (hashGrowCapacity + kvSize + sizeof(HashSlot) <= freeSpace()) {
+         dataOffset -= hashGrowCapacity;
          memcpy(ptr() + dataOffset, hashes(), count);
          hashOffset = dataOffset;
-         spaceUsed += hashCapacity;
-         hashCapacity *= 2;
+         spaceUsed += hashGrowCapacity - hashCapacity;
+         hashCapacity = hashGrowCapacity;
          return true;
-      } else if (onCompactHashCapacity + kvSize + sizeof(HashSlot) > freeSpaceAfterCompaction()) {
+      } else if (onCompactifyCapacity + kvSize + sizeof(HashSlot) > freeSpaceAfterCompaction()) {
          return false;
       }
    }
-   compactify(onCompactHashCapacity);
+   compactify(onCompactifyCapacity);
    return true;
 }
 
@@ -365,9 +376,10 @@ void HashNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, uns
    assert(sepSlot > 0);
    HashNode* nodeLeft = &(new AnyNode())->_hash;
    unsigned leftCount = sepSlot + 1;
-   nodeLeft->init(getLowerFence(), lowerFenceLen, sepKey, sepLength, leftCount);
+   unsigned capacity = estimateCapacity();
+   nodeLeft->init(getLowerFence(), lowerFenceLen, sepKey, sepLength, capacity);
    HashNode right;
-   right.init(sepKey, sepLength, getUpperFence(), upperFenceLen, count - leftCount);
+   right.init(sepKey, sepLength, getUpperFence(), upperFenceLen, capacity);
    bool succ = parent->insertChild(sepKey, sepLength, nodeLeft->any());
    assert(succ);
    copyKeyValueRange(nodeLeft, 0, 0, sepSlot + 1);
@@ -453,7 +465,7 @@ bool HashNode::removeSlot(unsigned slotId)
 bool HashNode::mergeNodes(unsigned slotId, AnyNode* parent, HashNode* right)
 {
    HashNode tmp;
-   unsigned newHashCapacity = count + right->count;
+   unsigned newHashCapacity = max(min(estimateCapacity(), right->estimateCapacity()), count + right->count);
    tmp.init(getLowerFence(), lowerFenceLen, right->getUpperFence(), right->upperFenceLen, newHashCapacity);
    unsigned leftGrow = (prefixLength - tmp.prefixLength) * count;
    unsigned rightGrow = (right->prefixLength - tmp.prefixLength) * right->count;
