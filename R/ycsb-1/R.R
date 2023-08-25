@@ -38,3 +38,32 @@ and run_id=1
   #scale_y_log10()+
   expand_limits(y=0)
   #scale_x_log10()
+
+
+### hints vs inner
+
+ggplot(sqldf('
+select * from r
+where true
+and op="lookup"
+and run_id=1
+and config_name in ("hints","inner")
+')) +
+  facet_grid( data_name ~ payload_size ) +
+  geom_line(aes(data_size,scale/time,col=config_name))+
+  #scale_y_log10()+
+  expand_limits(y=0)+
+  scale_x_log10()
+
+ggplot(sqldf('
+select * from r
+where true
+and op="lookup"
+and run_id=1
+and config_name in ("hints","inner")
+')) +
+  facet_grid( data_name ~ payload_size ) +
+  geom_line(aes(data_size,instr,col=config_name))+
+  #scale_y_log10()+
+  expand_limits(y=0)+
+  scale_x_log10()
