@@ -11,6 +11,7 @@
 #include <functional>
 #include <map>
 #include "config.hpp"
+#include "../hot/hot/single-threaded/include/hot/singlethreaded/HOTSingleThreaded.hpp"
 
 #ifndef NDEBUG
 #define CHECK_TREE_OPS
