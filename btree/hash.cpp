@@ -199,11 +199,11 @@ unsigned HashNode::freeSpaceAfterCompaction()
 
 bool HashNode::requestSlotAndSpace(unsigned kvSize)
 {
+   if (count < hashCapacity && kvSize + sizeof(HashSlot) <= freeSpace())
+      return true;  // avoid capacity estimate calculation
    unsigned onCompactifyCapacity = max(estimateCapacity(), count + 1);
    if (count < hashCapacity) {
-      if (kvSize + sizeof(HashSlot) <= freeSpace()) {
-         return true;
-      } else if (onCompactifyCapacity + kvSize + sizeof(HashSlot) > freeSpaceAfterCompaction()) {
+      if (onCompactifyCapacity + kvSize + sizeof(HashSlot) > freeSpaceAfterCompaction()) {
          return false;
       }
    } else {
