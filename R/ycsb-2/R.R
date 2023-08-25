@@ -40,7 +40,7 @@ where true
 and payload_size=8
 and op in ("ycsb_c","ycsb_d","ycsb_e")
 ')) +
-  facet_nested(config_name ~ data_name) +
+  facet_nested(data_name ~ config_name) +
   geom_line(aes(data_size * avgKeySize + payload_size * data_size, scale / time, col = op)) +
   scale_x_log10() +
   expand_limits(y = 0) +
@@ -57,3 +57,59 @@ and op in ("ycsb_c","ycsb_d","ycsb_e")
   facet_nested(op ~ data_name, scales = "free_y") +
   geom_col(aes(config_name, scale / time)) +
   expand_limits(y = 0)
+
+#hash
+
+ggplot(sqldf('
+select * from r
+where true
+and config_name in ("hash","hints")
+and op in ("ycsb_c","ycsb_d","ycsb_e")
+and data_name in ("int","data/urls")
+and payload_size=8
+')) +
+  facet_nested(data_name ~ op, scales = 'free_y') +
+  geom_line(aes(data_size, scale / time, col = config_name)) +
+  scale_x_log10() +
+  expand_limits(y = 0)
+
+hash_hint_rel <- r %>%
+  filter(config_name %in% c('hints', 'hash')) %>%
+  arrange(payload_size, op, data_name, data_size, config_name) %>%
+  group_by(payload_size, op, data_name, data_size) %>%
+  mutate(hash_txs_rel = scale / time / lag(scale / time, default = NaN)) %>%
+  mutate(hash_l1_rel = L1_miss / lag(L1_miss, default = NaN)) %>%
+  mutate(hash_instr_rel = instr / lag(instr, default = NaN)) %>%
+  filter(config_name == 'hash')
+
+ggplot(sqldf('
+select * from hash_hint_rel
+where true
+and op in ("ycsb_c","ycsb_d","ycsb_e")
+')) +
+  facet_nested(data_name ~ payload_size, scales = 'free_y') +
+  geom_smooth(aes(data_size, hash_txs_rel, col = op)) +
+  scale_x_log10() +
+  scale_y_log10() +
+  ylim(0.33, 3)
+
+ggplot(sqldf('
+select * from hash_hint_rel
+where true
+and op in ("ycsb_c","ycsb_d","ycsb_e")
+')) +
+  facet_nested(data_name ~ payload_size, scales = 'free_y') +
+  geom_smooth(aes(data_size, hash_l1_rel, col = op)) +
+  scale_x_log10() +
+  scale_y_log10() +
+  ylim(0.33, 3)
+
+ggplot(sqldf('
+select * from hash_hint_rel
+where true
+and op in ("ycsb_c_init","ycsb_d_init","ycsb_e_init")
+')) +
+  facet_nested(data_name ~ payload_size) +
+  geom_smooth(aes(data_size, hash_instr_rel, col = op)) +
+  scale_x_log10() +
+  scale_y_log10()
