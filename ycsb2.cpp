@@ -10,32 +10,41 @@ using namespace std;
 
 extern "C" {
 struct ZipfGenerator;
-ZipfGenerator* zipf_init_generator(uint32_t, double);
-void zipf_generate(ZipfGenerator*, uint32_t*, uint32_t);
+void zipf_generate(uint32_t, double, uint32_t*, uint32_t);
 }
 
-static ZipfGenerator* ZIPF_GENERATOR = nullptr;
-
-unsigned zipf_next(BTreeCppPerfEvent& e)
+// zipfParameter is assumed to not change between invocations.
+unsigned zipf_next(BTreeCppPerfEvent& e, unsigned num_keys, double zipfParameter)
 {
-   constexpr unsigned GEN_SIZE = 1 << 25;
+   constexpr unsigned GEN_SIZE = 1 << 18;
    static unsigned ARRAY[GEN_SIZE];
    static unsigned index = GEN_SIZE - 1;
+   static unsigned generatedNumKeys = 0;
 
-   index += 1;
-   if (index == GEN_SIZE)
-      index = 0;
-   if (index == 0) {
-      e.disableCounters();
-      zipf_generate(ZIPF_GENERATOR, ARRAY, GEN_SIZE);
-      e.enableCounters();
+   while (true) {
+      // COUNTER(zipf_fail_rate, num_keys > generatedNumKeys, 1 << 10);
+      if (num_keys > generatedNumKeys) {
+         index = GEN_SIZE - 1;
+      }
+      index += 1;
+      if (index == GEN_SIZE)
+         index = 0;
+      if (index == 0) {
+         e.disableCounters();
+         generatedNumKeys = num_keys + GEN_SIZE / 10;
+         zipf_generate(generatedNumKeys, zipfParameter, ARRAY, GEN_SIZE);
+         e.enableCounters();
+      }
+      // COUNTER(zipf_reject_rate, ARRAY[index] >= num_keys, 1 << 10);
+      if (ARRAY[index] < num_keys) {
+         return ARRAY[index];
+      }
    }
-   return ARRAY[index];
 }
 
 bool op_next(BTreeCppPerfEvent& e)
 {
-   constexpr unsigned GEN_SIZE = 5 * (1 << 22);
+   constexpr unsigned GEN_SIZE = 5 * (1 << 18);
    static bool ARRAY[GEN_SIZE];
    static unsigned index = GEN_SIZE - 1;
    index += 1;
@@ -89,7 +98,6 @@ void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
    }
 
    uint8_t* payload = makePayload(payloadSize);
-   ZIPF_GENERATOR = zipf_init_generator(keyCount, zipfParameter);
 
    DataStructureWrapper t;
    {
@@ -109,7 +117,7 @@ void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
       BTreeCppPerfEventBlock b(e, opCount);
       if (!dryRun)
          for (uint64_t i = 0; i < opCount; i++) {
-            unsigned keyIndex = zipf_next(e);
+            unsigned keyIndex = zipf_next(e, keyCount, zipfParameter);
             assert(keyIndex < data.size());
             unsigned payloadSizeOut;
             uint8_t* key = (uint8_t*)data[keyIndex].data();
@@ -159,7 +167,6 @@ void runYcsbD(BTreeCppPerfEvent e,
    if (!dryRun)
       random_shuffle(data.begin(), data.end());
    uint8_t* payload = makePayload(payloadSize);
-   ZIPF_GENERATOR = zipf_init_generator(data.size(), zipfParameter);
 
    DataStructureWrapper t;
    {
@@ -190,19 +197,14 @@ void runYcsbD(BTreeCppPerfEvent e,
                t.insert(key, length, payload, payloadSize);
                ++insertedCount;
             } else {
-               while (true) {
-                  unsigned zipfSample = zipf_next(e);
-                  if (zipfSample < insertedCount) {
-                     unsigned keyIndex = insertedCount - 1 - zipfSample;
-                     unsigned payloadSizeOut;
-                     uint8_t* key = (uint8_t*)data[keyIndex].data();
-                     unsigned long length = data[keyIndex].size();
-                     uint8_t* payload = t.lookup(key, length, payloadSizeOut);
-                     if (!payload || (payloadSize != payloadSizeOut) || (payloadSize > 0 && *payload != 42))
-                        throw;
-                     break;
-                  }
-               }
+               unsigned zipfSample = zipf_next(e, insertedCount, zipfParameter);
+               unsigned keyIndex = insertedCount - 1 - zipfSample;
+               unsigned payloadSizeOut;
+               uint8_t* key = (uint8_t*)data[keyIndex].data();
+               unsigned long length = data[keyIndex].size();
+               uint8_t* payload = t.lookup(key, length, payloadSizeOut);
+               if (!payload || (payloadSize != payloadSizeOut) || (payloadSize > 0 && *payload != 42))
+                  throw;
             }
          }
    }
@@ -227,7 +229,6 @@ void runYcsbE(BTreeCppPerfEvent e,
    if (!dryRun)
       random_shuffle(data.begin(), data.end());
    uint8_t* payload = makePayload(payloadSize);
-   ZIPF_GENERATOR = zipf_init_generator(data.size(), zipfParameter);
    // TODO zipf permutation so not all indices are among first insertions
    abort();
 
@@ -273,26 +274,19 @@ void runYcsbE(BTreeCppPerfEvent e,
                ++insertedCount;
             } else {
                unsigned scanLength = scanLengthDistribution(generator);
-               while (true) {
-                  unsigned keyIndex = zipf_next(e);
-                  if (keyIndex < insertedCount) {
-                     uint8_t keyBuffer[BTreeNode::maxKVSize];
-                     unsigned foundIndex = 0;
-                     uint8_t* key = (uint8_t*)data[keyIndex].data();
-                     unsigned int keyLen = data[keyIndex].size();
-                     auto callback = [&](unsigned keyLen, uint8_t* payload, unsigned loadedPayloadLen) {
-                        if (payloadSize != loadedPayloadLen) {
-                           throw;
-                        }
-                        foundIndex += 1;
-                        return foundIndex < scanLength;
-                     };
-                     t.range_lookup(key, keyLen, keyBuffer, callback);
-                     break;
-                  } else {
-                     ++sampleIndex;
+               unsigned keyIndex = zipf_next(e, insertedCount, zipfParameter);
+               uint8_t keyBuffer[BTreeNode::maxKVSize];
+               unsigned foundIndex = 0;
+               uint8_t* key = (uint8_t*)data[keyIndex].data();
+               unsigned int keyLen = data[keyIndex].size();
+               auto callback = [&](unsigned keyLen, uint8_t* payload, unsigned loadedPayloadLen) {
+                  if (payloadSize != loadedPayloadLen) {
+                     throw;
                   }
-               }
+                  foundIndex += 1;
+                  return foundIndex < scanLength;
+               };
+               t.range_lookup(key, keyLen, keyBuffer, callback);
             }
          }
    }
