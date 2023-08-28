@@ -12,11 +12,11 @@ pub unsafe extern "C" fn zipf_init_generator(num_elements: u32, zipf_parameter: 
     Box::into_raw(
         Box::new(
             Generator {
-                generator: if zipf_parameter >= 1.0 {
+                generator: if zipf_parameter > 0.0 {
                     Ok(ZipfDistribution::new(num_elements as usize, zipf_parameter).unwrap())
-                } else if zipf_parameter<0.0{
+                } else if zipf_parameter < 0.0 {
                     Err(Uniform::new(0, num_elements))
-                }else{
+                } else {
                     panic!("invalid zipf parameter {zipf_parameter}")
                 },
                 rng: SmallRng::from_entropy(),
