@@ -14,7 +14,6 @@ ZipfGenerator* zipf_init_generator(uint32_t, double);
 void zipf_generate(ZipfGenerator*, uint32_t*, uint32_t);
 }
 
-constexpr double ZIPF_PARAMETER = 1.5;
 static ZipfGenerator* ZIPF_GENERATOR = nullptr;
 
 unsigned zipf_next(BTreeCppPerfEvent& e)
@@ -56,7 +55,15 @@ bool op_next(BTreeCppPerfEvent& e)
 uint64_t envu64(const char* env)
 {
    if (getenv(env))
-      return atof(getenv(env));
+      return strtod(getenv(env), nullptr);
+   std::cerr << "missing env " << env << std::endl;
+   abort();
+}
+
+double envf64(const char* env)
+{
+   if (getenv(env))
+      return strtod(getenv(env), nullptr);
    std::cerr << "missing env " << env << std::endl;
    abort();
 }
@@ -69,7 +76,7 @@ uint8_t* makePayload(unsigned len)
    return payload;
 }
 
-void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsigned payloadSize, unsigned opCount)
+void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsigned payloadSize, unsigned opCount, double zipfParameter)
 {
    if (keyCount <= data.size()) {
       random_shuffle(data.begin(), data.end());
@@ -81,7 +88,7 @@ void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
    }
 
    uint8_t* payload = makePayload(payloadSize);
-   ZIPF_GENERATOR = zipf_init_generator(keyCount, ZIPF_PARAMETER);
+   ZIPF_GENERATOR = zipf_init_generator(keyCount, zipfParameter);
 
    DataStructureWrapper t;
    {
@@ -99,7 +106,7 @@ void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
       e.setParam("op", "ycsb_c");
       BTreeCppPerfEventBlock b(e, opCount);
       for (uint64_t i = 0; i < opCount; i++) {
-         unsigned keyIndex = zipf_next(e) - 1;
+         unsigned keyIndex = zipf_next(e);
          assert(keyIndex < data.size());
          unsigned payloadSizeOut;
          uint8_t* key = (uint8_t*)data[keyIndex].data();
@@ -131,7 +138,7 @@ bool computeInitialKeyCount(unsigned avgKeyCount, unsigned availableKeyCount, un
    return configValid;
 }
 
-void runYcsbD(BTreeCppPerfEvent e, vector<string>& data, unsigned avgKeyCount, unsigned payloadSize, unsigned opCount)
+void runYcsbD(BTreeCppPerfEvent e, vector<string>& data, unsigned avgKeyCount, unsigned payloadSize, unsigned opCount, double zipfParameter)
 {
    unsigned initialKeyCount = 0;
    if (!computeInitialKeyCount(avgKeyCount, data.size(), opCount, initialKeyCount)) {
@@ -142,7 +149,7 @@ void runYcsbD(BTreeCppPerfEvent e, vector<string>& data, unsigned avgKeyCount, u
 
    random_shuffle(data.begin(), data.end());
    uint8_t* payload = makePayload(payloadSize);
-   ZIPF_GENERATOR = zipf_init_generator(data.size(), ZIPF_PARAMETER);
+   ZIPF_GENERATOR = zipf_init_generator(data.size(), zipfParameter);
 
    DataStructureWrapper t;
    {
@@ -174,7 +181,7 @@ void runYcsbD(BTreeCppPerfEvent e, vector<string>& data, unsigned avgKeyCount, u
             while (true) {
                unsigned zipfSample = zipf_next(e);
                if (zipfSample < insertedCount) {
-                  unsigned keyIndex = insertedCount - zipfSample;
+                  unsigned keyIndex = insertedCount - 1 - zipfSample;
                   unsigned payloadSizeOut;
                   uint8_t* key = (uint8_t*)data[keyIndex].data();
                   unsigned long length = data[keyIndex].size();
@@ -189,7 +196,13 @@ void runYcsbD(BTreeCppPerfEvent e, vector<string>& data, unsigned avgKeyCount, u
    }
 }
 
-void runYcsbE(BTreeCppPerfEvent e, vector<string>& data, unsigned avgKeyCount, unsigned payloadSize, unsigned opCount, unsigned maxScanLength)
+void runYcsbE(BTreeCppPerfEvent e,
+              vector<string>& data,
+              unsigned avgKeyCount,
+              unsigned payloadSize,
+              unsigned opCount,
+              unsigned maxScanLength,
+              double zipfParameter)
 {
    unsigned initialKeyCount = 0;
    if (!computeInitialKeyCount(avgKeyCount, data.size(), opCount, initialKeyCount)) {
@@ -200,7 +213,7 @@ void runYcsbE(BTreeCppPerfEvent e, vector<string>& data, unsigned avgKeyCount, u
 
    random_shuffle(data.begin(), data.end());
    uint8_t* payload = makePayload(payloadSize);
-   ZIPF_GENERATOR = zipf_init_generator(data.size(), ZIPF_PARAMETER);
+   ZIPF_GENERATOR = zipf_init_generator(data.size(), zipfParameter);
    // TODO zipf permutation so not all indices are among first insertions
    abort();
 
@@ -245,7 +258,7 @@ void runYcsbE(BTreeCppPerfEvent e, vector<string>& data, unsigned avgKeyCount, u
          } else {
             unsigned scanLength = scanLengthDistribution(generator);
             while (true) {
-               unsigned keyIndex = zipf_next(e) - 1;
+               unsigned keyIndex = zipf_next(e);
                if (keyIndex < insertedCount) {
                   uint8_t keyBuffer[BTreeNode::maxKVSize];
                   unsigned foundIndex = 0;
@@ -281,10 +294,11 @@ int main(int argc, char* argv[])
    std::string keySet = getenv("DATA");
    unsigned payloadSize = envu64("PAYLOAD_SIZE");
    unsigned opCount = envu64("OP_COUNT");
+   double zipfParameter = envf64("ZIPF");
    BTreeCppPerfEvent e = makePerfEvent(keySet, false, keyCount);
    e.setParam("payload_size", payloadSize);
    e.setParam("run_id", envu64("RUN_ID"));
-   e.setParam("ycsb_zipf", ZIPF_PARAMETER);
+   e.setParam("ycsb_zipf", zipfParameter);
    e.setParam("bin_name", std::string{argv[0]});
    unsigned maxScanLength = envu64("SCAN_LENGTH");
    e.setParam("ycsb_range_len", maxScanLength);
@@ -337,15 +351,15 @@ int main(int argc, char* argv[])
 
    switch (envu64("YCSB_VARIANT")) {
       case 3: {
-         runYcsbC(e, data, keyCount, payloadSize, opCount);
+         runYcsbC(e, data, keyCount, payloadSize, opCount, zipfParameter);
          break;
       }
       case 4: {
-         runYcsbD(e, data, keyCount, payloadSize, opCount);
+         runYcsbD(e, data, keyCount, payloadSize, opCount, zipfParameter);
          break;
       }
       case 5: {
-         runYcsbE(e, data, keyCount, payloadSize, opCount, maxScanLength);
+         runYcsbE(e, data, keyCount, payloadSize, opCount, maxScanLength, zipfParameter);
          break;
       }
       default: {
