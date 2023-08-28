@@ -121,6 +121,7 @@ struct BTreeCppPerfEvent {
          if (read(event.fd, &event.prev, sizeof(uint64_t) * 3) != sizeof(uint64_t) * 3)
             std::cerr << "Error reading counter " << names[i] << std::endl;
       }
+      stopTime=startTime;
       enableCounters();
    }
 
