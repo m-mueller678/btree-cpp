@@ -79,7 +79,8 @@ uint8_t* makePayload(unsigned len)
 void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsigned payloadSize, unsigned opCount, double zipfParameter, bool dryRun)
 {
    if (keyCount <= data.size()) {
-      random_shuffle(data.begin(), data.end());
+      if (!dryRun)
+         random_shuffle(data.begin(), data.end());
       data.resize(keyCount);
    } else {
       std::cerr << "not enough keys" << std::endl;
@@ -155,7 +156,8 @@ void runYcsbD(BTreeCppPerfEvent e,
       data.resize(0);
    }
 
-   random_shuffle(data.begin(), data.end());
+   if (!dryRun)
+      random_shuffle(data.begin(), data.end());
    uint8_t* payload = makePayload(payloadSize);
    ZIPF_GENERATOR = zipf_init_generator(data.size(), zipfParameter);
 
@@ -222,7 +224,8 @@ void runYcsbE(BTreeCppPerfEvent e,
       data.resize(0);
    }
 
-   random_shuffle(data.begin(), data.end());
+   if (!dryRun)
+      random_shuffle(data.begin(), data.end());
    uint8_t* payload = makePayload(payloadSize);
    ZIPF_GENERATOR = zipf_init_generator(data.size(), zipfParameter);
    // TODO zipf permutation so not all indices are among first insertions
@@ -321,15 +324,15 @@ int main(int argc, char* argv[])
    if (keySet == "int") {
       unsigned genCount = envu64("YCSB_VARIANT") == 3 ? keyCount : keyCount + opCount;
       vector<uint32_t> v;
-      for (uint32_t i = 0; i < genCount; i++)
-         v.push_back(i);
-      string s;
-      s.resize(4);
-      for (auto x : v) {
-         *(uint32_t*)(s.data()) = __builtin_bswap32(x);
-         if (dryRun) {
-            data.emplace_back();
-         } else {
+      if (dryRun) {
+         data.resize(genCount);
+      } else {
+         for (uint32_t i = 0; i < genCount; i++)
+            v.push_back(i);
+         string s;
+         s.resize(4);
+         for (auto x : v) {
+            *(uint32_t*)(s.data()) = __builtin_bswap32(x);
             data.push_back(s);
          }
       }
@@ -350,14 +353,27 @@ int main(int argc, char* argv[])
    } else {
       ifstream in(keySet);
       keySet = "file:" + keySet;
-      string line;
-      while (getline(in, line)) {
-         if (dryRun) {
-            data.emplace_back();
-         } else {
-            if (configName == std::string{"art"})
-               line.push_back(0);
-            data.push_back(line);
+      if (dryRun && keySet == "file:data/access")
+         data.resize(6625815);
+      else if (dryRun && keySet == "file:data/genome")
+         data.resize(262084);
+      else if (dryRun && keySet == "file:data/urls")
+         data.resize(6393703);
+      else if (dryRun && keySet == "file:data/wiki")
+         data.resize(15772029);
+      else if (dryRun) {
+         std::cerr << "key count unknown for [" << keySet << "]" << std::endl;
+         abort();
+      } else {
+         string line;
+         while (getline(in, line)) {
+            if (dryRun) {
+               data.emplace_back();
+            } else {
+               if (configName == std::string{"art"})
+                  line.push_back(0);
+               data.push_back(line);
+            }
          }
       }
    }
