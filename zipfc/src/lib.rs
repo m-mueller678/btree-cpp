@@ -8,7 +8,10 @@ pub struct Generator {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn zipf_init_generator(num_elements: u32, zipf_parameter: f64) -> *mut Generator {
+pub unsafe extern "C" fn zipf_init_generator(mut num_elements: u32, zipf_parameter: f64) -> *mut Generator {
+    if num_elements == 0 {
+        num_elements = 1;
+    }
     Box::into_raw(
         Box::new(
             Generator {
