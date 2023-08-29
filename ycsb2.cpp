@@ -10,11 +10,11 @@ using namespace std;
 
 extern "C" {
 struct ZipfGenerator;
-void zipf_generate(uint32_t, double, uint32_t*, uint32_t);
+void zipf_generate(uint32_t, double, uint32_t*, uint32_t, bool);
 }
 
 // zipfParameter is assumed to not change between invocations.
-unsigned zipf_next(BTreeCppPerfEvent& e, unsigned num_keys, double zipfParameter)
+unsigned zipf_next(BTreeCppPerfEvent& e, unsigned num_keys, double zipfParameter, bool shuffle)
 {
    constexpr unsigned GEN_SIZE = 1 << 18;
    static unsigned ARRAY[GEN_SIZE];
@@ -32,7 +32,7 @@ unsigned zipf_next(BTreeCppPerfEvent& e, unsigned num_keys, double zipfParameter
       if (index == 0) {
          e.disableCounters();
          generatedNumKeys = num_keys + GEN_SIZE / 10;
-         zipf_generate(generatedNumKeys, zipfParameter, ARRAY, GEN_SIZE);
+         zipf_generate(generatedNumKeys, zipfParameter, ARRAY, GEN_SIZE, true);
          e.enableCounters();
       }
       // COUNTER(zipf_reject_rate, ARRAY[index] >= num_keys, 1 << 10);
@@ -117,7 +117,7 @@ void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
       BTreeCppPerfEventBlock b(e, opCount);
       if (!dryRun)
          for (uint64_t i = 0; i < opCount; i++) {
-            unsigned keyIndex = zipf_next(e, keyCount, zipfParameter);
+            unsigned keyIndex = zipf_next(e, keyCount, zipfParameter, false);
             assert(keyIndex < data.size());
             unsigned payloadSizeOut;
             uint8_t* key = (uint8_t*)data[keyIndex].data();
@@ -131,14 +131,19 @@ void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
    data.clear();
 }
 
-bool computeInitialKeyCount(unsigned avgKeyCount, unsigned availableKeyCount, unsigned opCount, unsigned& initialKeyCount)
+bool computeInitialKeyCount(unsigned avgKeyCount,
+                            unsigned availableKeyCount,
+                            unsigned opCount,
+                            unsigned& initialKeyCount,
+                            unsigned& reasonableMaxKeys)
 {
    bool configValid = false;
    initialKeyCount = 0;
    if (avgKeyCount > opCount / 40) {
       initialKeyCount = avgKeyCount - opCount / 40;
       unsigned expectedInsertions = opCount / 20;
-      if (initialKeyCount + expectedInsertions * 2 <= availableKeyCount) {
+      reasonableMaxKeys = initialKeyCount + expectedInsertions * 2;
+      if (reasonableMaxKeys <= availableKeyCount) {
          configValid = true;
       } else {
          std::cerr << "not enough keys" << std::endl;
@@ -158,7 +163,8 @@ void runYcsbD(BTreeCppPerfEvent e,
               bool dryRun)
 {
    unsigned initialKeyCount = 0;
-   if (!computeInitialKeyCount(avgKeyCount, data.size(), opCount, initialKeyCount)) {
+   unsigned reasonableMaxKeys = 0;
+   if (!computeInitialKeyCount(avgKeyCount, data.size(), opCount, initialKeyCount, reasonableMaxKeys)) {
       opCount = 0;
       initialKeyCount = 0;
       data.resize(0);
@@ -197,7 +203,7 @@ void runYcsbD(BTreeCppPerfEvent e,
                t.insert(key, length, payload, payloadSize);
                ++insertedCount;
             } else {
-               unsigned zipfSample = zipf_next(e, insertedCount, zipfParameter);
+               unsigned zipfSample = zipf_next(e, insertedCount, zipfParameter, false);
                unsigned keyIndex = insertedCount - 1 - zipfSample;
                unsigned payloadSizeOut;
                uint8_t* key = (uint8_t*)data[keyIndex].data();
@@ -220,7 +226,8 @@ void runYcsbE(BTreeCppPerfEvent e,
               bool dryRun)
 {
    unsigned initialKeyCount = 0;
-   if (!computeInitialKeyCount(avgKeyCount, data.size(), opCount, initialKeyCount)) {
+   unsigned reasonableMaxKeys = 0;
+   if (!computeInitialKeyCount(avgKeyCount, data.size(), opCount, initialKeyCount, reasonableMaxKeys)) {
       opCount = 0;
       initialKeyCount = 0;
       data.resize(0);
@@ -229,9 +236,6 @@ void runYcsbE(BTreeCppPerfEvent e,
    if (!dryRun)
       random_shuffle(data.begin(), data.end());
    uint8_t* payload = makePayload(payloadSize);
-   // TODO zipf permutation so not all indices are among first insertions
-   abort();
-
    if (data.size() > 0) {  // permute zipf indices
       unsigned* permutation = new unsigned[data.size()];
       for (unsigned i = 0; i < data.size(); ++i) {
@@ -264,7 +268,7 @@ void runYcsbE(BTreeCppPerfEvent e,
       if (!dryRun)
          for (uint64_t completedOps = 0; completedOps < opCount; ++completedOps, ++sampleIndex) {
             if (op_next(e)) {
-               if (insertedCount == data.size()) {
+               if (insertedCount == reasonableMaxKeys) {
                   std::cerr << "exhausted keys for insertion" << std::endl;
                   abort();
                }
@@ -274,19 +278,28 @@ void runYcsbE(BTreeCppPerfEvent e,
                ++insertedCount;
             } else {
                unsigned scanLength = scanLengthDistribution(generator);
-               unsigned keyIndex = zipf_next(e, insertedCount, zipfParameter);
-               uint8_t keyBuffer[BTreeNode::maxKVSize];
-               unsigned foundIndex = 0;
-               uint8_t* key = (uint8_t*)data[keyIndex].data();
-               unsigned int keyLen = data[keyIndex].size();
-               auto callback = [&](unsigned keyLen, uint8_t* payload, unsigned loadedPayloadLen) {
-                  if (payloadSize != loadedPayloadLen) {
-                     throw;
+               while (true) {
+                  // num_keys for zipf distribution must remain constant to not mess with shuffling permutation.
+                  unsigned keyIndex = zipf_next(e, reasonableMaxKeys, zipfParameter, true);
+                  // COUNTER(zipf_reject_rate_E, keyIndex >= insertedCount, 1 << 10);
+                  if (keyIndex < insertedCount) {
+                     uint8_t keyBuffer[BTreeNode::maxKVSize];
+                     unsigned foundIndex = 0;
+                     uint8_t* key = (uint8_t*)data[keyIndex].data();
+                     unsigned int keyLen = data[keyIndex].size();
+                     auto callback = [&](unsigned keyLen, uint8_t* payload, unsigned loadedPayloadLen) {
+                        if (payloadSize != loadedPayloadLen) {
+                           throw;
+                        }
+                        foundIndex += 1;
+                        return foundIndex < scanLength;
+                     };
+                     t.range_lookup(key, keyLen, keyBuffer, callback);
+                     break;
+                  } else {
+                     ++sampleIndex;
                   }
-                  foundIndex += 1;
-                  return foundIndex < scanLength;
-               };
-               t.range_lookup(key, keyLen, keyBuffer, callback);
+               }
             }
          }
    }
