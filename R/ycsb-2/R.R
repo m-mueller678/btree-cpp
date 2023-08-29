@@ -3,6 +3,35 @@ library(sqldf)
 library(ggh4x)
 library(dplyr)
 
+
+format_si <- function(...) {
+  # https://stackoverflow.com/a/21089837
+  # Based on code by Ben Tupper
+  # https://stat.ethz.ch/pipermail/r-help/2012-January/299804.html
+
+  function(x) {
+    limits <- c(1e-24, 1e-21, 1e-18, 1e-15, 1e-12,
+                1e-9, 1e-6, 1e-3, 1e0, 1e3,
+                1e6, 1e9, 1e12, 1e15, 1e18,
+                1e21, 1e24)
+    prefix <- c("y", "z", "a", "f", "p",
+                "n", "µ", "m", " ", "k",
+                "M", "G", "T", "P", "E",
+                "Z", "Y")
+
+    # Vector with array indices according to position in intervals
+    i <- findInterval(abs(x), limits)
+
+    # Set prefix to " " for very small values < 1e-24
+    i <- ifelse(i == 0, which(limits == 1e0), i)
+
+    paste(format(round(x / limits[i], 1),
+                 trim = TRUE, scientific = FALSE, ...),
+          prefix[i])
+  }
+}
+
+
 CONFIG_NAMES = c('baseline', 'prefix', 'heads', 'hints', 'hash', 'dense', 'inner', 'art')
 
 # parallel --joblog joblog-full --retries 50 -j 80% --memfree 16G  -- YCSB_VARIANT={1} SCAN_LENGTH=100 RUN_ID=1 OP_COUNT=1e7 PAYLOAD_SIZE={2} KEY_COUNT={3} DATA={4} {5} ::: 3  4 5 ::: 0 1 8 16 128 512 ::: $(seq 1000000 1000000 20000000) ::: int data/* ::: named-build/*-n3-ycsb > full.csv
@@ -44,22 +73,30 @@ ggplot(na.omit(sqldf('
 select * from r
 where true
 and payload_size=8
-and ycsb_zipf=-1
+--and ycsb_zipf=-1
 -- and config_name in ("hash","hints")
-and op in ("ycsb_c","ycsb_d","ycsb_d_init")
+and op in ("ycsb_c","ycsb_d","ycsb_e","ycsb_c_init")
+-- and data_name="data/urls"
 '))) +
-  facet_nested(config_name ~ data_name, scales = "free") +
-  geom_line(aes(data_size * (avg_key_size+payload_size), scale / time / 1e6, col = op)) +
-  expand_limits(y = 0)
+  facet_nested(config_name ~ data_name + ycsb_zipf, scales = "free") +
+  geom_line(aes(data_size * (avg_key_size + payload_size), scale / time, col = op)) +
+  expand_limits(y = 0) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_x_continuous(labels = format_si()) +
+  scale_y_continuous(labels = format_si()) +
+  geom_vline(xintercept = 64e6, linetype = "dashed", color = "yellow")
 
 ggplot(sqldf('
 select * from r
 where true
 and payload_size=0
 and data_size=5e6
-and op in ("ycsb_c","ycsb_d","ycsb_e")
+--and config_name in ("hints","hash","dense","inner","art")
+and op in ("ycsb_c","ycsb_d","ycsb_e","ycsb_c_init")
 ')) +
-  facet_nested(op ~ data_name, scales = "free_y") +
+  facet_nested(op ~ data_name + ycsb_zipf, scales = "free_y", independent = "y") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_y_continuous(labels = format_si()) +
   geom_col(aes(config_name, scale / time)) +
   expand_limits(y = 0)
 
@@ -89,6 +126,7 @@ hash_hint_rel <- r %>%
 ggplot(sqldf('
 select * from hash_hint_rel
 where true
+and op in ("ycsb_c","ycsb_d","ycsb_e","ycsb_c_init")
 ')) +
   facet_nested(ycsb_zipf + data_name ~ payload_size, scales = 'free_y') +
   geom_line(aes(data_size, hash_txs_rel, col = op)) +
