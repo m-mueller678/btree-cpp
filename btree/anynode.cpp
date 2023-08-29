@@ -167,7 +167,7 @@ void AnyNode::print()
       case Tag::Hash:
          return hash()->print();
       case Tag::Dense:
-         return;  // TODO
+         return dense()->print();
    }
 }
 

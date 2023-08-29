@@ -516,3 +516,22 @@ bool DenseNode::range_lookup_desc(uint8_t* key,
       }
    }
 }
+
+void DenseNode::print()
+{
+   printf("# DenseNode\n");
+   printf("lower fence: ");
+   printKey(getLowerFence(), lowerFenceLen);
+   printf("\nupper fence: ");
+   printKey(getUpperFence(), upperFenceLen);
+   uint8_t keyBuffer[fullKeyLen];
+   printf("\n");
+   for (unsigned i = 0; i < slotCount; ++i) {
+      if (isSlotPresent(i)) {
+         printf("%d: ", i);
+         restoreKey(getLowerFence(), keyBuffer, i);
+         printKey(keyBuffer + prefixLength, fullKeyLen - prefixLength);
+         printf("\n");
+      }
+   }
+}
