@@ -702,10 +702,10 @@ bool BTree::removeImpl(uint8_t* key, unsigned keyLength) const
             return false;  // key not found
 
          // merge if underfull
-         if (node->basic()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
+         if (node->basic()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize && parent) {
             // find neighbor and merge
             unsigned parentCount = parent->innerCount();
-            if (parent && parentCount >= 2 && ((pos + 1) < parentCount)) {
+            if (parentCount >= 2 && ((pos + 1) < parentCount)) {
                AnyNode* right = parent->getChild(pos + 1);
                if (right->tag() == Tag::Leaf) {
                   if (right->basic()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
@@ -720,14 +720,16 @@ bool BTree::removeImpl(uint8_t* key, unsigned keyLength) const
       case Tag::Dense: {
          if (!node->dense()->remove(key, keyLength))
             return false;
-         unsigned parentCount = parent->innerCount();
-         if (parent && parentCount >= 2 && (pos + 1) < parentCount && node->dense()->is_underfull()) {
-            node->dense()->convertToBasic();
-            AnyNode* right = parent->getChild(pos + 1);
-            if (right->tag() == Tag::Leaf) {
-               if (right->basic()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
-                  if (node->basic()->mergeNodes(pos, parent, right->basic()))
-                     node->dealloc();
+         if (parent) {
+            unsigned parentCount = parent->innerCount();
+            if (parentCount >= 2 && (pos + 1) < parentCount && node->dense()->is_underfull()) {
+               node->dense()->convertToBasic();
+               AnyNode* right = parent->getChild(pos + 1);
+               if (right->tag() == Tag::Leaf) {
+                  if (right->basic()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
+                     if (node->basic()->mergeNodes(pos, parent, right->basic()))
+                        node->dealloc();
+                  }
                }
             }
          }
@@ -738,10 +740,10 @@ bool BTree::removeImpl(uint8_t* key, unsigned keyLength) const
             return false;  // key not found
 
          // merge if underfull
-         if (node->hash()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
+         if (node->hash()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize && parent) {
             unsigned parentCount = parent->innerCount();
             // find neighbor and merge
-            if (parent && parentCount >= 2 && ((pos + 1) < parentCount)) {
+            if (parentCount >= 2 && ((pos + 1) < parentCount)) {
                AnyNode* right = parent->getChild(pos + 1);
                ASSUME(right->_tag == Tag::Hash);
                if (right->hash()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSize) {
@@ -1002,7 +1004,7 @@ void printKey(uint8_t* key, unsigned length)
       if (key[i] >= ' ' && key[i] <= '~') {
          putchar(key[i]);
       } else {
-         printf("\%02x", key[i]);
+         printf("\\%02x", key[i]);
       }
    }
 }
