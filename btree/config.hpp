@@ -9,7 +9,7 @@ constexpr bool enableDense = false;
 constexpr bool enableHash = false;
 constexpr bool enableHeadNode = false;
 constexpr unsigned basicHintCount = 16;
-constexpr bool enableDense2 = false;
+constexpr bool enableDense2 = true;
 #else
 constexpr const char* configName = NAMED_CONFIG;
 #endif

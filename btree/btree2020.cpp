@@ -634,6 +634,11 @@ void DataStructureWrapper::insert(uint8_t* key, unsigned keyLength, uint8_t* pay
 
 void BTree::insertImpl(uint8_t* key, unsigned int keyLength, uint8_t* payload, unsigned int payloadLength)
 {
+   static unsigned depth = 0;
+   depth += 1;
+   if (depth > 3) {
+      int x = 3;
+   }
    assert((keyLength + payloadLength) <= BTreeNode::maxKVSize);
    AnyNode* node = root;
    AnyNode* parent = nullptr;
@@ -644,19 +649,25 @@ void BTree::insertImpl(uint8_t* key, unsigned int keyLength, uint8_t* payload, u
    // COUNTER(is_basic_insert,node->tag == Tag::Leaf,1<<20)
    switch (node->tag()) {
       case Tag::Leaf: {
-         if (node->basic()->insert(key, keyLength, payload, payloadLength))
+         if (node->basic()->insert(key, keyLength, payload, payloadLength)) {
+            depth = 0;
             return;
+         }
          break;
       }
       case Tag::Dense:
       case Tag::Dense2: {
-         if (node->dense()->insert(key, keyLength, payload, payloadLength))
+         if (node->dense()->insert(key, keyLength, payload, payloadLength)) {
+            depth = 0;
             return;
+         }
          break;
       }
       case Tag::Hash: {
-         if (node->hash()->insert(key, keyLength, payload, payloadLength))
+         if (node->hash()->insert(key, keyLength, payload, payloadLength)) {
+            depth = 0;
             return;
+         }
          break;
       }
       case Tag::Inner:

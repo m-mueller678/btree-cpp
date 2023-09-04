@@ -377,7 +377,6 @@ void HashNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, uns
    // split this node into nodeLeft and nodeRight
    assert(sepSlot > 0);
    HashNode* nodeLeft = &(new AnyNode())->_hash;
-   unsigned leftCount = sepSlot + 1;
    unsigned capacity = estimateCapacity();
    nodeLeft->init(getLowerFence(), lowerFenceLen, sepKey, sepLength, capacity);
    HashNode right;

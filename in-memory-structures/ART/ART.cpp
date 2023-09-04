@@ -539,7 +539,7 @@ void insertNode48(Node48* node, Node** nodeRef, uint8_t keyByte, Node* child)
    }
 }
 
-void insertNode256(Node256* node, Node** nodeRef, uint8_t keyByte, Node* child)
+void insertNode256(Node256* node, Node**, uint8_t keyByte, Node* child)
 {
    // Insert leaf into inner node
    node->count++;
