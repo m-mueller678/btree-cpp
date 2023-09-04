@@ -194,8 +194,9 @@ bool BTreeNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsig
 {
    if (!requestSpaceFor(spaceNeeded(keyLength, payloadLength))) {
       AnyNode tmp;
-      if (enableDense && _tag == Tag::Leaf && keyLength - prefixLength == slot[0].keyLen && payloadLength == slot[0].payloadLen &&
-          tmp._dense.try_densify(this)) {
+      bool densify1 = enableDense && _tag == Tag::Leaf && keyLength - prefixLength == slot[0].keyLen && payloadLength == slot[0].payloadLen;
+      bool densify2 = enableDense2 && _tag == Tag::Leaf && keyLength - prefixLength == slot[0].keyLen;
+      if ((densify1 || densify2) && tmp._dense.try_densify(this)) {
          *this->any() = tmp;
          return this->any()->dense()->insert(key, keyLength, payload, payloadLength);
       }
@@ -560,7 +561,8 @@ uint8_t* BTree::lookupImpl(uint8_t* key, unsigned keyLength, unsigned& payloadSi
          payloadSizeOut = basicNode->slot[pos].payloadLen;
          return basicNode->getPayload(pos);
       }
-      case Tag::Dense: {
+      case Tag::Dense:
+      case Tag::Dense2: {
          return node->dense()->lookup(key, keyLength, payloadSizeOut);
       }
       case Tag::Hash: {
@@ -646,7 +648,8 @@ void BTree::insertImpl(uint8_t* key, unsigned int keyLength, uint8_t* payload, u
             return;
          break;
       }
-      case Tag::Dense: {
+      case Tag::Dense:
+      case Tag::Dense2: {
          if (node->dense()->insert(key, keyLength, payload, payloadLength))
             return;
          break;
@@ -717,7 +720,8 @@ bool BTree::removeImpl(uint8_t* key, unsigned keyLength) const
          }
          return true;
       }
-      case Tag::Dense: {
+      case Tag::Dense:
+      case Tag::Dense2: {
          if (!node->dense()->remove(key, keyLength))
             return false;
          if (parent) {
@@ -834,7 +838,8 @@ void BTree::range_lookupImpl(uint8_t* key,
             keyLen += 1;
             break;
          }
-         case Tag::Dense: {
+         case Tag::Dense:
+         case Tag::Dense2: {
             if (!node->dense()->range_lookup(key, keyLen, keyOut, found_record_cb))
                return;
             keyLen = node->dense()->upperFenceLen;
@@ -946,7 +951,8 @@ void BTree::range_lookup_descImpl(uint8_t* key,
             memcpy(key, node->basic()->getLowerFence(), keyLen);
             break;
          }
-         case Tag::Dense: {
+         case Tag::Dense:
+         case Tag::Dense2: {
             if (!node->dense()->range_lookup_desc(key, keyLen, keyOut, found_record_cb))
                return;
             keyLen = node->dense()->lowerFenceLen;

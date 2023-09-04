@@ -3,8 +3,10 @@
 
 Tag AnyNode::tag()
 {
-   ASSUME(_tag == Tag::Inner || _tag == Tag::Leaf || _tag == Tag::Dense || _tag == Tag::Hash || _tag == Tag::Head4 || _tag == Tag::Head8);
+   ASSUME(_tag == Tag::Inner || _tag == Tag::Leaf || _tag == Tag::Dense || _tag == Tag::Hash || _tag == Tag::Head4 || _tag == Tag::Head8 ||
+          _tag == Tag::Dense2);
    ASSUME((enableDense && !enableHash) || _tag != Tag::Dense);
+   ASSUME((enableDense2 && !enableHash) || _tag != Tag::Dense2);
    ASSUME(enableHash || _tag != Tag::Hash);
    ASSUME(!enableHash || _tag != Tag::Leaf);
    ASSUME(enableHeadNode || _tag != Tag::Head4);
@@ -19,7 +21,7 @@ AnyNode::AnyNode(BTreeNode basic) : AnyNode()
 
 AnyNode::AnyNode()
 {
-   // COUNTER(anynode_new,1,1<<10);
+   // COUNTER(anynode_new,1,1<<5);
 }
 
 void AnyNode::destroy()
@@ -29,6 +31,7 @@ void AnyNode::destroy()
       case Tag::Inner:
          return basic()->destroy();
       case Tag::Dense:
+      case Tag::Dense2:
       case Tag::Hash:
          return dealloc();
       case Tag::Head4:
@@ -48,6 +51,7 @@ bool AnyNode::isAnyInner()
    switch (tag()) {
       case Tag::Leaf:
       case Tag::Dense:
+      case Tag::Dense2:
       case Tag::Hash:
          return false;
       case Tag::Inner:
@@ -65,7 +69,7 @@ BTreeNode* AnyNode::basic()
 
 DenseNode* AnyNode::dense()
 {
-   ASSUME(_tag == Tag::Dense);
+   ASSUME(_tag == Tag::Dense || _tag == Tag::Dense2);
    return reinterpret_cast<DenseNode*>(this);
 }
 
@@ -99,6 +103,7 @@ bool AnyNode::insertChild(uint8_t* key, unsigned int keyLength, AnyNode* child)
       case Tag::Leaf:
       case Tag::Hash:
       case Tag::Dense:
+      case Tag::Dense2:
          ASSUME(false);
    }
 }
@@ -120,6 +125,7 @@ bool AnyNode::innerRequestSpaceFor(unsigned keyLen)
       case Tag::Leaf:
       case Tag::Hash:
       case Tag::Dense:
+      case Tag::Dense2:
          ASSUME(false);
    }
 }
@@ -136,6 +142,7 @@ AnyNode* AnyNode::lookupInner(uint8_t* key, unsigned keyLength)
       case Tag::Leaf:
       case Tag::Hash:
       case Tag::Dense:
+      case Tag::Dense2:
          ASSUME(false);
    }
 }
@@ -167,6 +174,7 @@ void AnyNode::print()
       case Tag::Hash:
          return hash()->print();
       case Tag::Dense:
+      case Tag::Dense2:
          return dense()->print();
    }
 }
@@ -182,6 +190,7 @@ unsigned AnyNode::lookupInnerIndex(uint8_t* key, unsigned keyLength)
          return head8()->lookupInnerIndex(key, keyLength);
       case Tag::Leaf:
       case Tag::Dense:
+      case Tag::Dense2:
       case Tag::Hash:
          ASSUME(false);
    }
@@ -198,6 +207,7 @@ unsigned AnyNode::innerCount()
          return head8()->count;
       case Tag::Leaf:
       case Tag::Dense:
+      case Tag::Dense2:
       case Tag::Hash:
          ASSUME(false);
    }
@@ -217,6 +227,7 @@ AnyNode* AnyNode::getChild(unsigned index)
          return loadUnaligned<AnyNode*>(head8()->children() + index);
       case Tag::Leaf:
       case Tag::Dense:
+      case Tag::Dense2:
       case Tag::Hash:
          ASSUME(false);
    }
@@ -233,6 +244,7 @@ void AnyNode::innerRestoreKey(uint8_t* keyOut, unsigned len, unsigned index)
          return head8()->restoreKey(keyOut, len, index);
       case Tag::Leaf:
       case Tag::Dense:
+      case Tag::Dense2:
       case Tag::Hash:
          ASSUME(false);
    }
@@ -249,6 +261,7 @@ void AnyNode::innerRemoveSlot(unsigned int slotId)
          return head8()->removeSlot(slotId);
       case Tag::Leaf:
       case Tag::Dense:
+      case Tag::Dense2:
       case Tag::Hash:
          ASSUME(false);
    }
@@ -265,6 +278,7 @@ unsigned AnyNode::innerKeyLen(unsigned index)
          return head8()->getKeyLength(index);
       case Tag::Leaf:
       case Tag::Dense:
+      case Tag::Dense2:
       case Tag::Hash:
          ASSUME(false);
    }
@@ -286,9 +300,13 @@ bool AnyNode::splitNodeWithParent(AnyNode* parent, uint8_t* key, unsigned keyLen
          }
          break;
       }
-      case Tag::Dense: {
+      case Tag::Dense:
+      case Tag::Dense2: {
          if (parent->innerRequestSpaceFor(dense()->fullKeyLen)) {  // is there enough space in the parent for the separator?
-            dense()->splitNode(parent, key, keyLength);
+            if (_tag == Tag::Dense)
+               dense()->splitNode1(parent, key, keyLength);
+            else
+               dense()->splitNode2(parent, key, keyLength);
             return true;
          } else {
             return false;

@@ -4,5 +4,5 @@ constexpr bool enableBasicHead = true;
 constexpr bool enableDense = false;
 constexpr bool enableHash = false;
 constexpr bool enableHeadNode = false;
-constexpr unsigned basicHintCount = 0;
-constexpr bool enableDense2 = false;
+constexpr unsigned basicHintCount = 16;
+constexpr bool enableDense2 = true;

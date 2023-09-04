@@ -1,6 +1,9 @@
 #pragma once
 #pragma clang diagnostic ignored "-Wvla-extension"
 #pragma clang diagnostic ignored "-Wzero-length-array"
+#pragma clang diagnostic ignored "-Wzero-length-array"
+#pragma clang diagnostic ignored "-Wgnu-anonymous-struct"
+#pragma clang diagnostic ignored "-Wnested-anon-types"
 
 #include <bit>
 #include <cassert>
@@ -120,6 +123,7 @@ enum class Tag : uint8_t {
    Hash = 3,
    Head4 = 4,
    Head8 = 5,
+   Dense2 = 6,
 };
 
 struct BTreeNodeHeader {
@@ -266,19 +270,6 @@ typedef uint64_t Mask;
 constexpr unsigned maskBytesPerWord = sizeof(Mask);
 constexpr unsigned maskBitsPerWord = 8 * maskBytesPerWord;
 
-struct DenseNodeHeader {
-   Tag tag;
-   uint16_t fullKeyLen;
-   NumericPart arrayStart;
-   uint16_t valLen;
-   uint16_t slotCount;
-   uint16_t occupiedCount;
-   uint16_t lowerFenceLen;
-   uint16_t upperFenceLen;
-   uint16_t prefixLength;
-   uint16_t _pad[2];
-};
-
 enum KeyError : int {
    WrongLen = -1,
    NotNumericRange = -2,
@@ -297,10 +288,30 @@ struct AnyKeyIndex {
    AnyKeyRel rel;
 };
 
-struct DenseNode : public DenseNodeHeader {
+struct DenseNode  {
+   Tag tag;
+   uint16_t fullKeyLen;
+   NumericPart arrayStart;
+   union{
+      uint16_t spaceUsed;
+      uint16_t valLen;
+   };
+   uint16_t slotCount;
+   uint16_t occupiedCount;
+   uint16_t lowerFenceLen;
    union {
-      Mask mask[(pageSize - sizeof(DenseNodeHeader)) / sizeof(Mask)];
-      uint8_t heap[pageSize - sizeof(DenseNodeHeader)];
+      struct{
+         uint16_t upperFenceLen;
+         uint16_t prefixLength;
+         uint16_t _mask_pad[2];
+         Mask mask[(pageSize - 24) / sizeof(Mask)];
+      };
+      struct{
+         uint16_t _union_pad[2];
+         uint16_t dataOffset;
+         uint16_t slots[(pageSize - 22)/sizeof (uint16_t)];
+      };
+      uint8_t _expand_heap[pageSize - 18];
    };
    unsigned fencesOffset();
    uint8_t* getLowerFence();
@@ -318,7 +329,8 @@ struct DenseNode : public DenseNodeHeader {
 
    bool insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength);
 
-   void splitNode(AnyNode* parent, uint8_t* key, unsigned keyLen);
+   void splitNode1(AnyNode* parent, uint8_t* key, unsigned keyLen);
+   void splitNode2(AnyNode* parent, uint8_t* key, unsigned keyLen);
 
    unsigned prefixDiffLen();
    KeyError keyToIndex(uint8_t* truncatedKey, unsigned truncatedLen);
@@ -327,10 +339,13 @@ struct DenseNode : public DenseNodeHeader {
    static unsigned computeNumericPrefixLength(unsigned prefixLength, unsigned fullKeyLen);
 
    void init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen, unsigned fullKeyLen, unsigned valLen);
+   void init2(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen, unsigned fullKeyLen,NumericPart lastElement,unsigned count,unsigned totalPayloadSize);
+   void init2b(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen, unsigned fullKeyLen,unsigned slotCount);
 
    unsigned maskWordCount();
 
    void zeroMask();
+   void zeroSlots();
 
    // key is expected to be prefix truncated
    static NumericPart getNumericPart(uint8_t* key, unsigned len);
@@ -346,6 +361,10 @@ struct DenseNode : public DenseNodeHeader {
    bool isSlotPresent(unsigned i);
 
    void setSlotPresent(unsigned i);
+   void insertSlotWithSpace(unsigned i,uint8_t* payload,unsigned payloadLen);
+   bool requestSpaceFor(unsigned payloadLen);
+   unsigned slotEndOffset();
+   unsigned slotValLen(unsigned index);
 
    void unsetSlotPresent(unsigned i);
 
