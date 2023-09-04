@@ -339,7 +339,7 @@ struct DenseNode  {
    static unsigned computeNumericPrefixLength(unsigned prefixLength, unsigned fullKeyLen);
 
    void init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen, unsigned fullKeyLen, unsigned valLen);
-   void init2(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen, unsigned fullKeyLen,NumericPart lastElement,unsigned count,unsigned totalPayloadSize);
+   bool init2(BTreeNode* from);
    void init2b(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen, unsigned fullKeyLen,unsigned slotCount);
 
    unsigned maskWordCount();

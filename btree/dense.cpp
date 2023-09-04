@@ -299,50 +299,57 @@ void DenseNode::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upper
    updateArrayStart();
 }
 
-void DenseNode::init2(uint8_t* lowerFence,
-                      unsigned lowerFenceLen,
-                      uint8_t* upperFence,
-                      unsigned upperFenceLen,
-                      unsigned fullKeyLen,
-                      NumericPart lastElement,
-                      unsigned count,
-                      unsigned totalPayloadSize)
+bool DenseNode::init2(BTreeNode* from)
 {
    assert(enablePrefix);
    assert(sizeof(DenseNode) == pageSize);
+
+   NumericPart lastNumeric = getNumericPart(from->getKey(from->count - 1), from->slot[from->count - 1].keyLen);
+
    tag = Tag::Dense2;
-   this->fullKeyLen = fullKeyLen;
+   this->fullKeyLen = from->slot[0].keyLen + from->prefixLength;
    this->spaceUsed = 0;
-   this->lowerFenceLen = lowerFenceLen;
-   this->upperFenceLen = upperFenceLen;
+   this->lowerFenceLen = from->lowerFence.length;
+   this->upperFenceLen = from->upperFence.length;
    occupiedCount = 0;
    this->dataOffset = fencesOffset();
-   memcpy(this->getLowerFence(), lowerFence, lowerFenceLen);
-   memcpy(this->getUpperFence(), upperFence, upperFenceLen);
+   memcpy(this->getLowerFence(), from->getLowerFence(), from->lowerFence.length);
+   memcpy(this->getUpperFence(), from->getUpperFence(), from->upperFence.length);
    this->updatePrefixLength();
    this->updateArrayStart();
-   COUNTER(reject_1, arrayStart >= lastElement, 1 << 5);
-   if (arrayStart >= lastElement) {
-      slotCount = 0;
-      return;
+   COUNTER(reject_1a, arrayStart >= lastNumeric, 1 << 5);
+   COUNTER(reject_1b, arrayStart + slotCount < lastNumeric, 1 << 5);
+   COUNTER(reject_1, arrayStart >= lastNumeric && arrayStart + slotCount < lastNumeric, 1 << 5);
+   if (arrayStart + slotCount < lastNumeric || arrayStart >= lastNumeric) {
+      return false;
    }
+   for (unsigned i = 1; i < from->count; ++i) {
+      if (from->slot[i].keyLen != from->slot[0].keyLen) {
+         return false;
+      }
+   }
+   unsigned totalPayloadSize = 0;
+   for (unsigned i = 0; i < from->count; ++i) {
+      totalPayloadSize += from->slot[i].payloadLen;
+   }
+
    {
       unsigned availableSpace = fencesOffset() - offsetof(DenseNode, slots);
-      float density = float(count) / (lastElement - arrayStart);
-      float spacePerSlot = 2 + density * (2 + float(totalPayloadSize) / count);
+      float density = float(from->count) / (lastNumeric - arrayStart);
+      float spacePerSlot = 2 + density * (2 + float(totalPayloadSize) / from->count);
       slotCount = availableSpace / spacePerSlot;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wassume"
       ASSUME(slotEndOffset() <= dataOffset);
 #pragma clang diagnostic pop
    }
-   COUNTER(reject_2, slotEndOffset() + totalPayloadSize > fencesOffset() || arrayStart + slotCount < lastElement, 1 << 5);
-   if (slotEndOffset() + totalPayloadSize > fencesOffset() || arrayStart + slotCount < lastElement) {
-      slotCount = 0;
-      return;
+   COUNTER(reject_2, slotEndOffset() + totalPayloadSize > fencesOffset() || arrayStart + slotCount < lastNumeric, 1 << 5);
+   if (slotEndOffset() + totalPayloadSize > fencesOffset() || arrayStart + slotCount < lastNumeric) {
+      return false;
    }
    zeroSlots();
    assert(computeNumericPrefixLength(prefixLength, fullKeyLen) <= lowerFenceLen);
+   return true;
 }
 
 void DenseNode::init2b(uint8_t* lowerFence,
@@ -485,18 +492,9 @@ bool DenseNode::try_densify(BTreeNode* basicNode)
       // preconditios confirmed, create.
       init(basicNode->getLowerFence(), basicNode->lowerFence.length, basicNode->getUpperFence(), basicNode->upperFence.length, fullKeyLen, valLen1);
    } else {
-      for (unsigned i = 1; i < basicNode->count; ++i) {
-         if (basicNode->slot[i].keyLen != pre_key_len_1) {
-            return false;
-         }
+      if (!init2(basicNode)) {
+         return false;
       }
-      unsigned totalValLen = 0;
-      for (unsigned i = 0; i < basicNode->count; ++i) {
-         totalValLen += basicNode->slot[i].payloadLen;
-      }
-      NumericPart lastNumeric = getNumericPart(basicNode->getKey(basicNode->count - 1), basicNode->slot[basicNode->count - 1].keyLen);
-      init2(basicNode->getLowerFence(), basicNode->lowerFence.length, basicNode->getUpperFence(), basicNode->upperFence.length, fullKeyLen,
-            lastNumeric, basicNode->count, totalValLen);
    }
    KeyError lastKey = keyToIndex(basicNode->getKey(basicNode->count - 1), fullKeyLen - prefixLength);
    COUNTER(reject_last_key, lastKey < 0, 1 << 5);
