@@ -326,10 +326,11 @@ bool DenseNode::init2(BTreeNode* from)
    memcpy(this->getUpperFence(), from->getUpperFence(), from->upperFence.length);
    this->updatePrefixLength();
    this->updateArrayStart();
-   COUNTER(reject_1a, arrayStart >= lastNumeric, 1 << 5);
-   COUNTER(reject_1b, arrayStart + slotCount < lastNumeric, 1 << 5);
-   COUNTER(reject_1, arrayStart >= lastNumeric && arrayStart + slotCount < lastNumeric, 1 << 5);
-   if (arrayStart + slotCount < lastNumeric || arrayStart >= lastNumeric) {
+   COUNTER(reject_1a, arrayStart + pageSize / 2 < lastNumeric, 1 << 5);
+   COUNTER(reject_1b, arrayStart >= lastNumeric, 1 << 5);
+   COUNTER(reject_1, arrayStart + pageSize / 2 < lastNumeric || arrayStart >= lastNumeric, 1 << 5);
+
+   if (arrayStart + pageSize / 2 < lastNumeric || arrayStart >= lastNumeric) {
       return false;
    }
    for (unsigned i = 1; i < from->count; ++i) {
@@ -544,6 +545,7 @@ void DenseNode::unsetSlotPresent(unsigned i)
 
 uint8_t* DenseNode::getVal(unsigned i)
 {
+   ASSUME(tag == Tag::Dense);
    assert(i < slotCount);
    return ptr() + offsetof(DenseNode, mask) + maskWordCount() * maskBytesPerWord + i * valLen;
 }
@@ -658,6 +660,7 @@ bool DenseNode::range_lookup_desc(uint8_t* key,
                                   // scan continues if callback returns true
                                   const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
+   assert(tag == Tag::Dense2);
    AnyKeyIndex keyPosition = anyKeyIndex(key, keyLen);
    int anyKeyIndex = keyPosition.index;
    int firstIndex = anyKeyIndex - (keyPosition.rel == AnyKeyRel::Before);
