@@ -22,11 +22,20 @@ uint8_t* DenseNode::getUpperFence()
 uint8_t* DenseNode::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut)
 {
    KeyError index = keyToIndex(key + prefixLength, keyLength - prefixLength);
-   if (index < 0 || !isSlotPresent(index)) {
+   if (index < 0)
       return nullptr;
+   if (tag == Tag::Dense) {
+      if (!isSlotPresent(index)) {
+         return nullptr;
+      }
+      payloadSizeOut = valLen;
+      return getVal(index);
+   } else {
+      if (!slots[index])
+         return nullptr;
+      payloadSizeOut = slotValLen(index);
+      return ptr() + slots[index] + 2;
    }
-   payloadSizeOut = valLen;
-   return getVal(index);
 }
 
 AnyNode* DenseNode::any()
