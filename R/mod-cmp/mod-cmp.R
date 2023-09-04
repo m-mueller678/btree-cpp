@@ -33,14 +33,17 @@ format_si <- function(...) {
 
 CONFIG_NAMES = c('baseline', 'prefix', 'heads', 'hints', 'hash', 'dense', 'inner', 'art')
 
-# parallel --joblog joblog-page-size --retries 50 -j 80% --memfree 16G  -- YCSB_VARIANT={3} SCAN_LENGTH=100 RUN_ID=1 OP_COUNT=1e7 PAYLOAD_SIZE={2} KEY_COUNT={1} DATA={4} ZIPF={6} {5} ::: 1e6 2e6 5e6 10e6 20e6 3e6 4e6 6e6 7e6 8e6 9e6 $(seq 11000000 1000000 19000000) ::: 0 1 8 512 ::: 3 4 5 ::: int data/urls data/wiki ::: page-size-builds/*/*-n3-ycsb ::: -1 0.99 > page-size.csv
+#
 r_par = read.csv('d1.csv', strip.white = TRUE) %>% mutate(
   sequential = FALSE
 )
+
 # with -j1, /sys/devices/system/cpu/cpufreq/boost = 0
 r_seq = read.csv('d-sequential.csv', strip.white = TRUE) %>% mutate(
   sequential = TRUE
 )
+
+
 r = rbind(r_seq, r_par)
 r <- r %>%
   mutate(avg_key_size = case_when(
@@ -69,18 +72,19 @@ and op in ("ycsb_c","ycsb_d","ycsb_e","ycsb_c_init")
 and sequential=TRUE
 ')
 
-ggplot(d) +
-  facet_nested(op ~ data_name, scales = 'free') +
+ggplot(sqldf('select * from d where op="ycsb_c"')) +
+  facet_nested(data_name ~ ., scales = 'free') +
   geom_bar(aes(config_name, scale / time), stat = "summary", fun = mean) +
   expand_limits(y = 0) +
-  scale_y_continuous(labels = format_si())
+  scale_y_continuous(labels = format_si(),expand = c(0, 0),limit=c(0,4.5e6))+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 # lookup
 
 ## boxplot
 ggplot(sqldf('select * from d where op="ycsb_c"')) +
   facet_nested(. ~ data_name) +
-  geom_boxplot(aes(config_name, scale / time)) +
+  geom_violin(aes(config_name, scale / time)) +
   scale_y_continuous(labels = format_si(), expand = c(0, 0)) +
   expand_limits(y = 0)
 
@@ -109,8 +113,26 @@ ggplot(sqldf('select * from d where op="ycsb_c" and config_name in ("heads","hin
   scale_y_continuous(labels = format_si(), expand = c(0, 0)) +
   expand_limits(y = 0)
 
+#prefix
+ggplot(sqldf('select * from d where op="ycsb_c" and config_name in ("baseline","prefix")')) +
+  facet_nested(. ~ data_name) +
+  geom_boxplot(aes(config_name, time/scale))
+
 # insert
-ggplot(sqldf('select * from d where op in ("ycsb_c_init")')) +
+ggplot(sqldf('select * from d where op in ("ycsb_c_init","ycsb_d")')) +
+  facet_nested(. ~ data_name) +
+  geom_boxplot(aes(config_name, scale / time,col=op)) +
+  scale_y_continuous(labels = format_si(), expand = c(0, 0)) +
+  expand_limits(y = 0)
+
+ggplot(sqldf('select * from d where op in ("ycsb_c_init") and config_name in ("heads","hints","dense")')) +
+  facet_nested(. ~ data_name) +
+  geom_boxplot(aes(config_name, scale / time)) +
+  scale_y_continuous(labels = format_si(), expand = c(0, 0)) +
+  expand_limits(y = 0)
+
+# scan
+ggplot(sqldf('select * from d where op in ("ycsb_e")')) +
   facet_nested(. ~ data_name) +
   geom_boxplot(aes(config_name, scale / time)) +
   scale_y_continuous(labels = format_si(), expand = c(0, 0)) +

@@ -40,7 +40,12 @@ CONFIG_NAMES = c('baseline', 'prefix', 'heads', 'hints', 'hash', 'dense', 'inner
 # rr = read.csv('d1.csv', strip.white = TRUE)
 # parallel --joblog joblog-full --retries 50 -j 80% --memfree 16G  -- YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID=1 OP_COUNT=1e7 PAYLOAD_SIZE={3} KEY_COUNT={1} DATA={4} ZIPF={6} {5} :::  $(seq 1000000 1000000 20000000) ::: 3 4 ::: 0 1 8 512 ::: int data/urls data/wiki ::: named-build/*-n3-ycsb ::: -1 0.99 > full.csv
 # old zipf generator
-rr = read.csv('d2.csv', strip.white = TRUE)
+#rr = read.csv('d2.csv', strip.white = TRUE)
+
+
+# parallel --joblog joblog-full-seq --retries 50 -j 1 -- YCSB_VARIANT={4} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE={3} KEY_COUNT={2} DATA={5} ZIPF={6} {7} ::: $(seq 1 50) ::: $(seq 1000000 1000000 30000000) ::: 0 1 8 256 ::: 3 5 ::: int data/urls data/wiki ::: -1 0.99 ::: $(find named-build/ -name '*-n3-ycsb' | grep -v art) :::  > full-seq.csv
+rr = read.csv('full-seq.csv', strip.white = TRUE)
+rr = sqldf('select * from rr where RUN_ID<3')
 rr <- rr %>%
   mutate(avg_key_size = case_when(
     data_name == 'data/urls' ~ 62.280,
@@ -60,9 +65,10 @@ r$config_name = ordered(r$config_name, levels = CONFIG_NAMES, labels = CONFIG_NA
 ggplot(sqldf('
 select * from r
 where true
-and op in ("ycsb_c","ycsb_d","ycsb_e")
+and op in ("ycsb_c","ycsb_d","ycsb_e","ycsb_c_init")
 and ycsb_zipf=0.99
 and payload_size=8
+and run_id=1
 ')) +
   facet_nested(data_name ~ op, scales = 'free') +
   geom_line(aes(data_size, scale / time, col = config_name)) +
@@ -76,6 +82,7 @@ and payload_size=8
 --and ycsb_zipf=-1
 -- and config_name in ("hash","hints")
 and op in ("ycsb_c","ycsb_d","ycsb_e","ycsb_c_init")
+and run_id=1
 -- and data_name="data/urls"
 '))) +
   facet_nested(config_name ~ data_name + ycsb_zipf, scales = "free") +
@@ -92,6 +99,7 @@ where true
 and payload_size=0
 and data_size=5e6
 --and config_name in ("hints","hash","dense","inner","art")
+and run_id=1
 and op in ("ycsb_c","ycsb_d","ycsb_e","ycsb_c_init")
 ')) +
   facet_nested(op ~ data_name + ycsb_zipf, scales = "free_y", independent = "y") +
@@ -99,6 +107,22 @@ and op in ("ycsb_c","ycsb_d","ycsb_e","ycsb_c_init")
   scale_y_continuous(labels = format_si()) +
   geom_col(aes(config_name, scale / time)) +
   expand_limits(y = 0)
+
+ggplot(sqldf('
+select * from r
+where true
+and payload_size=256
+and data_size=5e6
+--and config_name in ("hints","hash","dense","inner","art")
+and run_id=1
+and op in ("ycsb_c","ycsb_d","ycsb_e","ycsb_c_init")
+')) +
+  facet_nested(op ~ data_name + ycsb_zipf, scales = "free_y", independent = "y") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_y_continuous(labels = format_si()) +
+  geom_col(aes(config_name, scale / time)) +
+  expand_limits(y = 0)
+
 
 #hash
 
@@ -108,6 +132,7 @@ where true
 and config_name in ("hash","hints")
 and data_name in ("int","data/urls")
 and payload_size=8
+and run_id=1
 ')) +
   facet_nested(ycsb_zipf + data_name ~ op, scales = 'free_y') +
   geom_line(aes(data_size, scale / time, col = config_name)) +
@@ -116,6 +141,7 @@ and payload_size=8
 
 hash_hint_rel <- r %>%
   filter(config_name %in% c('hints', 'hash')) %>%
+  filter(run_id %in% c(1)) %>%
   arrange(payload_size, op, data_name, data_size, config_name) %>%
   group_by(payload_size, op, data_name, data_size, ycsb_zipf) %>%
   mutate(hash_txs_rel = scale / time / lag(scale / time, default = NaN)) %>%
@@ -128,7 +154,7 @@ select * from hash_hint_rel
 where true
 and op in ("ycsb_c","ycsb_d","ycsb_e","ycsb_c_init")
 ')) +
-  facet_nested(ycsb_zipf + data_name ~ payload_size, scales = 'free_y') +
+  facet_nested(data_name + ycsb_zipf ~ payload_size, scales = 'free_y') +
   geom_line(aes(data_size, hash_txs_rel, col = op)) +
   #geom_line(aes(data_size, hash_txs_rel, col = op),stat="summary",fun=length)+
   scale_x_log10() +
