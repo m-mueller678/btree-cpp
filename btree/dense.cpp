@@ -605,58 +605,6 @@ uint8_t* DenseNode::getVal(unsigned i)
    return ptr() + offsetof(DenseNode, mask) + maskWordCount() * maskBytesPerWord + i * valLen;
 }
 
-AnyKeyIndex DenseNode::anyKeyIndex(uint8_t* key, unsigned keyLen)
-{
-   unsigned numericPrefixLen = computeNumericPrefixLength(fullKeyLen);
-   ASSUME(prefixLength <= keyLen);
-   ASSUME(numericPrefixLen <= lowerFenceLen);
-   ASSUME(lowerFenceLen <= fullKeyLen);
-   if (keyLen < fullKeyLen) {
-      uint8_t buffer[fullKeyLen];
-      memcpy(buffer, key, keyLen);
-      memset(buffer + keyLen, 0, fullKeyLen - keyLen);
-      KeyError index = keyToIndex(key, fullKeyLen);
-      switch (index) {
-         case KeyError::WrongLen:
-            ASSUME(false);
-         case KeyError::NotNumericRange:
-            abort();  // TODO
-         case KeyError::SlightlyTooLarge:
-         case KeyError::FarTooLarge:
-            return AnyKeyIndex{static_cast<unsigned>(slotCount - 1), AnyKeyRel::After};
-      };
-      ASSUME(index >= 0);
-      return AnyKeyIndex{static_cast<unsigned>(index), AnyKeyRel::Before};
-   } else if (keyLen == fullKeyLen) {
-      KeyError index = keyToIndex(key, fullKeyLen);
-      switch (index) {
-         case KeyError::WrongLen:
-            ASSUME(false);
-         case KeyError::NotNumericRange:
-         case KeyError::SlightlyTooLarge:
-         case KeyError::FarTooLarge:
-            return AnyKeyIndex{static_cast<unsigned>(slotCount - 1), AnyKeyRel::After};
-      }
-      ASSUME(index >= 0);
-      return AnyKeyIndex{static_cast<unsigned>(index), AnyKeyRel::At};
-   } else {
-      if (memcmp(getLowerFence(), key, fullKeyLen) == 0) {
-         return AnyKeyIndex{0, AnyKeyRel::Before};
-      }
-      KeyError index = keyToIndex(key, fullKeyLen);
-      switch (index) {
-         case KeyError::WrongLen:
-            ASSUME(false);
-         case KeyError::NotNumericRange:
-         case KeyError::SlightlyTooLarge:
-         case KeyError::FarTooLarge:
-            return AnyKeyIndex{static_cast<unsigned>(slotCount - 1), AnyKeyRel::After};
-      }
-      ASSUME(index >= 0);
-      return AnyKeyIndex{static_cast<unsigned>(index), AnyKeyRel::Before};
-   }
-}
-
 bool DenseNode::range_lookup1(uint8_t* key,
                               unsigned keyLen,
                               uint8_t* keyOut,
@@ -664,8 +612,8 @@ bool DenseNode::range_lookup1(uint8_t* key,
                               // scan continues if callback returns true
                               const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
-   AnyKeyIndex keyPosition = anyKeyIndex(key, keyLen);
-   unsigned firstIndex = keyPosition.index + (keyPosition.rel == AnyKeyRel::After);
+   // TODO verify numeric prefix
+   unsigned firstIndex = leastGreaterKey(key, keyLen, fullKeyLen) - (keyLen == fullKeyLen) - arrayStart;
    unsigned nprefLen = computeNumericPrefixLength(fullKeyLen);
    memcpy(keyOut, getLowerFence(), nprefLen);
 
@@ -708,8 +656,7 @@ bool DenseNode::range_lookup2(uint8_t* key,
                               // scan continues if callback returns true
                               const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
-   AnyKeyIndex keyPosition = anyKeyIndex(key, keyLen);
-   unsigned firstIndex = keyPosition.index + (keyPosition.rel == AnyKeyRel::After);
+   unsigned firstIndex = leastGreaterKey(key, keyLen, fullKeyLen) - (keyLen == fullKeyLen) - arrayStart;
    unsigned nprefLen = computeNumericPrefixLength(fullKeyLen);
    memcpy(keyOut, getLowerFence(), nprefLen);
    for (unsigned i = firstIndex; i < slotCount; ++i) {
@@ -733,9 +680,8 @@ bool DenseNode::range_lookup_desc(uint8_t* key,
                                   const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
    assert(tag == Tag::Dense);
-   AnyKeyIndex keyPosition = anyKeyIndex(key, keyLen);
-   int anyKeyIndex = keyPosition.index;
-   int firstIndex = anyKeyIndex - (keyPosition.rel == AnyKeyRel::Before);
+   // TODO verify numeric prefix
+   int firstIndex = int(leastGreaterKey(key, keyLen, fullKeyLen)) - 1 - (keyLen != fullKeyLen) - arrayStart;
    if (firstIndex < 0)
       return true;
    unsigned nprefLen = computeNumericPrefixLength(fullKeyLen);

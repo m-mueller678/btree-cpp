@@ -278,17 +278,6 @@ enum KeyError : int {
    FarTooLarge = -4,
 };
 
-enum AnyKeyRel {
-   Before,
-   After,
-   At,
-};
-
-struct AnyKeyIndex {
-   unsigned index;
-   AnyKeyRel rel;
-};
-
 struct DenseNode  {
    Tag tag;
    uint16_t fullKeyLen;
@@ -385,7 +374,6 @@ struct DenseNode  {
                       unsigned int keyLen,
                       uint8_t* keyOut,
                       const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
-   AnyKeyIndex anyKeyIndex(uint8_t* key, unsigned keyLen);
    bool range_lookup_desc(uint8_t* key,
                           unsigned int keyLen,
                           uint8_t* keyOut,
