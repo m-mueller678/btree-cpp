@@ -561,6 +561,7 @@ unsigned DenseNode::computeSlotCount(unsigned valLen, unsigned fencesStart)
 
 bool DenseNode::remove(uint8_t* key, unsigned keyLength)
 {
+   assert(tag == Tag::Dense);
    KeyError index = keyToIndex(key, keyLength);
    if (index < 0 || !isSlotPresent(index)) {
       return false;
