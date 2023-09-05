@@ -17,7 +17,7 @@ uint8_t* DenseNode::getUpperFence()
 
 uint8_t* DenseNode::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut)
 {
-   KeyError index = keyToIndex(key + prefixLength, keyLength - prefixLength);
+   KeyError index = keyToIndex(key, keyLength);
    if (index < 0)
       return nullptr;
    if (tag == Tag::Dense) {
@@ -46,7 +46,7 @@ uint8_t* DenseNode::getPrefix()
 
 void DenseNode::restoreKey(uint8_t* prefix, uint8_t* dst, unsigned index)
 {
-   unsigned numericPartLen = computeNumericPartLen(prefixLength, fullKeyLen);
+   unsigned numericPartLen = computeNumericPartLen(fullKeyLen);
    memcpy(dst, prefix, fullKeyLen - numericPartLen);
    NumericPart numericPart = __builtin_bswap32(arrayStart + static_cast<NumericPart>(index));
    memcpy(dst + fullKeyLen - numericPartLen, reinterpret_cast<uint8_t*>(&numericPart) + sizeof(NumericPart) - numericPartLen, numericPartLen);
@@ -58,8 +58,6 @@ void DenseNode::changeUpperFence(uint8_t* fence, unsigned len)
    upperFenceLen = len;
    memcpy(getUpperFence(), fence, len);
    updatePrefixLength();
-   // TODO could make numeric part extraction independent of prefix len
-   updateArrayStart();
 }
 
 void DenseNode::updatePrefixLength()
@@ -76,7 +74,7 @@ void DenseNode::copyKeyValueRangeToBasic(BTreeNode* dst, unsigned srcStart, unsi
 {
    assert(dst->prefixLength >= prefixLength);
    assert(dst->count == 0);
-   unsigned npLen = computeNumericPartLen(prefixLength, fullKeyLen);
+   unsigned npLen = computeNumericPartLen(fullKeyLen);
    unsigned outSlot = 0;
    for (unsigned i = srcStart; i < srcEnd; i++) {
       if (!isSlotPresent(i)) {
@@ -90,9 +88,15 @@ void DenseNode::copyKeyValueRangeToBasic(BTreeNode* dst, unsigned srcStart, unsi
       dst->slot[outSlot].offset = dst->dataOffset;
       dst->slot[outSlot].keyLen = fullKeyLen - dst->prefixLength;
       dst->slot[outSlot].payloadLen = valLen;
-      memcpy(dst->getPayload(outSlot), getVal(i), valLen);
-      memcpy(dst->getPayload(outSlot) - npLen, reinterpret_cast<uint8_t*>(&numericPart) + sizeof(NumericPart) - npLen, npLen);
-      memcpy(dst->getKey(outSlot), getLowerFence() + dst->prefixLength, fullKeyLen - dst->prefixLength - npLen);
+      if (fullKeyLen - npLen > dst->prefixLength) {
+         memcpy(dst->getKey(outSlot), getPrefix() + dst->prefixLength, fullKeyLen - npLen - dst->prefixLength);
+         memcpy(dst->getKey(outSlot) + fullKeyLen - npLen - dst->prefixLength, reinterpret_cast<uint8_t*>(&numericPart) + sizeof(NumericPart) - npLen,
+                npLen);
+      } else {
+         unsigned truncatedNumericPartLen = fullKeyLen - dst->prefixLength;
+         memcpy(dst->getKey(outSlot), reinterpret_cast<uint8_t*>(&numericPart) + sizeof(NumericPart) - truncatedNumericPartLen,
+                truncatedNumericPartLen);
+      }
       if (enableBasicHead)
          dst->slot[outSlot].head[0] = head(dst->getKey(outSlot), fullKeyLen - prefixLength);
       outSlot += 1;
@@ -114,7 +118,7 @@ bool DenseNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsig
             return false;
          }
       }
-      KeyError keyIndex = keyToIndex(key + prefixLength, keyLength - prefixLength);
+      KeyError keyIndex = keyToIndex(key, keyLength);
       switch (keyIndex) {
          case KeyError::SlightlyTooLarge:
          case KeyError::FarTooLarge:
@@ -138,7 +142,7 @@ bool DenseNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsig
             return false;
          }
       }
-      KeyError keyIndex = keyToIndex(key + prefixLength, keyLength - prefixLength);
+      KeyError keyIndex = keyToIndex(key, keyLength);
       switch (keyIndex) {
          case KeyError::SlightlyTooLarge:
          case KeyError::FarTooLarge:
@@ -175,7 +179,7 @@ BTreeNode* DenseNode::convertToBasic()
 void DenseNode::splitNode1(AnyNode* parent, uint8_t* key, unsigned keyLen)
 {
    assert(keyLen >= prefixLength);
-   int key_index = keyToIndex(key + prefixLength, keyLen - prefixLength);
+   int key_index = keyToIndex(key, keyLen);
    bool split_to_self;
    switch (key_index) {
       case KeyError::FarTooLarge:
@@ -203,8 +207,7 @@ void DenseNode::splitNode1(AnyNode* parent, uint8_t* key, unsigned keyLen)
    bool succ = parent->insertChild(full_boundary, fullKeyLen, denseLeft->any());
    assert(succ);
    if (split_to_self) {
-      this->init(full_boundary, denseLeft->fullKeyLen, denseLeft->getUpperFence(), denseLeft->upperFenceLen, denseLeft->fullKeyLen,
-                 denseLeft->valLen);
+      this->changeLowerFence(full_boundary, denseLeft->fullKeyLen, denseLeft->getUpperFence(), denseLeft->upperFenceLen);
    } else {
       BTreeNode* right = &this->any()->_basic_node;
       *right = BTreeNode{true};
@@ -222,7 +225,7 @@ enum Dense2SplitMode {
 void DenseNode::splitNode2(AnyNode* parent, uint8_t* key, unsigned keyLen)
 {
    assert(keyLen >= prefixLength);
-   KeyError key_index = keyToIndex(key + prefixLength, keyLen - prefixLength);
+   KeyError key_index = keyToIndex(key, keyLen);
    Dense2SplitMode split_mode;
    switch (key_index) {
       case KeyError::FarTooLarge:
@@ -282,21 +285,14 @@ void DenseNode::splitNode2(AnyNode* parent, uint8_t* key, unsigned keyLen)
    ASSUME(succ);
 }
 
-unsigned DenseNode::prefixDiffLen()
+KeyError DenseNode::keyToIndex(uint8_t* key, unsigned len)
 {
-   return computeNumericPrefixLength(prefixLength, fullKeyLen) - prefixLength;
-}
-
-KeyError DenseNode::keyToIndex(uint8_t* truncatedKey, unsigned truncatedLen)
-{
-   if (truncatedLen + prefixLength != fullKeyLen) {
+   if (len != fullKeyLen)
       return KeyError::WrongLen;
-   }
-   if (memcmp(getLowerFence() + prefixLength, truncatedKey, prefixDiffLen()) != 0) {
-      assert(memcmp(getLowerFence() + prefixLength, truncatedKey, prefixDiffLen()) < 0);
+   if (prefixLength + sizeof(NumericPart) < fullKeyLen &&
+       memcmp(getLowerFence() + prefixLength, key + prefixLength, fullKeyLen - sizeof(NumericPart) - prefixLength) != 0)
       return KeyError::NotNumericRange;
-   }
-   NumericPart numericPart = getNumericPart(truncatedKey + prefixDiffLen(), truncatedLen - prefixDiffLen());
+   NumericPart numericPart = getNumericPart(key, len, fullKeyLen);
    assert(numericPart >= arrayStart);
    NumericPart index = numericPart - arrayStart;
    if (index < slotCount) {
@@ -309,87 +305,144 @@ KeyError DenseNode::keyToIndex(uint8_t* truncatedKey, unsigned truncatedLen)
    }
 }
 
-unsigned DenseNode::computeNumericPartLen(unsigned prefixLength, unsigned fullKeyLen)
+unsigned DenseNode::computeNumericPartLen(unsigned fullKeyLen)
 {
-   return min(maxNumericPartLen, fullKeyLen - prefixLength);
+   return min(maxNumericPartLen, fullKeyLen);
 }
 
-unsigned DenseNode::computeNumericPrefixLength(unsigned prefixLength, unsigned fullKeyLen)
+unsigned DenseNode::computeNumericPrefixLength(unsigned fullKeyLen)
 {
-   return fullKeyLen - computeNumericPartLen(prefixLength, fullKeyLen);
+   return fullKeyLen - computeNumericPartLen(fullKeyLen);
 }
 
-void DenseNode::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen, unsigned fullKeyLen, unsigned valLen)
+void DenseNode::changeLowerFence(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen)
 {
    assert(enablePrefix);
    assert(sizeof(DenseNode) == pageSize);
    tag = Tag::Dense;
-   this->fullKeyLen = fullKeyLen;
-   this->valLen = valLen;
    this->lowerFenceLen = lowerFenceLen;
-   this->upperFenceLen = upperFenceLen;
    occupiedCount = 0;
-   // assert(lowerFenceLen <= fullKeyLen);
    slotCount = computeSlotCount(valLen, fencesOffset());
    zeroMask();
    memcpy(this->getLowerFence(), lowerFence, lowerFenceLen);
    memcpy(this->getUpperFence(), upperFence, upperFenceLen);
    this->updatePrefixLength();
-   assert(computeNumericPrefixLength(prefixLength, fullKeyLen) <= lowerFenceLen);
+   assert(computeNumericPrefixLength(fullKeyLen) <= lowerFenceLen);
    updateArrayStart();
 }
 
-bool DenseNode::init2(BTreeNode* from)
+bool DenseNode::densify1(DenseNode* out, BTreeNode* basicNode)
+{
+   unsigned preKeyLen1 = basicNode->slot[0].keyLen;
+   unsigned fullKeyLen = preKeyLen1 + basicNode->prefixLength;
+   COUNTER(reject_0, basicNode->lowerFence.length + sizeof(NumericPart) < fullKeyLen, 1 << 8);
+   if (basicNode->lowerFence.length + sizeof(NumericPart) < fullKeyLen) {
+      // this might be possible to handle, but requires more thought and should be rare.
+      return false;
+   }
+   unsigned valLen1 = basicNode->slot[0].payloadLen;
+   for (unsigned i = 1; i < basicNode->count; ++i) {
+      if (basicNode->slot[i].keyLen != preKeyLen1 || basicNode->slot[i].payloadLen != valLen1) {
+         return false;
+      }
+   }
+   out->lowerFenceLen = basicNode->lowerFence.length;
+   out->upperFenceLen = basicNode->upperFence.length;
+   out->fullKeyLen = fullKeyLen;
+   out->arrayStart = leastGreaterKey(basicNode->getLowerFence(), out->lowerFenceLen, fullKeyLen);
+   out->slotCount = computeSlotCount(valLen1, out->fencesOffset());
+   NumericPart prefixNumericPart = getNumericPart(basicNode->getPrefix(), basicNode->prefixLength, fullKeyLen);
+   {
+      uint8_t* lastKey = basicNode->getKey(basicNode->count - 1);
+      bool lastOutsideRange = false;
+      for (unsigned i = basicNode->prefixLength; i + sizeof(NumericPart) < fullKeyLen; ++i) {
+         if (lastKey[i - basicNode->prefixLength] != basicNode->getLowerFence()[i]) {
+            lastOutsideRange = true;
+            break;
+         }
+      }
+      NumericPart lastKeyNumericPart = getNumericPart(basicNode->getKey(basicNode->count - 1), preKeyLen1, preKeyLen1);
+      lastOutsideRange |= prefixNumericPart + lastKeyNumericPart - out->arrayStart >= out->slotCount;
+      COUNTER(reject_last, lastOutsideRange, 1 << 8);
+      if (lastOutsideRange)
+         return false;
+   }
+   out->tag = Tag::Dense;
+   out->valLen = valLen1;
+   out->occupiedCount = 0;
+   out->zeroMask();
+   memcpy(out->getLowerFence(), basicNode->getLowerFence(), out->lowerFenceLen);
+   memcpy(out->getUpperFence(), basicNode->getUpperFence(), out->upperFenceLen);
+   out->prefixLength = basicNode->prefixLength;
+   assert(computeNumericPrefixLength(fullKeyLen) <= out->lowerFenceLen);
+   for (unsigned i = 0; i < basicNode->count; ++i) {
+      NumericPart keyNumericPart = getNumericPart(basicNode->getKey(i), fullKeyLen - out->prefixLength, fullKeyLen - out->prefixLength);
+      int index = prefixNumericPart + keyNumericPart - out->arrayStart;
+      out->setSlotPresent(index);
+      memcpy(out->getVal(index), basicNode->getPayload(i), valLen1);
+   }
+   out->occupiedCount = basicNode->count;
+   return true;
+}
+
+bool DenseNode::densify2(DenseNode* out, BTreeNode* from)
 {
    assert(enablePrefix);
    assert(sizeof(DenseNode) == pageSize);
-
-   NumericPart lastNumeric = getNumericPart(from->getKey(from->count - 1), from->slot[from->count - 1].keyLen);
-
-   tag = Tag::Dense2;
-   this->fullKeyLen = from->slot[0].keyLen + from->prefixLength;
-   this->spaceUsed = 0;
-   this->lowerFenceLen = from->lowerFence.length;
-   this->upperFenceLen = from->upperFence.length;
-   occupiedCount = 0;
-   this->dataOffset = fencesOffset();
-   memcpy(this->getLowerFence(), from->getLowerFence(), from->lowerFence.length);
-   memcpy(this->getUpperFence(), from->getUpperFence(), from->upperFence.length);
-   this->updatePrefixLength();
-   this->updateArrayStart();
-   COUNTER(reject_1a, arrayStart + pageSize / 2 < lastNumeric, 1 << 8);
-   COUNTER(reject_1b, arrayStart >= lastNumeric, 1 << 8);
-   COUNTER(reject_1, arrayStart + pageSize / 2 < lastNumeric || arrayStart >= lastNumeric, 1 << 8);
-
-   if (arrayStart + pageSize / 2 < lastNumeric || arrayStart >= lastNumeric) {
+   unsigned keyLen = from->slot[0].keyLen + from->prefixLength;
+   COUNTER(reject_lower_short, from->lowerFence.length + sizeof(NumericPart) < keyLen, 1 << 8);
+   if (from->lowerFence.length + sizeof(NumericPart) < keyLen)
       return false;
-   }
+   COUNTER(reject_upper, from->upperFence.length == 0, 1 << 8);
+   if (from->upperFence.length == 0)
+      return false;
+   NumericPart arrayStart = leastGreaterKey(from->getLowerFence(), from->lowerFence.length, keyLen);
+   NumericPart arrayEnd = leastGreaterKey(from->getUpperFence(), from->upperFence.length, keyLen);
+   ASSUME(arrayStart < arrayEnd);
+   if (arrayEnd - arrayStart >= pageSize / 2)
+      return false;
+   for (unsigned i = from->prefixLength; i + sizeof(NumericPart) < keyLen && i < from->upperFence.length; ++i)
+      if (from->getLowerFence()[i] != from->getUpperFence()[i])
+         return false;
    for (unsigned i = 1; i < from->count; ++i) {
       if (from->slot[i].keyLen != from->slot[0].keyLen) {
          return false;
       }
    }
    unsigned totalPayloadSize = 0;
-   for (unsigned i = 0; i < from->count; ++i) {
-      totalPayloadSize += from->slot[i].payloadLen;
-   }
-
+   out->slotCount = arrayEnd - arrayStart;
+   out->lowerFenceLen = from->lowerFence.length;
+   out->upperFenceLen = from->upperFence.length;
+   out->fullKeyLen = keyLen;
+   out->dataOffset = out->fencesOffset();
    {
-      unsigned availableSpace = fencesOffset() - offsetof(DenseNode, slots);
-      float density = float(from->count) / (lastNumeric - arrayStart);
-      float spacePerSlot = 2 + density * (2 + float(totalPayloadSize) / from->count);
-      slotCount = availableSpace / spacePerSlot;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wassume"
-      ASSUME(slotEndOffset() <= dataOffset);
-#pragma clang diagnostic pop
+      bool payloadSizeTooLarge = false;
+      for (unsigned i = 0; i < from->count; ++i) {
+         totalPayloadSize += from->slot[i].payloadLen;
+         if (out->slotEndOffset() + totalPayloadSize + 2 * from->count > out->dataOffset) {
+            payloadSizeTooLarge = true;
+            break;
+         }
+      }
+      COUNTER(reject_payload_size, payloadSizeTooLarge, 1 << 8);
+      if (payloadSizeTooLarge)
+         return false;
    }
-   COUNTER(reject_2, slotEndOffset() + totalPayloadSize > fencesOffset() || arrayStart + slotCount < lastNumeric, 1 << 8);
-   if (slotEndOffset() + totalPayloadSize > fencesOffset() || arrayStart + slotCount <= lastNumeric) {
-      return false;
+   out->tag = Tag::Dense2;
+   out->spaceUsed = 0;
+   out->occupiedCount = 0;
+   memcpy(out->getLowerFence(), from->getLowerFence(), from->lowerFence.length);
+   memcpy(out->getUpperFence(), from->getUpperFence(), from->upperFence.length);
+   out->prefixLength = from->prefixLength;
+   out->arrayStart = arrayStart;
+   out->zeroSlots();
+   NumericPart prefixNumericPart = getNumericPart(out->getPrefix(), out->prefixLength, out->fullKeyLen);
+   for (unsigned i = 0; i < from->count; ++i) {
+      NumericPart keyNumericPart = getNumericPart(from->getKey(i), out->fullKeyLen - out->prefixLength, out->fullKeyLen - out->prefixLength);
+      int index = prefixNumericPart + keyNumericPart - arrayStart;
+      out->insertSlotWithSpace(index, from->getPayload(i), from->slot[i].payloadLen);
    }
-   zeroSlots();
-   assert(computeNumericPrefixLength(prefixLength, fullKeyLen) <= lowerFenceLen);
+   out->occupiedCount = from->count;
    return true;
 }
 
@@ -415,7 +468,7 @@ void DenseNode::init2b(uint8_t* lowerFence,
    this->updateArrayStart();
    this->slotCount = slotCount;
    zeroSlots();
-   assert(computeNumericPrefixLength(prefixLength, fullKeyLen) <= lowerFenceLen);
+   assert(computeNumericPrefixLength(fullKeyLen) <= lowerFenceLen);
 }
 
 bool DenseNode::is_underfull()
@@ -446,39 +499,46 @@ void DenseNode::zeroSlots()
    }
 }
 
-// key is expected to be prefix truncated
-NumericPart DenseNode::getNumericPart(uint8_t* key, unsigned len)
+// key is expected to be not prefix truncated
+// TODO inspect assembly
+NumericPart DenseNode::getNumericPart(uint8_t* key, unsigned length, unsigned targetLength)
 {
-   switch (len) {
-      case 0:
-         return 0;
-      case 1:
-         return static_cast<uint32_t>(key[0]);
-      case 2:
-         return static_cast<uint32_t>(__builtin_bswap16(loadUnaligned<uint16_t>(key)));
-      case 3:
-         return (static_cast<uint32_t>(__builtin_bswap16(loadUnaligned<uint16_t>(key))) << 8) | (static_cast<uint32_t>(key[2]));
-      default:
-         return __builtin_bswap32(loadUnaligned<uint32_t>(key + len - 4));
+   if (length > targetLength)
+      length = targetLength;
+   if (length + sizeof(NumericPart) <= targetLength) {
+      return 0;
    }
+   NumericPart x;
+   switch (length) {
+      case 0:
+         x = 0;
+         break;
+      case 1:
+         x = static_cast<uint32_t>(key[0]);
+         break;
+      case 2:
+         x = static_cast<uint32_t>(__builtin_bswap16(loadUnaligned<uint16_t>(key)));
+         break;
+      case 3:
+         x = (static_cast<uint32_t>(__builtin_bswap16(loadUnaligned<uint16_t>(key))) << 8) | (static_cast<uint32_t>(key[2]));
+         break;
+      default:
+         x = __builtin_bswap32(loadUnaligned<uint32_t>(key + length - 4));
+         break;
+   }
+   return x << (8 * (targetLength - length));
+}
+
+NumericPart DenseNode::leastGreaterKey(uint8_t* key, unsigned length, unsigned targetLength)
+{
+   auto a = getNumericPart(key, length, targetLength);
+   auto b = length >= targetLength;
+   return a + b;
 }
 
 void DenseNode::updateArrayStart()
 {
-   if (lowerFenceLen < fullKeyLen) {
-      // TODO this might be simplified
-      unsigned numericPrefixLength = computeNumericPrefixLength(prefixLength, fullKeyLen);
-      uint8_t zeroPaddedLowerFenceTail[maxNumericPartLen];
-      ASSUME(lowerFenceLen >= numericPrefixLength);
-      unsigned lowerFenceTailLen = lowerFenceLen - numericPrefixLength;
-      memcpy(zeroPaddedLowerFenceTail, getLowerFence() + numericPrefixLength, lowerFenceTailLen);
-      for (unsigned i = lowerFenceTailLen; i < maxNumericPartLen; ++i) {
-         zeroPaddedLowerFenceTail[i] = 0;
-      }
-      arrayStart = getNumericPart(zeroPaddedLowerFenceTail, lowerFenceTailLen);
-   } else {
-      arrayStart = getNumericPart(getLowerFence() + prefixLength, fullKeyLen - prefixLength) + 1;
-   }
+   arrayStart = leastGreaterKey(getLowerFence(), lowerFenceLen, fullKeyLen);
 }
 
 uint8_t* DenseNode::ptr()
@@ -501,7 +561,7 @@ unsigned DenseNode::computeSlotCount(unsigned valLen, unsigned fencesStart)
 
 bool DenseNode::remove(uint8_t* key, unsigned keyLength)
 {
-   KeyError index = keyToIndex(key + prefixLength, keyLength - prefixLength);
+   KeyError index = keyToIndex(key, keyLength);
    if (index < 0 || !isSlotPresent(index)) {
       return false;
    }
@@ -514,46 +574,9 @@ bool DenseNode::try_densify(BTreeNode* basicNode)
 {
    assert(!enableDense || !enableDense2);
    assert(basicNode->count > 0);
-   unsigned pre_key_len_1 = basicNode->slot[0].keyLen;
-   unsigned fullKeyLen = pre_key_len_1 + basicNode->prefixLength;
-   unsigned numericPrefixLen = computeNumericPrefixLength(basicNode->prefixLength, fullKeyLen);
-   COUNTER(reject_0, numericPrefixLen > basicNode->lowerFence.length, 1 << 8);
-   if (numericPrefixLen > basicNode->lowerFence.length) {
-      // this might be possible to handle, but requires more thought and should be rare.
-      return false;
-   }
-   unsigned valLen1;
-   if (enableDense) {
-      valLen1 = basicNode->slot[0].payloadLen;
-      for (unsigned i = 1; i < basicNode->count; ++i) {
-         if (basicNode->slot[i].keyLen != pre_key_len_1 || basicNode->slot[i].payloadLen != valLen1) {
-            return false;
-         }
-      }
-      // preconditios confirmed, create.
-      init(basicNode->getLowerFence(), basicNode->lowerFence.length, basicNode->getUpperFence(), basicNode->upperFence.length, fullKeyLen, valLen1);
-   } else {
-      if (!init2(basicNode)) {
-         return false;
-      }
-   }
-   KeyError lastKey = keyToIndex(basicNode->getKey(basicNode->count - 1), fullKeyLen - prefixLength);
-   COUNTER(reject_last_key, lastKey < 0, 1 << 8);
-   if (lastKey < 0) {
-      return false;
-   }
-   for (unsigned i = 0; i < basicNode->count; ++i) {
-      int index = keyToIndex(basicNode->getKey(i), fullKeyLen - prefixLength);
-      assert(index >= 0);
-      if (enableDense) {
-         setSlotPresent(index);
-         memcpy(getVal(index), basicNode->getPayload(i), valLen1);
-      } else {
-         insertSlotWithSpace(index, basicNode->getPayload(i), basicNode->slot[i].payloadLen);
-      }
-   }
-   occupiedCount = basicNode->count;
-   return true;
+   bool success = enableDense ? densify1(this, basicNode) : densify2(this, basicNode);
+   COUNTER(reject, !success, 1 << 8);
+   return success;
 }
 
 bool DenseNode::isSlotPresent(unsigned i)
@@ -583,16 +606,15 @@ uint8_t* DenseNode::getVal(unsigned i)
 
 AnyKeyIndex DenseNode::anyKeyIndex(uint8_t* key, unsigned keyLen)
 {
-   unsigned numericPrefixLen = computeNumericPrefixLength(prefixLength, fullKeyLen);
+   unsigned numericPrefixLen = computeNumericPrefixLength(fullKeyLen);
    ASSUME(prefixLength <= keyLen);
-   ASSUME(prefixLength <= numericPrefixLen);
    ASSUME(numericPrefixLen <= lowerFenceLen);
    ASSUME(lowerFenceLen <= fullKeyLen);
    if (keyLen < fullKeyLen) {
       uint8_t buffer[fullKeyLen];
       memcpy(buffer, key, keyLen);
       memset(buffer + keyLen, 0, fullKeyLen - keyLen);
-      KeyError index = keyToIndex(key + prefixLength, fullKeyLen - prefixLength);
+      KeyError index = keyToIndex(key, fullKeyLen);
       switch (index) {
          case KeyError::WrongLen:
             ASSUME(false);
@@ -605,7 +627,7 @@ AnyKeyIndex DenseNode::anyKeyIndex(uint8_t* key, unsigned keyLen)
       ASSUME(index >= 0);
       return AnyKeyIndex{static_cast<unsigned>(index), AnyKeyRel::Before};
    } else if (keyLen == fullKeyLen) {
-      KeyError index = keyToIndex(key + prefixLength, fullKeyLen - prefixLength);
+      KeyError index = keyToIndex(key, fullKeyLen);
       switch (index) {
          case KeyError::WrongLen:
             ASSUME(false);
@@ -620,7 +642,7 @@ AnyKeyIndex DenseNode::anyKeyIndex(uint8_t* key, unsigned keyLen)
       if (memcmp(getLowerFence(), key, fullKeyLen) == 0) {
          return AnyKeyIndex{0, AnyKeyRel::Before};
       }
-      KeyError index = keyToIndex(key + prefixLength, fullKeyLen - prefixLength);
+      KeyError index = keyToIndex(key, fullKeyLen);
       switch (index) {
          case KeyError::WrongLen:
             ASSUME(false);
@@ -649,7 +671,7 @@ bool DenseNode::range_lookup(uint8_t* key,
                x + 1
            }
                              }*/
-   unsigned nprefLen = computeNumericPrefixLength(prefixLength, fullKeyLen);
+   unsigned nprefLen = computeNumericPrefixLength(fullKeyLen);
    memcpy(keyOut, getLowerFence(), nprefLen);
 
    unsigned wordIndex = firstIndex / maskBitsPerWord;
@@ -697,7 +719,7 @@ bool DenseNode::range_lookup_desc(uint8_t* key,
    int firstIndex = anyKeyIndex - (keyPosition.rel == AnyKeyRel::Before);
    if (firstIndex < 0)
       return true;
-   unsigned nprefLen = computeNumericPrefixLength(prefixLength, fullKeyLen);
+   unsigned nprefLen = computeNumericPrefixLength(fullKeyLen);
    memcpy(keyOut, getLowerFence(), nprefLen);
 
    int wordIndex = firstIndex / maskBitsPerWord;

@@ -312,7 +312,7 @@ struct DenseNode  {
          uint16_t dataOffset;
          uint16_t slots[(pageSize - 22)/sizeof (uint16_t)];
       };
-      uint8_t _expand_heap[pageSize - 18];
+      uint8_t _expand_heap[pageSize - 16];
    };
    unsigned fencesOffset();
    uint8_t* getLowerFence();
@@ -336,21 +336,23 @@ struct DenseNode  {
    unsigned prefixDiffLen();
    KeyError keyToIndex(uint8_t* truncatedKey, unsigned truncatedLen);
 
-   static unsigned computeNumericPartLen(unsigned prefixLength, unsigned fullKeyLen);
-   static unsigned computeNumericPrefixLength(unsigned prefixLength, unsigned fullKeyLen);
+   static unsigned computeNumericPartLen(unsigned fullKeyLen);
+   static unsigned computeNumericPrefixLength(unsigned fullKeyLen);
 
-   void init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen, unsigned fullKeyLen, unsigned valLen);
-   bool init2(BTreeNode* from);
+   void changeLowerFence(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen);
+   static bool densify1(DenseNode* out,BTreeNode* basicNode);
+   static bool densify2(DenseNode* out,BTreeNode* from);
    void init2b(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen, unsigned fullKeyLen,unsigned slotCount);
+   int cmpNumericPrefix(uint8_t* key,unsigned length);
 
    unsigned maskWordCount();
 
    void zeroMask();
    void zeroSlots();
 
-   // key is expected to be prefix truncated
-   static NumericPart getNumericPart(uint8_t* key, unsigned len);
-
+   // rounds down
+   static NumericPart getNumericPart(uint8_t* key,unsigned length,unsigned targetLength);
+   static NumericPart leastGreaterKey(uint8_t* key,unsigned length,unsigned targetLength);
    void updateArrayStart();
 
    uint8_t* ptr();
