@@ -841,9 +841,18 @@ void BTree::range_lookupImpl(uint8_t* key,
             keyLen += 1;
             break;
          }
-         case Tag::Dense:
+         case Tag::Dense: {
+            if (!node->dense()->range_lookup1(key, keyLen, keyOut, found_record_cb))
+               return;
+            keyLen = node->dense()->upperFenceLen;
+            key = startKeyBuffer;
+            memcpy(key, node->dense()->getUpperFence(), keyLen);
+            key[keyLen] = 0;
+            keyLen += 1;
+            break;
+         }
          case Tag::Dense2: {
-            if (!node->dense()->range_lookup(key, keyLen, keyOut, found_record_cb))
+            if (!node->dense()->range_lookup2(key, keyLen, keyOut, found_record_cb))
                return;
             keyLen = node->dense()->upperFenceLen;
             key = startKeyBuffer;

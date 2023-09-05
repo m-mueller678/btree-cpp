@@ -377,10 +377,14 @@ struct DenseNode  {
    bool remove(uint8_t* key, unsigned int keyLength);
    bool is_underfull();
    BTreeNode* convertToBasic();
-   bool range_lookup(uint8_t* key,
+   bool range_lookup1(uint8_t* key,
                      unsigned int keyLen,
                      uint8_t* keyOut,
                      const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
+   bool range_lookup2(uint8_t* key,
+                      unsigned int keyLen,
+                      uint8_t* keyOut,
+                      const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
    AnyKeyIndex anyKeyIndex(uint8_t* key, unsigned keyLen);
    bool range_lookup_desc(uint8_t* key,
                           unsigned int keyLen,

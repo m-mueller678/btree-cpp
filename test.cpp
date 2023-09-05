@@ -38,7 +38,7 @@ void runTest(vector<string>& data, std::string dataName)
       // lookup
       e.setParam("op", "lookup");
       BTreeCppPerfEventBlock b(e, count);
-      for (uint64_t i = 755; i < count; i++) {
+      for (uint64_t i = 0; i < count; i++) {
          unsigned payloadSize;
          uint8_t* keyPtr = (uint8_t*)data[i].data();
          unsigned keyLen = data[i].size();

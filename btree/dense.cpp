@@ -656,21 +656,15 @@ AnyKeyIndex DenseNode::anyKeyIndex(uint8_t* key, unsigned keyLen)
    }
 }
 
-bool DenseNode::range_lookup(uint8_t* key,
-                             unsigned keyLen,
-                             uint8_t* keyOut,
-                             // called with keylen and value
-                             // scan continues if callback returns true
-                             const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
+bool DenseNode::range_lookup1(uint8_t* key,
+                              unsigned keyLen,
+                              uint8_t* keyOut,
+                              // called with keylen and value
+                              // scan continues if callback returns true
+                              const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
    AnyKeyIndex keyPosition = anyKeyIndex(key, keyLen);
    unsigned firstIndex = keyPosition.index + (keyPosition.rel == AnyKeyRel::After);
-   /*        if x == self.slot_count as usize - 1 {
-               return true;
-           } else {
-               x + 1
-           }
-                             }*/
    unsigned nprefLen = computeNumericPrefixLength(fullKeyLen);
    memcpy(keyOut, getLowerFence(), nprefLen);
 
@@ -706,6 +700,30 @@ bool DenseNode::range_lookup(uint8_t* key,
    }
 }
 
+bool DenseNode::range_lookup2(uint8_t* key,
+                              unsigned keyLen,
+                              uint8_t* keyOut,
+                              // called with keylen and value
+                              // scan continues if callback returns true
+                              const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
+{
+   AnyKeyIndex keyPosition = anyKeyIndex(key, keyLen);
+   unsigned firstIndex = keyPosition.index + (keyPosition.rel == AnyKeyRel::After);
+   unsigned nprefLen = computeNumericPrefixLength(fullKeyLen);
+   memcpy(keyOut, getLowerFence(), nprefLen);
+   for (unsigned i = firstIndex; i < slotCount; ++i) {
+      if (slots[i]) {
+         NumericPart numericPart = __builtin_bswap32(arrayStart + static_cast<NumericPart>(i));
+         unsigned numericPartLen = fullKeyLen - nprefLen;
+         memcpy(keyOut + nprefLen, reinterpret_cast<uint8_t*>(&numericPart) + sizeof(NumericPart) - numericPartLen, numericPartLen);
+         if (!found_record_cb(fullKeyLen, ptr() + slots[i] + 2, slotValLen(i))) {
+            return false;
+         }
+      }
+   }
+   return true;
+}
+
 bool DenseNode::range_lookup_desc(uint8_t* key,
                                   unsigned keyLen,
                                   uint8_t* keyOut,
@@ -713,7 +731,7 @@ bool DenseNode::range_lookup_desc(uint8_t* key,
                                   // scan continues if callback returns true
                                   const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
-   assert(tag == Tag::Dense2);
+   assert(tag == Tag::Dense);
    AnyKeyIndex keyPosition = anyKeyIndex(key, keyLen);
    int anyKeyIndex = keyPosition.index;
    int firstIndex = anyKeyIndex - (keyPosition.rel == AnyKeyRel::Before);
