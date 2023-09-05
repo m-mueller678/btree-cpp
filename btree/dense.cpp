@@ -612,7 +612,8 @@ bool DenseNode::range_lookup1(uint8_t* key,
                               // scan continues if callback returns true
                               const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
-   // TODO verify numeric prefix
+   if (!isNumericRangeAnyLen(key, keyLen))
+      return true;
    unsigned firstIndex = leastGreaterKey(key, keyLen, fullKeyLen) - (keyLen == fullKeyLen) - arrayStart;
    unsigned nprefLen = computeNumericPrefixLength(fullKeyLen);
    memcpy(keyOut, getLowerFence(), nprefLen);
@@ -679,9 +680,9 @@ bool DenseNode::range_lookup_desc(uint8_t* key,
                                   // scan continues if callback returns true
                                   const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
-   assert(tag == Tag::Dense);
-   // TODO verify numeric prefix
-   int firstIndex = int(leastGreaterKey(key, keyLen, fullKeyLen)) - 1 - (keyLen != fullKeyLen) - arrayStart;
+   abort(); //this function is currently broken
+   int firstIndex = isNumericRangeAnyLen(key, keyLen) ? (int(leastGreaterKey(key, keyLen, fullKeyLen)) - 1 - (keyLen != fullKeyLen) - arrayStart)
+                                                      : (slotCount - 1);
    if (firstIndex < 0)
       return true;
    unsigned nprefLen = computeNumericPrefixLength(fullKeyLen);
@@ -779,4 +780,13 @@ unsigned DenseNode::slotEndOffset()
 unsigned DenseNode::slotValLen(unsigned int index)
 {
    return loadUnaligned<uint16_t>(ptr() + slots[index]);
+}
+
+bool DenseNode::isNumericRangeAnyLen(uint8_t* key, unsigned length)
+{
+   for (unsigned i = prefixLength; i < computeNumericPrefixLength(fullKeyLen); ++i) {
+      if (getLowerFence()[i] != (i < length ? key[i] : 0))
+         return false;
+   }
+   return true;
 }

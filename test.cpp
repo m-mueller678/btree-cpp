@@ -42,7 +42,6 @@ void runTest(vector<string>& data, std::string dataName)
          unsigned payloadSize;
          uint8_t* keyPtr = (uint8_t*)data[i].data();
          unsigned keyLen = data[i].size();
-         // TODO debug this
          uint8_t* payload = t.lookup(keyPtr, keyLen, payloadSize);
          if (!payload || (payloadSize != sizeof(uint64_t)) || *reinterpret_cast<uint64_t*>(payload) != i)
             throw;
@@ -55,7 +54,9 @@ void runTest(vector<string>& data, std::string dataName)
       for (uint64_t i = 0; i < count; i += 4) {
          uint8_t keyBuffer[BTreeNode::maxKVSize];
          unsigned foundIndex = 0;
-         t.range_lookup((uint8_t*)data[i].data(), data[i].size(), keyBuffer, [&](unsigned keyLen, uint8_t* payload, unsigned payloadLen) {
+         uint8_t* key = (uint8_t*)data[i].data();
+         unsigned int len = data[i].size();
+         t.range_lookup(key, len, keyBuffer, [&](unsigned keyLen, uint8_t* payload, unsigned payloadLen) {
             assert(payloadLen == sizeof(uint64_t));
             uint64_t loadedPayload = loadUnaligned<uint64_t>(payload);
             assert(data[loadedPayload].size() == keyLen);

@@ -378,6 +378,7 @@ struct DenseNode  {
                           unsigned int keyLen,
                           uint8_t* keyOut,
                           const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
+   bool isNumericRangeAnyLen(uint8_t* key,unsigned length);
    void print();
 };
 
