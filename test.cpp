@@ -70,7 +70,7 @@ void runTest(vector<string>& data, std::string dataName)
       }
    }
 
-   if (configName != std::string{"art"}) {
+   if (configName != std::string{"art"} && configName != std::string{"dense1"} && configName != std::string{"dense2"}) {
       e.setParam("op", "desc");
       BTreeCppPerfEventBlock b(e, count / 4);
       for (uint64_t i = 0; i < count; i += 4) {
