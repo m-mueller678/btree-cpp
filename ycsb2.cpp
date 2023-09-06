@@ -326,6 +326,9 @@ int main(int argc, char* argv[])
    e.setParam("ycsb_zipf", zipfParameter);
    e.setParam("bin_name", std::string{argv[0]});
    unsigned maxScanLength = envu64("SCAN_LENGTH");
+   if (maxScanLength == 0) {
+      throw;
+   }
    e.setParam("ycsb_range_len", maxScanLength);
 
    if (keySet == "int") {

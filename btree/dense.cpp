@@ -396,6 +396,18 @@ bool DenseNode::densify2(DenseNode* out, BTreeNode* from)
    COUNTER(reject_upper, from->upperFence.length == 0, 1 << 8);
    if (from->upperFence.length == 0)
       return false;
+   {
+      bool upperOutsideRange = false;
+      for (unsigned i = from->prefixLength; i < from->upperFence.length && i + sizeof(NumericPart) < keyLen; ++i) {
+         if (from->getUpperFence()[i] != from->getLowerFence()[i]) {
+            upperOutsideRange = true;
+            break;
+         }
+      }
+      COUNTER(reject_upper2, upperOutsideRange, 1 << 8);
+      if (upperOutsideRange)
+         return false;
+   }
    NumericPart arrayStart = leastGreaterKey(from->getLowerFence(), from->lowerFence.length, keyLen);
    NumericPart arrayEnd = leastGreaterKey(from->getUpperFence(), from->upperFence.length, keyLen);
    ASSUME(arrayStart < arrayEnd);
@@ -680,7 +692,7 @@ bool DenseNode::range_lookup_desc(uint8_t* key,
                                   // scan continues if callback returns true
                                   const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
-   abort(); //this function is currently broken
+   abort();  // this function is currently broken
    int firstIndex = isNumericRangeAnyLen(key, keyLen) ? (int(leastGreaterKey(key, keyLen, fullKeyLen)) - 1 - (keyLen != fullKeyLen) - arrayStart)
                                                       : (slotCount - 1);
    if (firstIndex < 0)
