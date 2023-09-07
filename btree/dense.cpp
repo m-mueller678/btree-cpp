@@ -335,7 +335,7 @@ bool DenseNode::densify1(DenseNode* out, BTreeNode* basicNode)
 {
    unsigned preKeyLen1 = basicNode->slot[0].keyLen;
    unsigned fullKeyLen = preKeyLen1 + basicNode->prefixLength;
-   COUNTER(reject_0, basicNode->lowerFence.length + sizeof(NumericPart) < fullKeyLen, 1 << 8);
+   // COUNTER(reject_0, basicNode->lowerFence.length + sizeof(NumericPart) < fullKeyLen, 1 << 8);
    if (basicNode->lowerFence.length + sizeof(NumericPart) < fullKeyLen) {
       // this might be possible to handle, but requires more thought and should be rare.
       return false;
@@ -363,7 +363,7 @@ bool DenseNode::densify1(DenseNode* out, BTreeNode* basicNode)
       }
       NumericPart lastKeyNumericPart = getNumericPart(basicNode->getKey(basicNode->count - 1), preKeyLen1, preKeyLen1);
       lastOutsideRange |= prefixNumericPart + lastKeyNumericPart - out->arrayStart >= out->slotCount;
-      COUNTER(reject_last, lastOutsideRange, 1 << 8);
+      // COUNTER(reject_last, lastOutsideRange, 1 << 8);
       if (lastOutsideRange)
          return false;
    }
@@ -390,10 +390,10 @@ bool DenseNode::densify2(DenseNode* out, BTreeNode* from)
    assert(enablePrefix);
    assert(sizeof(DenseNode) == pageSize);
    unsigned keyLen = from->slot[0].keyLen + from->prefixLength;
-   COUNTER(reject_lower_short, from->lowerFence.length + sizeof(NumericPart) < keyLen, 1 << 8);
+   // COUNTER(reject_lower_short, from->lowerFence.length + sizeof(NumericPart) < keyLen, 1 << 8);
    if (from->lowerFence.length + sizeof(NumericPart) < keyLen)
       return false;
-   COUNTER(reject_upper, from->upperFence.length == 0, 1 << 8);
+   // COUNTER(reject_upper, from->upperFence.length == 0, 1 << 8);
    if (from->upperFence.length == 0)
       return false;
    {
@@ -404,7 +404,7 @@ bool DenseNode::densify2(DenseNode* out, BTreeNode* from)
             break;
          }
       }
-      COUNTER(reject_upper2, upperOutsideRange, 1 << 8);
+      // COUNTER(reject_upper2, upperOutsideRange, 1 << 8);
       if (upperOutsideRange)
          return false;
    }
@@ -436,7 +436,7 @@ bool DenseNode::densify2(DenseNode* out, BTreeNode* from)
             break;
          }
       }
-      COUNTER(reject_payload_size, payloadSizeTooLarge, 1 << 8);
+      // COUNTER(reject_payload_size, payloadSizeTooLarge, 1 << 8);
       if (payloadSizeTooLarge)
          return false;
    }
@@ -588,7 +588,7 @@ bool DenseNode::try_densify(BTreeNode* basicNode)
    assert(!enableDense || !enableDense2);
    assert(basicNode->count > 0);
    bool success = enableDense ? densify1(this, basicNode) : densify2(this, basicNode);
-   COUNTER(reject, !success, 1 << 8);
+   // COUNTER(reject, !success, 1 << 8);
    return success;
 }
 
