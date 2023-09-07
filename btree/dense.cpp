@@ -216,71 +216,34 @@ void DenseNode::splitNode1(AnyNode* parent, uint8_t* key, unsigned keyLen)
    denseLeft->changeUpperFence(full_boundary, denseLeft->fullKeyLen);
 }
 
-enum Dense2SplitMode {
-   AppendBasic,
-   AppendSelf,
-   SplitSelf,
-};
-
 void DenseNode::splitNode2(AnyNode* parent, uint8_t* key, unsigned keyLen)
 {
    assert(keyLen >= prefixLength);
-   KeyError key_index = keyToIndex(key, keyLen);
-   Dense2SplitMode split_mode;
-   switch (key_index) {
-      case KeyError::FarTooLarge:
-      case KeyError::NotNumericRange:
-         split_mode = AppendBasic;
-         break;
-      case KeyError::WrongLen:
-         split_mode = AppendBasic;
-         break;
-      case KeyError::SlightlyTooLarge:
-         split_mode = AppendSelf;
-         break;
-      default:
-         split_mode = SplitSelf;
-   }
    DenseNode* left = reinterpret_cast<DenseNode*>(new AnyNode());
    uint8_t splitKeyBuffer[fullKeyLen];
-   switch (split_mode) {
-      case SplitSelf: {
-         unsigned totalSpace = occupiedCount * 2 + spaceUsed;
-         unsigned leftSpace = 0;
-         unsigned splitSlot = 0;
-         while (leftSpace < totalSpace / 2) {
-            ASSUME(splitSlot < slotCount);
-            if (slots[splitSlot]) {
-               leftSpace += 2 + 2 + slotValLen(splitSlot);
-            }
-            splitSlot += 1;
-         }
-         restoreKey(getLowerFence(), splitKeyBuffer, splitSlot);
-         left->init2b(getLowerFence(), lowerFenceLen, splitKeyBuffer, fullKeyLen, fullKeyLen, splitSlot + 1);
-         for (unsigned i = 0; i <= splitSlot; ++i) {
-            if (slots[i])
-               left->insertSlotWithSpace(i, ptr() + slots[i] + 2, slotValLen(i));
-         }
-         DenseNode right;
-         right.init2b(splitKeyBuffer, fullKeyLen, getUpperFence(), upperFenceLen, fullKeyLen, slotCount - splitSlot - 1);
-         for (unsigned i = splitSlot + 1; i < slotCount; ++i) {
-            if (slots[i])
-               right.insertSlotWithSpace(i - splitSlot - 1, ptr() + slots[i] + 2, slotValLen(i));
-         }
-         memcpy(this, &right, pageSize);
-         break;
+   unsigned totalSpace = occupiedCount * 2 + spaceUsed;
+   unsigned leftSpace = 0;
+   unsigned splitSlot = 0;
+   while (leftSpace < totalSpace / 2) {
+      ASSUME(splitSlot < slotCount);
+      if (slots[splitSlot]) {
+         leftSpace += 2 + 2 + slotValLen(splitSlot);
       }
-      case AppendSelf:  // TODO implement append self, append basic should always work
-      case AppendBasic: {
-         memcpy(left, this, sizeof(DenseNode));
-         restoreKey(getLowerFence(), splitKeyBuffer, slotCount - 1);
-         BTreeNode* right = &this->any()->_basic_node;
-         *right = BTreeNode{true};
-         right->setFences(splitKeyBuffer, left->fullKeyLen, left->getUpperFence(), left->upperFenceLen);
-         left->changeUpperFence(splitKeyBuffer, left->fullKeyLen);
-         break;
-      }
+      splitSlot += 1;
    }
+   restoreKey(getLowerFence(), splitKeyBuffer, splitSlot);
+   left->init2b(getLowerFence(), lowerFenceLen, splitKeyBuffer, fullKeyLen, fullKeyLen, splitSlot + 1);
+   for (unsigned i = 0; i <= splitSlot; ++i) {
+      if (slots[i])
+         left->insertSlotWithSpace(i, ptr() + slots[i] + 2, slotValLen(i));
+   }
+   DenseNode right;
+   right.init2b(splitKeyBuffer, fullKeyLen, getUpperFence(), upperFenceLen, fullKeyLen, slotCount - splitSlot - 1);
+   for (unsigned i = splitSlot + 1; i < slotCount; ++i) {
+      if (slots[i])
+         right.insertSlotWithSpace(i - splitSlot - 1, ptr() + slots[i] + 2, slotValLen(i));
+   }
+   memcpy(this, &right, pageSize);
    bool succ = parent->insertChild(splitKeyBuffer, left->fullKeyLen, left->any());
    ASSUME(succ);
 }
