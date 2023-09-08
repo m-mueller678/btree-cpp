@@ -491,7 +491,7 @@ bool HashNode::range_lookup(uint8_t* key,
    sort();
    memcpy(keyOut, key, prefixLength);
    bool found;
-   for (unsigned i = lowerBound(key, keyLen, found); i < count; ++i) {
+   for (unsigned i = (key == nullptr) ? 0 : lowerBound(key, keyLen, found); i < count; ++i) {
       memcpy(keyOut + prefixLength, getKey(i), slot[i].keyLen);
       if (!found_record_cb(slot[i].keyLen + prefixLength, getPayload(i), slot[i].payloadLen)) {
          return false;

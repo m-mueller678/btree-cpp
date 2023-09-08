@@ -589,7 +589,7 @@ bool DenseNode::range_lookup1(uint8_t* key,
 {
    if (!isNumericRangeAnyLen(key, keyLen))
       return true;
-   unsigned firstIndex = leastGreaterKey(key, keyLen, fullKeyLen) - (keyLen == fullKeyLen) - arrayStart;
+   unsigned firstIndex = (key == nullptr) ? 0 : (leastGreaterKey(key, keyLen, fullKeyLen) - (keyLen == fullKeyLen) - arrayStart);
    unsigned nprefLen = computeNumericPrefixLength(fullKeyLen);
    memcpy(keyOut, getLowerFence(), nprefLen);
 
@@ -632,7 +632,7 @@ bool DenseNode::range_lookup2(uint8_t* key,
                               // scan continues if callback returns true
                               const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
-   unsigned firstIndex = leastGreaterKey(key, keyLen, fullKeyLen) - (keyLen == fullKeyLen) - arrayStart;
+   unsigned firstIndex = (key == nullptr) ? 0 : (leastGreaterKey(key, keyLen, fullKeyLen) - (keyLen == fullKeyLen) - arrayStart);
    unsigned nprefLen = computeNumericPrefixLength(fullKeyLen);
    memcpy(keyOut, getLowerFence(), nprefLen);
    for (unsigned i = firstIndex; i < slotCount; ++i) {

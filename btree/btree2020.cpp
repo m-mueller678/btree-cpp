@@ -778,7 +778,7 @@ bool BTreeNode::range_lookup(uint8_t* key,
 {
    ASSUME(enablePrefix || prefixLength == 0);
    memcpy(keyOut, key, prefixLength);
-   for (unsigned i = lowerBound(key, keyLen); i < count; ++i) {
+   for (unsigned i = (key == nullptr) ? 0 : lowerBound(key, keyLen); i < count; ++i) {
       memcpy(keyOut + prefixLength, getKey(i), slot[i].keyLen);
       if (!found_record_cb(slot[i].keyLen + prefixLength, getPayload(i), slot[i].payloadLen)) {
          return false;
@@ -817,7 +817,7 @@ void DataStructureWrapper::range_lookup(uint8_t* key,
 #endif
 }
 
-void BTree::range_lookupImpl(uint8_t* key,
+void BTree::range_lookupImpl(uint8_t* startKey,
                              unsigned keyLen,
                              uint8_t* keyOut,
                              // called with keylen and value
@@ -825,49 +825,55 @@ void BTree::range_lookupImpl(uint8_t* key,
                              const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
    uint8_t startKeyBuffer[BTreeNode::maxKVSize + 1];
+   uint8_t* leafKey = startKey;
+   uint8_t* descendKey = startKey;
    while (true) {
       AnyNode* node = root;
       while (node->isAnyInner()) {
-         node = node->lookupInner(key, keyLen);
+         node = node->lookupInner(descendKey, keyLen);
       }
       switch (node->tag()) {
          case Tag::Leaf: {
-            if (!node->basic()->range_lookup(key, keyLen, keyOut, found_record_cb))
+            if (!node->basic()->range_lookup(leafKey, keyLen, keyOut, found_record_cb))
                return;
             keyLen = node->basic()->upperFence.length;
-            key = startKeyBuffer;
-            memcpy(key, node->basic()->getUpperFence(), keyLen);
-            key[keyLen] = 0;
+            descendKey = startKeyBuffer;
+            leafKey = nullptr;
+            memcpy(startKeyBuffer, node->basic()->getUpperFence(), keyLen);
+            startKeyBuffer[keyLen] = 0;
             keyLen += 1;
             break;
          }
          case Tag::Dense: {
-            if (!node->dense()->range_lookup1(key, keyLen, keyOut, found_record_cb))
+            if (!node->dense()->range_lookup1(leafKey, keyLen, keyOut, found_record_cb))
                return;
             keyLen = node->dense()->upperFenceLen;
-            key = startKeyBuffer;
-            memcpy(key, node->dense()->getUpperFence(), keyLen);
-            key[keyLen] = 0;
+            descendKey = startKeyBuffer;
+            leafKey = nullptr;
+            memcpy(startKeyBuffer, node->dense()->getUpperFence(), keyLen);
+            startKeyBuffer[keyLen] = 0;
             keyLen += 1;
             break;
          }
          case Tag::Dense2: {
-            if (!node->dense()->range_lookup2(key, keyLen, keyOut, found_record_cb))
+            if (!node->dense()->range_lookup2(leafKey, keyLen, keyOut, found_record_cb))
                return;
             keyLen = node->dense()->upperFenceLen;
-            key = startKeyBuffer;
-            memcpy(key, node->dense()->getUpperFence(), keyLen);
-            key[keyLen] = 0;
+            descendKey = startKeyBuffer;
+            leafKey = nullptr;
+            memcpy(startKeyBuffer, node->dense()->getUpperFence(), keyLen);
+            startKeyBuffer[keyLen] = 0;
             keyLen += 1;
             break;
          }
          case Tag::Hash: {
-            if (!node->hash()->range_lookup(key, keyLen, keyOut, found_record_cb))
+            if (!node->hash()->range_lookup(leafKey, keyLen, keyOut, found_record_cb))
                return;
             keyLen = node->hash()->upperFenceLen;
-            key = startKeyBuffer;
-            memcpy(key, node->hash()->getUpperFence(), keyLen);
-            key[keyLen] = 0;
+            descendKey = startKeyBuffer;
+            leafKey = nullptr;
+            memcpy(startKeyBuffer, node->hash()->getUpperFence(), keyLen);
+            startKeyBuffer[keyLen] = 0;
             keyLen += 1;
             break;
          }
