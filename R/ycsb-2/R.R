@@ -32,7 +32,7 @@ format_si <- function(...) {
 }
 
 
-CONFIG_NAMES = c('baseline', 'prefix', 'heads', 'hints', 'hash', 'dense', 'inner', 'art', 'dense1', 'dense2')
+CONFIG_NAMES = c('baseline', 'prefix', 'heads', 'hints', 'inner','hash', 'dense', 'dense1', 'dense2', 'art' )
 
 # parallel --joblog joblog-full --retries 50 -j 80% --memfree 16G  -- YCSB_VARIANT={1} SCAN_LENGTH=100 RUN_ID=1 OP_COUNT=1e7 PAYLOAD_SIZE={2} KEY_COUNT={3} DATA={4} {5} ::: 3  4 5 ::: 0 1 8 16 128 512 ::: $(seq 1000000 1000000 20000000) ::: int data/* ::: named-build/*-n3-ycsb > full.csv
 # payload_size, op, data_name, data_size, config_name
@@ -46,7 +46,7 @@ CONFIG_NAMES = c('baseline', 'prefix', 'heads', 'hints', 'hash', 'dense', 'inner
 # parallel --joblog joblog-full-seq --retries 50 -j 1 -- YCSB_VARIANT={4} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE={3} KEY_COUNT={2} DATA={5} ZIPF={6} {7} ::: $(seq 1 50) ::: $(seq 1000000 1000000 30000000) ::: 0 1 8 256 ::: 3 5 ::: int data/urls data/wiki ::: -1 0.99 ::: $(find named-build/ -name '*-n3-ycsb' | grep -v art) :::  > full-seq.csv
 rr = rbind(
   read.csv('full-seq.csv', strip.white = TRUE),
-  read.csv('full-seq-dense-broken.csv', strip.white = TRUE)
+  read.csv('dense-broken2.csv', strip.white = TRUE)
 )
 r = sqldf('select * from rr where RUN_ID==1')
 r <- r %>%
@@ -116,13 +116,16 @@ where true
 and payload_size=8
 and data_size=5e6
 --and config_name in ("hints","hash","dense","inner","art")
+--and config_name in ("dense","dense1","dense2")
+-- and config_name in ("hints","inner")
 and run_id=1
 and op in ("ycsb_c","ycsb_d","ycsb_e","ycsb_c_init")
 ')) +
   facet_nested(op ~ data_name + ycsb_zipf, scales = "free_y", independent = "y") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   scale_y_continuous(labels = format_si()) +
-  geom_col(aes(config_name, scale / time)) +
+  geom_col(aes(config_name, scale / time,fill=config_name)) +
+  scale_fill_hue()+
   expand_limits(y = 0)
 
 

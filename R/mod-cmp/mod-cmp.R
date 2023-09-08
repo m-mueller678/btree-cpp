@@ -1,50 +1,14 @@
-library(ggplot2)
-library(sqldf)
-library(ggh4x)
-library(dplyr)
+source('../common.R')
 
-
-format_si <- function(...) {
-  # https://stackoverflow.com/a/21089837
-  # Based on code by Ben Tupper
-  # https://stat.ethz.ch/pipermail/r-help/2012-January/299804.html
-
-  function(x) {
-    limits <- c(1e-24, 1e-21, 1e-18, 1e-15, 1e-12,
-                1e-9, 1e-6, 1e-3, 1e0, 1e3,
-                1e6, 1e9, 1e12, 1e15, 1e18,
-                1e21, 1e24)
-    prefix <- c("y", "z", "a", "f", "p",
-                "n", "µ", "m", " ", "k",
-                "M", "G", "T", "P", "E",
-                "Z", "Y")
-
-    # Vector with array indices according to position in intervals
-    i <- findInterval(abs(x), limits)
-
-    # Set prefix to " " for very small values < 1e-24
-    i <- ifelse(i == 0, which(limits == 1e0), i)
-
-    paste(format(round(x / limits[i], 1),
-                 trim = TRUE, scientific = FALSE, ...),
-          prefix[i])
-  }
-}
-
-CONFIG_NAMES = c('baseline', 'prefix', 'heads', 'hints', 'hash', 'dense', 'inner', 'art')
-
-#
-r_par = read.csv('d1.csv', strip.white = TRUE) %>% mutate(
-  sequential = FALSE
-)
-
+#r_par = read.csv('d1.csv', strip.white = TRUE) %>% mutate(sequential = FALSE)
 # with -j1, /sys/devices/system/cpu/cpufreq/boost = 0
-r_seq = read.csv('d-sequential.csv', strip.white = TRUE) %>% mutate(
-  sequential = TRUE
-)
+# r_seq = read.csv('d-sequential.csv', strip.white = TRUE) %>% mutate(sequential = TRUE)
+#r = rbind(r_seq, r_par)
+# with  /sys/devices/system/cpu/cpufreq/boost = 0
+# parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=-1 {4} ::: $(seq 1 10) ::: 3 5 :::  'DATA=data/urls KEY_COUNT=4268639' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' ::: named-build/*-n3-ycsb | tee mod-cmp.csv
+r = read.csv('d2.csv', strip.white = TRUE) %>% mutate(sequential = TRUE)
 
 
-r = rbind(r_seq, r_par)
 r <- r %>%
   mutate(avg_key_size = case_when(
     data_name == 'data/urls' ~ 62.280,
@@ -68,16 +32,84 @@ d <- sqldf('
 select * from r
 where true
 and config_name!="art"
-and op in ("ycsb_c","ycsb_d","ycsb_e","ycsb_c_init")
+and op in ("ycsb_c","ycsb_e","ycsb_c_init")
 and sequential=TRUE
 ')
 
-ggplot(sqldf('select * from d where op="ycsb_c"')) +
-  facet_nested(data_name ~ ., scales = 'free') +
-  geom_bar(aes(config_name, scale / time), stat = "summary", fun = mean) +
+
+ggplot(d) +
+  scale_fill_hue()+
+  facet_nested(op~data_name, scales = 'free') +
+  geom_bar(aes(config_name, scale / time,fill=config_name), stat = "summary", fun = mean) +
   expand_limits(y = 0) +
-  scale_y_continuous(labels = format_si(),expand = c(0, 0),limit=c(0,4.5e6))+
+  scale_y_continuous(labels = format_si(), expand = c(0, 1e5)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+baseline2prefix <- fetch2Relative(d, 'config_name', 'baseline', 'prefix', 'op,data_name', 'scale/time')
+mean(baseline2prefix$r)
+extremesBy('r',baseline2prefix)
+sqldf('select data_name,avg(r) from baseline2prefix group by data_name')
+
+prefix2heads <- fetch2Relative(d, 'config_name', 'prefix', 'heads', 'op,data_name', 'scale/time')
+mean(prefix2heads$r)
+mean((prefix2heads %>% filter(data_name == 'int')) $r)
+extremesBy('r',prefix2heads)
+
+heads2hints <- fetch2Relative(d, 'config_name', 'heads', 'hints', 'op,data_name', 'scale/time')
+mean(heads2hints$r)
+mean((heads2hints %>% filter(data_name == 'int')) $r)
+mean((heads2hints %>% filter(data_name != 'int')) $r)
+extremesBy('r',(heads2hints %>% filter(data_name == 'int')))
+extremesBy('r',(heads2hints %>% filter(data_name != 'int')))
+
+hints2hash <- fetch2Relative(d, 'config_name', 'hints', 'hash', 'op,data_name', 'scale/time')
+mean(hints2hash$r)
+mean((hints2hash %>% filter(data_name == 'int')) $r)
+mean((hints2hash %>% filter(data_name != 'int')) $r)
+extremesBy('r',(hints2hash %>% filter(data_name == 'int')))
+extremesBy('r',(hints2hash %>% filter(data_name != 'int')))
+ggplot(
+  sqldf('select count(*),avg(r) as r,case when (data_name=="int") then "ints" else "other" end as data_name,op from hints2hash group by data_name=="int",op')
+)+
+  facet_wrap(.~data_name, strip.position = "bottom") +
+  geom_col(aes(op,r))+
+  scale_y_continuous(labels = percent_format())
+
+hints2inner <- fetch2Relative(d, 'config_name', 'hints', 'inner', 'op,data_name', 'scale/time')
+mean(hints2inner$r)
+mean((hints2hash %>% filter(data_name == 'int')) $r)
+sqldf('select data_name,avg(r) from hints2inner group by data_name')
+mean((hints2hash %>% filter(data_name != 'int')) $r)
+extremesBy('r',hints2inner)
+
+
+hints2dense1 <- fetch2Relative(d, 'config_name', 'hints', 'dense1', 'op,data_name', 'scale/time')
+mean(hints2dense1$r)
+mean((hints2dense1 %>% filter(data_name == 'int')) $r)
+mean((hints2dense1 %>% filter(data_name != 'int')) $r)
+
+hints2dense2 <- fetch2Relative(d, 'config_name', 'hints', 'dense2', 'op,data_name', 'scale/time')
+mean(hints2dense2$r)
+mean((hints2dense2 %>% filter(data_name == 'int')) $r)
+mean((hints2dense2 %>% filter(data_name != 'int')) $r)
+
+
+
+ggplot(
+  hints2dense2
+)+
+  facet_wrap(.~data_name, strip.position = "bottom") +
+  geom_col(aes(op,r))+
+  scale_y_continuous(labels = percent_format())
+
+
+
+base="baseline"
+cmp="prefix"
+metric='scale/time'
+fn$sqldf(sprintf('select * from (select op,data_name,config_name,x/lag(x,1) over (partition by op,data_name order by config_name=="$cmp") as x2
+ from (select config_name,op,data_name,avg($metric) as x from d group by op,data_name,config_name) where config_name in ("$base","$cmp") order by op,data_name,config_name) where config_name="$cmp"'))
 
 # lookup
 
@@ -116,12 +148,12 @@ ggplot(sqldf('select * from d where op="ycsb_c" and config_name in ("heads","hin
 #prefix
 ggplot(sqldf('select * from d where op="ycsb_c" and config_name in ("baseline","prefix")')) +
   facet_nested(. ~ data_name) +
-  geom_boxplot(aes(config_name, time/scale))
+  geom_boxplot(aes(config_name, time / scale))
 
 # insert
 ggplot(sqldf('select * from d where op in ("ycsb_c_init","ycsb_d")')) +
   facet_nested(. ~ data_name) +
-  geom_boxplot(aes(config_name, scale / time,col=op)) +
+  geom_boxplot(aes(config_name, scale / time, col = op)) +
   scale_y_continuous(labels = format_si(), expand = c(0, 0)) +
   expand_limits(y = 0)
 
