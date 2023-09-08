@@ -591,7 +591,9 @@ bool DenseNode::range_lookup1(uint8_t* key,
       return true;
    unsigned firstIndex = (key == nullptr) ? 0 : (leastGreaterKey(key, keyLen, fullKeyLen) - (keyLen == fullKeyLen) - arrayStart);
    unsigned nprefLen = computeNumericPrefixLength(fullKeyLen);
-   memcpy(keyOut, getLowerFence(), nprefLen);
+   if (nprefLen > prefixLength) {
+      memcpy(keyOut + prefixLength, getLowerFence() + prefixLength, nprefLen - prefixLength);
+   }
 
    unsigned wordIndex = firstIndex / maskBitsPerWord;
    Mask word = mask[wordIndex];
@@ -634,7 +636,9 @@ bool DenseNode::range_lookup2(uint8_t* key,
 {
    unsigned firstIndex = (key == nullptr) ? 0 : (leastGreaterKey(key, keyLen, fullKeyLen) - (keyLen == fullKeyLen) - arrayStart);
    unsigned nprefLen = computeNumericPrefixLength(fullKeyLen);
-   memcpy(keyOut, getLowerFence(), nprefLen);
+   if (nprefLen > prefixLength) {
+      memcpy(keyOut + prefixLength, getLowerFence() + prefixLength, nprefLen - prefixLength);
+   }
    for (unsigned i = firstIndex; i < slotCount; ++i) {
       if (slots[i]) {
          NumericPart numericPart = __builtin_bswap32(arrayStart + static_cast<NumericPart>(i));

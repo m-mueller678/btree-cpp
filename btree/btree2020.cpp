@@ -777,7 +777,6 @@ bool BTreeNode::range_lookup(uint8_t* key,
                              const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
    ASSUME(enablePrefix || prefixLength == 0);
-   memcpy(keyOut, key, prefixLength);
    for (unsigned i = (key == nullptr) ? 0 : lowerBound(key, keyLen); i < count; ++i) {
       memcpy(keyOut + prefixLength, getKey(i), slot[i].keyLen);
       if (!found_record_cb(slot[i].keyLen + prefixLength, getPayload(i), slot[i].payloadLen)) {
@@ -817,6 +816,7 @@ void DataStructureWrapper::range_lookup(uint8_t* key,
 #endif
 }
 
+// keyOut must be able to hold (longest key length) +1 bytes.
 void BTree::range_lookupImpl(uint8_t* startKey,
                              unsigned keyLen,
                              uint8_t* keyOut,
@@ -824,23 +824,22 @@ void BTree::range_lookupImpl(uint8_t* startKey,
                              // scan continues if callback returns true
                              const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
-   uint8_t startKeyBuffer[BTreeNode::maxKVSize + 1];
    uint8_t* leafKey = startKey;
-   uint8_t* descendKey = startKey;
+   memcpy(keyOut, startKey, keyLen);
    while (true) {
       AnyNode* node = root;
       while (node->isAnyInner()) {
-         node = node->lookupInner(descendKey, keyLen);
+         node = node->lookupInner(keyOut, keyLen);
       }
       switch (node->tag()) {
          case Tag::Leaf: {
             if (!node->basic()->range_lookup(leafKey, keyLen, keyOut, found_record_cb))
                return;
             keyLen = node->basic()->upperFence.length;
-            descendKey = startKeyBuffer;
             leafKey = nullptr;
-            memcpy(startKeyBuffer, node->basic()->getUpperFence(), keyLen);
-            startKeyBuffer[keyLen] = 0;
+            memcpy(keyOut + node->basic()->prefixLength, node->basic()->getUpperFence() + node->basic()->prefixLength,
+                   keyLen - node->basic()->prefixLength);
+            keyOut[keyLen] = 0;
             keyLen += 1;
             break;
          }
@@ -848,10 +847,10 @@ void BTree::range_lookupImpl(uint8_t* startKey,
             if (!node->dense()->range_lookup1(leafKey, keyLen, keyOut, found_record_cb))
                return;
             keyLen = node->dense()->upperFenceLen;
-            descendKey = startKeyBuffer;
             leafKey = nullptr;
-            memcpy(startKeyBuffer, node->dense()->getUpperFence(), keyLen);
-            startKeyBuffer[keyLen] = 0;
+            memcpy(keyOut + node->dense()->prefixLength, node->dense()->getUpperFence() + node->dense()->prefixLength,
+                   keyLen - node->dense()->prefixLength);
+            keyOut[keyLen] = 0;
             keyLen += 1;
             break;
          }
@@ -859,10 +858,10 @@ void BTree::range_lookupImpl(uint8_t* startKey,
             if (!node->dense()->range_lookup2(leafKey, keyLen, keyOut, found_record_cb))
                return;
             keyLen = node->dense()->upperFenceLen;
-            descendKey = startKeyBuffer;
             leafKey = nullptr;
-            memcpy(startKeyBuffer, node->dense()->getUpperFence(), keyLen);
-            startKeyBuffer[keyLen] = 0;
+            memcpy(keyOut + node->dense()->prefixLength, node->dense()->getUpperFence() + node->dense()->prefixLength,
+                   keyLen - node->dense()->prefixLength);
+            keyOut[keyLen] = 0;
             keyLen += 1;
             break;
          }
@@ -870,10 +869,10 @@ void BTree::range_lookupImpl(uint8_t* startKey,
             if (!node->hash()->range_lookup(leafKey, keyLen, keyOut, found_record_cb))
                return;
             keyLen = node->hash()->upperFenceLen;
-            descendKey = startKeyBuffer;
             leafKey = nullptr;
-            memcpy(startKeyBuffer, node->hash()->getUpperFence(), keyLen);
-            startKeyBuffer[keyLen] = 0;
+            memcpy(keyOut + node->hash()->prefixLength, node->hash()->getUpperFence() + node->hash()->prefixLength,
+                   keyLen - node->hash()->prefixLength);
+            keyOut[keyLen] = 0;
             keyLen += 1;
             break;
          }

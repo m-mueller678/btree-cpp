@@ -489,7 +489,6 @@ bool HashNode::range_lookup(uint8_t* key,
                             const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
    sort();
-   memcpy(keyOut, key, prefixLength);
    bool found;
    for (unsigned i = (key == nullptr) ? 0 : lowerBound(key, keyLen, found); i < count; ++i) {
       memcpy(keyOut + prefixLength, getKey(i), slot[i].keyLen);
