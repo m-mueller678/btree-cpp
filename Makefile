@@ -34,6 +34,9 @@ test.elf: $(sources)
 optimized.elf: $(sources)
 	$(cxx) $(test_cpps) -O3  -DNDEBUG
 
+stream.elf: $(sources) stream.cpp
+	$(cxx) stream.cpp -O3  -DNDEBUG
+
 clean:
 	rm -f test.elf optimized.elf asan.elf tpcc-optimzed.elf tpcc-debug.elf
 	rm -rf named-build

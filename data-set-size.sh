@@ -1,0 +1,4 @@
+echo -n \'DATA=data/urls KEY_COUNT=$(echo $2/\(62.280+$1\) | bc)\'' '
+echo -n \'DATA=data/wiki KEY_COUNT=$(echo $2/\(22.555+$1\) | bc)\'' '
+echo -n \'DATA=int KEY_COUNT=$(echo $2/\(4+$1\) | bc)\'' '
+echo

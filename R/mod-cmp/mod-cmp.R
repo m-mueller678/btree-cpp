@@ -88,20 +88,14 @@ hints2dense1 <- fetch2Relative(d, 'config_name', 'hints', 'dense1', 'op,data_nam
 mean(hints2dense1$r)
 mean((hints2dense1 %>% filter(data_name == 'int')) $r)
 mean((hints2dense1 %>% filter(data_name != 'int')) $r)
+sqldf('select * from hints2dense1 where data_name="int" order by r')
 
 hints2dense2 <- fetch2Relative(d, 'config_name', 'hints', 'dense2', 'op,data_name', 'scale/time')
 mean(hints2dense2$r)
 mean((hints2dense2 %>% filter(data_name == 'int')) $r)
 mean((hints2dense2 %>% filter(data_name != 'int')) $r)
+sqldf('select * from hints2dense2 where data_name="int" order by r')
 
-
-
-ggplot(
-  hints2dense2
-)+
-  facet_wrap(.~data_name, strip.position = "bottom") +
-  geom_col(aes(op,r))+
-  scale_y_continuous(labels = percent_format())
 
 
 
