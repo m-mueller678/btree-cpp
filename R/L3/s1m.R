@@ -1,5 +1,6 @@
 source('../common.R')
 
+# with  /sys/devices/system/cpu/cpufreq/boost = 0
 r<-rbind(
   # parallel -j8 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=5e5 PAYLOAD_SIZE=8 ZIPF=-1 {4} ::: $(seq 1 10) ::: 3 5 ::: 'DATA=data/urls KEY_COUNT=14228' 'DATA=data/wiki KEY_COUNT=32727' 'DATA=int KEY_COUNT=83333' ::: named-build/*-n3-ycsb > s1m-p.csv
   #read.csv('s1m.csv', strip.white = TRUE) %>% mutate(size=1e6),
