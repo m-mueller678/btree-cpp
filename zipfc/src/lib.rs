@@ -12,10 +12,8 @@ pub unsafe extern "C" fn zipf_generate(mut num_elements: u32, zipf_parameter: f6
     }
     let generator = if zipf_parameter > 0.0 {
         Ok(ZipfDistribution::new(num_elements as usize * if shuffle { SHUFFLE_SCALE } else { 1 }, zipf_parameter).unwrap())
-    } else if zipf_parameter < 0.0 {
-        Err(Uniform::new(0, num_elements))
     } else {
-        panic!("invalid zipf parameter {zipf_parameter}")
+        Err(Uniform::new(0, num_elements))
     };
     let mut rng = SmallRng::from_entropy();
     for i in 0..count as usize {
