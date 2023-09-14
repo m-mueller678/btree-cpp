@@ -43,7 +43,7 @@ fetch2 <- function(d,keyCol,keyA,keyB,group,metric) {
       select $group,$keyCol,avg($metric) as x
       from d group by $group,$keyCol
     )
-    where config_name in ("$keyA","$keyB")
+    where $keyCol in ("$keyA","$keyB")
     window win  as (partition by $group order by $keyCol=="$keyB")
   )
   where rank=2
@@ -59,4 +59,4 @@ extremesBy <-function (r,d){
   d[c(which.min(d[,r]),which.max(d[,r])),]
 }
 
-CONFIG_NAMES = c('baseline', 'prefix', 'heads', 'hints', 'inner', 'hash', 'dense', 'dense1', 'dense2', 'art')
+CONFIG_NAMES <- c('baseline', 'prefix', 'heads', 'hints', 'inner', 'hash', 'dense', 'dense1', 'dense2', 'art')

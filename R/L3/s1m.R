@@ -25,14 +25,18 @@ r = sqldf('select * from r where data_name!="data/genome"')
 r$config_name = ordered(r$config_name, levels = CONFIG_NAMES, labels = CONFIG_NAMES)
 r <- sqldf('select * from r where op in ("ycsb_c","ycsb_e","ycsb_c_init") and config_name!="art"')
 
+d<-r
+dintl <- sqldf('select * from d where data_name="int" and op="ycsb_c"')
+durls <- sqldf('select * from d where data_name="data/urls" and op="ycsb_e"')
+dints <- sqldf('select * from d where data_name="int" and op="ycsb_e"')
+
 ggplot(r) +
   scale_fill_hue()+
-  facet_nested(op~data_name+size, scales = 'free') +
+  facet_nested(op+size~data_name, scales = 'free') +
   geom_bar(aes(config_name, scale / time,fill=config_name), stat = "summary", fun = mean) +
   expand_limits(y = 0) +
   scale_y_continuous(labels = format_si(), expand = c(0, 1e5)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
 
 ggplot(r) +
   scale_fill_hue()+
@@ -42,60 +46,56 @@ ggplot(r) +
   scale_y_continuous(labels = format_si(), expand = c(0, 1e5)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-d<-r
+sizeThrouhput = fetch2(d,'size',3e8,1e6,'data_name,op,config_name','scale/time')
+ggplot(sizeThrouhput) +
+  scale_fill_hue()+
+  facet_nested(op~data_name, scales = 'free') +
+  scale_y_log10(breaks=seq(1,10))+
+  geom_bar(aes(config_name, b/a,fill=config_name), stat = "summary", fun = mean) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-baseline2prefix <- fetch2Relative(d, 'config_name', 'baseline', 'prefix', 'op,data_name', 'scale/time')
-mean(baseline2prefix$r)
-extremesBy('r',baseline2prefix)
-sqldf('select data_name,avg(r) from baseline2prefix group by data_name')
+ggplot(dintl) +
+  scale_fill_hue()+
+  facet_nested(op~size) +
+  geom_bar(aes(config_name, scale/time,fill=config_name), stat = "summary", fun = mean) +
+  scale_y_log10() +
+  coord_cartesian(ylim = c(1e6,3e7) ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-prefix2heads <- fetch2Relative(d, 'config_name', 'prefix', 'heads', 'op,data_name', 'scale/time')
-mean(prefix2heads$r)
-mean((prefix2heads %>% filter(data_name == 'int')) $r)
-extremesBy('r',prefix2heads)
-
-heads2hints <- fetch2Relative(d, 'config_name', 'heads', 'hints', 'op,data_name', 'scale/time')
-mean(heads2hints$r)
-mean((heads2hints %>% filter(data_name == 'int')) $r)
-mean((heads2hints %>% filter(data_name != 'int')) $r)
-extremesBy('r',(heads2hints %>% filter(data_name == 'int')))
-extremesBy('r',(heads2hints %>% filter(data_name != 'int')))
-
-hints2hash <- fetch2Relative(d, 'config_name', 'hints', 'hash', 'op,data_name', 'scale/time')
-mean(hints2hash$r)
-mean((hints2hash %>% filter(data_name == 'int')) $r)
-mean((hints2hash %>% filter(data_name != 'int')) $r)
-extremesBy('r',(hints2hash %>% filter(data_name == 'int')))
-extremesBy('r',(hints2hash %>% filter(data_name != 'int')))
-ggplot(
-  sqldf('select count(*),avg(r) as r,case when (data_name=="int") then "ints" else "other" end as data_name,op from hints2hash group by data_name=="int",op')
-)+
-  facet_wrap(.~data_name, strip.position = "bottom") +
-  geom_col(aes(op,r))+
-  scale_y_continuous(labels = percent_format())
-
-hints2inner <- fetch2Relative(d, 'config_name', 'hints', 'inner', 'op,data_name', 'scale/time')
-mean(hints2inner$r)
-mean((hints2hash %>% filter(data_name == 'int')) $r)
-sqldf('select data_name,avg(r) from hints2inner group by data_name')
-mean((hints2hash %>% filter(data_name != 'int')) $r)
-extremesBy('r',hints2inner)
+ggplot(dintl) +
+  scale_fill_hue()+
+  facet_nested(op~size) +
+  geom_bar(aes(config_name, LLC_miss,fill=config_name), stat = "summary", fun = mean) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  scale_y_continuous(breaks = 5*seq(0,100))
 
 
-hints2dense1 <- fetch2Relative(d, 'config_name', 'hints', 'dense1', 'op,data_name', 'scale/time')
-mean(hints2dense1$r)
-mean((hints2dense1 %>% filter(data_name == 'int')) $r)
-mean((hints2dense1 %>% filter(data_name != 'int')) $r)
-sqldf('select * from hints2dense1 where data_name="int" order by r')
-
-hints2dense2 <- fetch2Relative(d, 'config_name', 'hints', 'dense2', 'op,data_name', 'scale/time')
-mean(hints2dense2$r)
-mean((hints2dense2 %>% filter(data_name == 'int')) $r)
-mean((hints2dense2 %>% filter(data_name != 'int')) $r)
-sqldf('select * from hints2dense2 where data_name="int" order by r')
+ggplot(dintl) +
+  scale_fill_hue()+
+  facet_nested(op~size) +
+  scale_y_log10() +
+  geom_bar(aes(config_name, LLC_miss,fill=config_name), stat = "summary", fun = mean) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 
-ggplot(baseline2prefix)+
-  facet_wrap(.~data_name, strip.position = "bottom") +
-  geom_col(aes(op,r))+
-  scale_y_continuous(labels = percent_format())
+ggplot(dintl) +
+  scale_fill_hue()+
+  facet_nested(op~size) +
+  geom_bar(aes(config_name, br_miss,fill=config_name), stat = "summary", fun = mean) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(dintl) +
+  scale_fill_hue()+
+  facet_nested(op~size) +
+  geom_bar(aes(config_name, scale/time,fill=config_name), stat = "summary", fun = mean) +
+  scale_y_log10() +
+  coord_cartesian(ylim = c(1e6,3e7) ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+fetch2Relative(dintl, 'config_name', 'hints', 'hash', 'op,data_name,size', 'scale/time')
+fetch2Relative(dintl, 'config_name', 'hints', 'dense2', 'op,data_name,size', 'scale/time')
+fetch2Relative(dintl, 'config_name', 'hints', 'dense2', 'op,data_name,size', 'LLC_miss')
+fetch2Relative(dintl, 'config_name', 'hints', 'dense1', 'op,data_name,size', 'scale/time')
+
+fetch2Relative(durls, 'config_name', 'baseline', 'prefix', 'op,data_name,size', 'scale/time')
+fetch2Relative(dints, 'config_name', 'hints', 'dense1', 'op,data_name,size', 'scale/time')
