@@ -41,7 +41,7 @@ template <class T>
 void HeadNode<T>::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, unsigned sepLength)
 {
    ASSUME(sepSlot > 0);
-   ASSUME(sepSlot < (pageSizeLeaf / sizeof(BTreeNode*)));
+   ASSUME(sepSlot < (pageSizeInner / sizeof(BTreeNode*)));
    HeadNode<T>* nodeLeft = reinterpret_cast<HeadNode<T>*>(AnyNode::allocInner());
    nodeLeft->init(getLowerFence(), lowerFenceLen, sepKey, sepLength);
    HeadNode<T> tmp;
@@ -155,7 +155,7 @@ bool HeadNode<T>::convertToHead8WithSpace()
    memcpy(tmp.children(), children(), sizeof(AnyNode*) * (count + 1));
    tmp.count = count;
    tmp.makeHint();
-   memcpy(this, &tmp, pageSizeLeaf);
+   memcpy(this, &tmp, pageSizeInner);
    return true;
 }
 
@@ -179,7 +179,7 @@ bool HeadNode<T>::convertToHead4WithSpace()
    memcpy(tmp.children(), children(), sizeof(AnyNode*) * (count + 1));
    tmp.count = count;
    tmp.makeHint();
-   memcpy(this, &tmp, pageSizeLeaf);
+   memcpy(this, &tmp, pageSizeInner);
    return true;
 }
 
@@ -187,13 +187,13 @@ template <class T>
 bool HeadNode<T>::convertToBasicWithSpace(unsigned truncatedKeyLen)
 {
    unsigned space_lower_bound = lowerFenceLen + upperFenceLen + (count + 1) * (sizeof(AnyNode*) + sizeof(BTreeNode::Slot)) + truncatedKeyLen;
-   if (space_lower_bound + sizeof(BTreeNodeHeader) > pageSizeLeaf) {
+   if (space_lower_bound + sizeof(BTreeNodeHeader) > pageSizeInner) {
       return false;
    } else {
       for (int i = 0; i < count; ++i) {
          space_lower_bound += getKeyLength(i);
       }
-      if (space_lower_bound + sizeof(BTreeNodeHeader) > pageSizeLeaf) {
+      if (space_lower_bound + sizeof(BTreeNodeHeader) > pageSizeInner) {
          return false;
       }
       TmpBTreeNode tmp;
@@ -255,13 +255,13 @@ inline bool HeadNodeHead::requestChildConvertFromBasic(BTreeNode* node, unsigned
       tmp._head8.clone_from_basic(node);
       ASSUME(tmp._head8.count < tmp._head8.keyCapacity);
    }
-   memcpy(node, &tmp, pageSizeLeaf);
+   memcpy(node, &tmp, pageSizeInner);
    return true;
 }
 
 inline uint8_t* HeadNodeHead::getLowerFence()
 {
-   return ptr() + pageSizeLeaf - lowerFenceLen;
+   return ptr() + pageSizeInner - lowerFenceLen;
 }
 
 inline uint8_t* HeadNodeHead::getUpperFence()
@@ -271,7 +271,7 @@ inline uint8_t* HeadNodeHead::getUpperFence()
 
 inline unsigned HeadNodeHead::fencesOffset()
 {
-   return pageSizeLeaf - lowerFenceLen - upperFenceLen;
+   return pageSizeInner - lowerFenceLen - upperFenceLen;
 }
 
 inline void HeadNodeHead::updatePrefixLength()
@@ -288,7 +288,7 @@ template <class T>
 void HeadNode<T>::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen)
 {
    assert(enablePrefix);
-   assert(sizeof(HeadNode<T>) == pageSizeLeaf);
+   assert(sizeof(HeadNode<T>) == pageSizeInner);
    _tag = sizeof(T) == 4 ? Tag::Head4 : Tag::Head8;
    count = 0;
    this->lowerFenceLen = lowerFenceLen;
