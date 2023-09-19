@@ -97,6 +97,11 @@ void DenseNode::copyKeyValueRangeToBasic(BTreeNode* dst, unsigned srcStart, unsi
          memcpy(dst->getKey(outSlot), reinterpret_cast<uint8_t*>(&numericPart) + sizeof(NumericPart) - truncatedNumericPartLen,
                 truncatedNumericPartLen);
       }
+      if (tag == Tag::Dense) {
+         memcpy(dst->getPayload(outSlot), getVal(i), valLen);
+      } else {
+         memcpy(dst->getPayload(outSlot), ptr() + slots[i] + 2, slotValLen(i));
+      }
       if (enableBasicHead)
          dst->slot[outSlot].head[0] = head(dst->getKey(outSlot), fullKeyLen - prefixLength);
       outSlot += 1;
@@ -537,7 +542,7 @@ unsigned DenseNode::computeSlotCount(unsigned valLen, unsigned fencesStart)
 
 bool DenseNode::remove(uint8_t* key, unsigned keyLength)
 {
-   assert(tag == Tag::Dense);
+   assert(tag == Tag::Dense); // dense2 remove is not implemented
    KeyError index = keyToIndex(key, keyLength);
    if (index < 0 || !isSlotPresent(index)) {
       return false;
