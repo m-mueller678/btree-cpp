@@ -422,7 +422,8 @@ void HashNode::copyKeyValue(unsigned srcSlot, HashNode* dst, unsigned dstSlot)
    uint8_t key[fullLength];
    memcpy(key, getLowerFence(), prefixLength);
    memcpy(key + prefixLength, getKey(srcSlot), slot[srcSlot].keyLen);
-   dst->storeKeyValue(dstSlot, key, fullLength, getPayload(srcSlot), slot[srcSlot].payloadLen, hashes()[srcSlot]);
+   dst->storeKeyValue(dstSlot, key, fullLength, getPayload(srcSlot), slot[srcSlot].payloadLen,
+                      compute_hash(key + dst->prefixLength, fullLength - dst->prefixLength));
 }
 
 void HashNode::storeKeyValue(unsigned slotId, uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength, uint8_t hash)
@@ -445,10 +446,13 @@ void HashNode::storeKeyValue(unsigned slotId, uint8_t* key, unsigned keyLength, 
 
 bool HashNode::remove(uint8_t* key, unsigned keyLength)
 {
+   validate();
    int index = findIndex(key, keyLength, compute_hash(key + prefixLength, keyLength - prefixLength));
    if (index < 0)
       return false;
-   return removeSlot(index);
+   auto x = removeSlot(index);
+   validate();
+   return x;
 }
 
 bool HashNode::removeSlot(unsigned slotId)
@@ -477,6 +481,7 @@ bool HashNode::mergeNodes(unsigned slotId, AnyNode* parent, HashNode* right)
    copyKeyValueRange(&tmp, 0, 0, count);
    right->copyKeyValueRange(&tmp, count, 0, right->count);
    parent->innerRemoveSlot(slotId);
+   tmp.validate();
    *right = tmp;
    return true;
 }
@@ -550,10 +555,10 @@ unsigned HashNode::lowerBound(uint8_t* key, unsigned keyLength, bool& found)
 
 void HashNode::validate()
 {
+   return;
 #ifdef NDEBUG
    return;
 #endif
-   return;
    // space used
    unsigned used = upperFenceLen + lowerFenceLen;
    for (unsigned i = 0; i < count; ++i)
@@ -564,4 +569,11 @@ void HashNode::validate()
    sortNode = this;
    for (unsigned i = 1; i < sortedCount; ++i)
       assert(*(reinterpret_cast<SlotProxy*>(slot + (i - 1))) < *(reinterpret_cast<SlotProxy*>(slot + i)));
+
+   {  // check hashes
+      for (unsigned i = 0; i < count; ++i) {
+         uint8_t h = compute_hash(getKey(i), slot[i].keyLen);
+         assert(h == hashes()[i]);
+      }
+   }
 }
