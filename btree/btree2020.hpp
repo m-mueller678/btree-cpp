@@ -266,7 +266,7 @@ struct BTreeNode : public BTreeNodeHeader {
 
 union TmpBTreeNode{
    BTreeNode node;
-   uint8_t _bytes[std::max(pageSizeLeaf,pageSizeLeaf)];
+   uint8_t _bytes[std::max(pageSizeLeaf,pageSizeInner)];
    TmpBTreeNode(){}
 };
 
