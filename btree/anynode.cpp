@@ -43,16 +43,16 @@ void AnyNode::destroy()
 
 void AnyNode::dealloc()
 {
-   free(this);
+   std::free(this);
 }
 
 AnyNode* AnyNode::allocLeaf()
 {
-   return reinterpret_cast<AnyNode*>(malloc(pageSizeLeaf));
+   return reinterpret_cast<AnyNode*>(std::aligned_alloc(alignof(AnyNode),pageSizeLeaf));
 }
 AnyNode* AnyNode::allocInner()
 {
-   return reinterpret_cast<AnyNode*>(malloc(pageSizeInner));
+   return reinterpret_cast<AnyNode*>(std::aligned_alloc(alignof(AnyNode),pageSizeInner));
 }
 
 bool AnyNode::isAnyInner()
