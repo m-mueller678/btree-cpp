@@ -41,8 +41,8 @@ template <class T>
 void HeadNode<T>::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, unsigned sepLength)
 {
    ASSUME(sepSlot > 0);
-   ASSUME(sepSlot < (pageSize / sizeof(BTreeNode*)));
-   HeadNode<T>* nodeLeft = reinterpret_cast<HeadNode<T>*>(new AnyNode());
+   ASSUME(sepSlot < (pageSizeLeaf / sizeof(BTreeNode*)));
+   HeadNode<T>* nodeLeft = reinterpret_cast<HeadNode<T>*>(AnyNode::allocInner());
    nodeLeft->init(getLowerFence(), lowerFenceLen, sepKey, sepLength);
    HeadNode<T> tmp;
    HeadNode<T>* nodeRight = &tmp;
@@ -57,7 +57,7 @@ void HeadNode<T>::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, 
    memcpy(nodeRight->children() + nodeRight->count, children() + count, sizeof(AnyNode*));
    nodeLeft->makeHint();
    nodeRight->makeHint();
-   memcpy(this, nodeRight, sizeof(BTreeNode));
+   memcpy(this, nodeRight, pageSizeInner);
 }
 
 template <class T>
@@ -155,7 +155,7 @@ bool HeadNode<T>::convertToHead8WithSpace()
    memcpy(tmp.children(), children(), sizeof(AnyNode*) * (count + 1));
    tmp.count = count;
    tmp.makeHint();
-   memcpy(this, &tmp, pageSize);
+   memcpy(this, &tmp, pageSizeLeaf);
    return true;
 }
 
@@ -179,7 +179,7 @@ bool HeadNode<T>::convertToHead4WithSpace()
    memcpy(tmp.children(), children(), sizeof(AnyNode*) * (count + 1));
    tmp.count = count;
    tmp.makeHint();
-   memcpy(this, &tmp, pageSize);
+   memcpy(this, &tmp, pageSizeLeaf);
    return true;
 }
 
@@ -187,20 +187,21 @@ template <class T>
 bool HeadNode<T>::convertToBasicWithSpace(unsigned truncatedKeyLen)
 {
    unsigned space_lower_bound = lowerFenceLen + upperFenceLen + (count + 1) * (sizeof(AnyNode*) + sizeof(BTreeNode::Slot)) + truncatedKeyLen;
-   if (space_lower_bound + sizeof(BTreeNodeHeader) > pageSize) {
+   if (space_lower_bound + sizeof(BTreeNodeHeader) > pageSizeLeaf) {
       return false;
    } else {
       for (int i = 0; i < count; ++i) {
          space_lower_bound += getKeyLength(i);
       }
-      if (space_lower_bound + sizeof(BTreeNodeHeader) > pageSize) {
+      if (space_lower_bound + sizeof(BTreeNodeHeader) > pageSizeLeaf) {
          return false;
       }
-      BTreeNode tmp{false};
-      tmp.setFences(getLowerFence(), lowerFenceLen, getUpperFence(), upperFenceLen);
-      copyKeyValueRangeToBasic(&tmp, 0, count);
-      tmp.upper = loadUnaligned<AnyNode*>(children() + count);
-      memcpy(this, &tmp, pageSize);
+      TmpBTreeNode tmp;
+      tmp.node.init(false);
+      tmp.node.setFences(getLowerFence(), lowerFenceLen, getUpperFence(), upperFenceLen);
+      copyKeyValueRangeToBasic(&tmp.node, 0, count);
+      tmp.node.upper = loadUnaligned<AnyNode*>(children() + count);
+      memcpy(this, &tmp.node, pageSizeInner);
       return true;
    }
 }
@@ -254,13 +255,13 @@ inline bool HeadNodeHead::requestChildConvertFromBasic(BTreeNode* node, unsigned
       tmp._head8.clone_from_basic(node);
       ASSUME(tmp._head8.count < tmp._head8.keyCapacity);
    }
-   memcpy(node, &tmp, pageSize);
+   memcpy(node, &tmp, pageSizeLeaf);
    return true;
 }
 
 inline uint8_t* HeadNodeHead::getLowerFence()
 {
-   return ptr() + pageSize - lowerFenceLen;
+   return ptr() + pageSizeLeaf - lowerFenceLen;
 }
 
 inline uint8_t* HeadNodeHead::getUpperFence()
@@ -270,7 +271,7 @@ inline uint8_t* HeadNodeHead::getUpperFence()
 
 inline unsigned HeadNodeHead::fencesOffset()
 {
-   return pageSize - lowerFenceLen - upperFenceLen;
+   return pageSizeLeaf - lowerFenceLen - upperFenceLen;
 }
 
 inline void HeadNodeHead::updatePrefixLength()
@@ -287,7 +288,7 @@ template <class T>
 void HeadNode<T>::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen)
 {
    assert(enablePrefix);
-   assert(sizeof(HeadNode<T>) == pageSize);
+   assert(sizeof(HeadNode<T>) == pageSizeLeaf);
    _tag = sizeof(T) == 4 ? Tag::Head4 : Tag::Head8;
    count = 0;
    this->lowerFenceLen = lowerFenceLen;

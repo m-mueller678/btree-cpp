@@ -18,10 +18,10 @@ uint8_t HashNode::compute_hash(uint8_t* key, unsigned keyLength)
 
 unsigned HashNode::estimateCapacity()
 {
-   unsigned available = pageSize - sizeof(HashNodeHeader) - upperFenceLen - lowerFenceLen;
+   unsigned available = pageSizeLeaf - sizeof(HashNodeHeader) - upperFenceLen - lowerFenceLen;
    unsigned entrySpaceUse = spaceUsed - upperFenceLen - lowerFenceLen + count * sizeof(HashSlot);
    // equivalent to `available / (entrySpaceUse/count +1)`
-   unsigned capacity = count == 0 ? pageSize / 64 : available * count / (entrySpaceUse + count);
+   unsigned capacity = count == 0 ? pageSizeLeaf / 64 : available * count / (entrySpaceUse + count);
    ASSUME(capacity >= count);
    return capacity;
 }
@@ -125,19 +125,19 @@ int HashNode::findIndexSimd(uint8_t* key, unsigned keyLength, uint8_t hash)
 
 AnyNode* HashNode::makeRootLeaf()
 {
-   AnyNode* ptr = new AnyNode;
-   ptr->_hash.init(nullptr, 0, nullptr, 0, pageSize / 64);
+   AnyNode* ptr = AnyNode::allocLeaf();
+   ptr->_hash.init(nullptr, 0, nullptr, 0, pageSizeLeaf / 64);
    return ptr;
 }
 
 uint8_t* HashNode::getLowerFence()
 {
-   return ptr() + pageSize - lowerFenceLen;
+   return ptr() + pageSizeLeaf - lowerFenceLen;
 }
 
 uint8_t* HashNode::getUpperFence()
 {
-   return ptr() + pageSize - lowerFenceLen - upperFenceLen;
+   return ptr() + pageSizeLeaf - lowerFenceLen - upperFenceLen;
 }
 
 void HashNode::updatePrefixLength()
@@ -152,12 +152,12 @@ void HashNode::updatePrefixLength()
 
 void HashNode::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen, unsigned hashCapacity)
 {
-   assert(sizeof(HashNode) == pageSize);
+   assert(sizeof(HashNode) == pageSizeLeaf);
    _tag = Tag::Hash;
    count = 0;
    sortedCount = 0;
    spaceUsed = upperFenceLen + lowerFenceLen;
-   dataOffset = pageSize - spaceUsed - hashCapacity;
+   dataOffset = pageSizeLeaf - spaceUsed - hashCapacity;
    hashOffset = dataOffset;
    this->hashCapacity = hashCapacity;
    this->lowerFenceLen = lowerFenceLen;
@@ -193,7 +193,7 @@ unsigned HashNode::freeSpace()
 
 unsigned HashNode::freeSpaceAfterCompaction()
 {
-   return pageSize - (reinterpret_cast<uint8_t*>(slot + count) - ptr()) - spaceUsed;
+   return pageSizeLeaf - (reinterpret_cast<uint8_t*>(slot + count) - ptr()) - spaceUsed;
 }
 
 bool HashNode::requestSlotAndSpace(unsigned kvSize)
@@ -239,11 +239,11 @@ void HashNode::compactify(unsigned newHashCapacity)
 
 bool HashNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
 {
-   assert(freeSpace() < pageSize);
+   assert(freeSpace() < pageSizeLeaf);
    ASSUME(keyLength >= prefixLength);
    validate();
    if (!requestSlotAndSpace(keyLength - prefixLength + payloadLength)) {
-      assert(freeSpace() < pageSize);
+      assert(freeSpace() < pageSizeLeaf);
       return false;
    }
    uint8_t hash = compute_hash(key + prefixLength, keyLength - prefixLength);
@@ -255,7 +255,7 @@ bool HashNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsign
       storeKeyValue(index, key, keyLength, payload, payloadLength, hash);
       spaceUsed -= (keyLength - prefixLength + payloadLength);
    }
-   assert(freeSpace() < pageSize);
+   assert(freeSpace() < pageSizeLeaf);
    validate();
    return true;
 }
@@ -376,7 +376,7 @@ void HashNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, uns
 {
    // split this node into nodeLeft and nodeRight
    assert(sepSlot > 0);
-   HashNode* nodeLeft = &(new AnyNode())->_hash;
+   HashNode* nodeLeft = &(AnyNode::allocLeaf())->_hash;
    unsigned capacity = estimateCapacity();
    nodeLeft->init(getLowerFence(), lowerFenceLen, sepKey, sepLength, capacity);
    HashNode right;
@@ -472,7 +472,7 @@ bool HashNode::mergeNodes(unsigned slotId, AnyNode* parent, HashNode* right)
    unsigned rightGrow = (right->prefixLength - tmp.prefixLength) * right->count;
    unsigned spaceUpperBound =
        spaceUsed + right->spaceUsed + newHashCapacity + (reinterpret_cast<uint8_t*>(slot + count + right->count) - ptr()) + leftGrow + rightGrow;
-   if (spaceUpperBound > pageSize)
+   if (spaceUpperBound > pageSizeLeaf)
       return false;
    copyKeyValueRange(&tmp, 0, 0, count);
    right->copyKeyValueRange(&tmp, count, 0, right->count);

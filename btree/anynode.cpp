@@ -43,7 +43,16 @@ void AnyNode::destroy()
 
 void AnyNode::dealloc()
 {
-   delete this;
+   free(this);
+}
+
+AnyNode* AnyNode::allocLeaf()
+{
+   return reinterpret_cast<AnyNode*>(malloc(pageSizeLeaf));
+}
+AnyNode* AnyNode::allocInner()
+{
+   return reinterpret_cast<AnyNode*>(malloc(pageSizeInner));
 }
 
 bool AnyNode::isAnyInner()
@@ -149,13 +158,13 @@ AnyNode* AnyNode::lookupInner(uint8_t* key, unsigned keyLength)
 
 AnyNode* AnyNode::makeRoot(AnyNode* child)
 {
+   AnyNode* ptr = AnyNode::allocInner();
    if (enableHeadNode) {
-      AnyNode* ptr = new AnyNode();
       ptr->_head4.init(nullptr, 0, nullptr, 0);
       storeUnaligned(ptr->head4()->children(), child);
       return ptr;
    } else {
-      AnyNode* ptr = new AnyNode(BTreeNode(false));
+      ptr->_basic_node.init(false);
       ptr->basic()->upper = child;
       return ptr;
    }

@@ -16,10 +16,9 @@ done
 
 echo $targets
 
-# Iterate through the arguments
-for pageSize in "$@"; do
+while CONFIG= read -r line; do
   rm -f $targets
-  PAGE_SIZE_OVERRIDE_FLAG="-DPAGE_SIZE=$pageSize" make -j24 $targets
-  mkdir -p page-size-builds/$pageSize/
-  mv $targets page-size-builds/$pageSize/
-done
+  env -S CONFIG make -j24 $targets
+  mkdir -p page-size-builds/"$CONFIG"/
+  mv $targets page-size-builds/"$CONFIG"/
+done <"$input_file"

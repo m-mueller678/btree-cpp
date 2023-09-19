@@ -129,9 +129,12 @@ enum class Tag : uint8_t {
 
 struct BTreeNodeHeader {
    static constexpr unsigned hintCount = basicHintCount;
-   static constexpr unsigned underFullSize = pageSize / 4;  // merge nodes below this size
+   static constexpr unsigned underFullSizeLeaf = pageSizeLeaf / 4;  // merge nodes below this size
+   static constexpr unsigned underFullSizeInner = pageSizeInner / 4;  // merge nodes below this size
 
    Tag _tag;
+
+   BTreeNodeHeader(bool isLeaf);
 
    struct FenceKeySlot {
       uint16_t offset;
@@ -145,13 +148,11 @@ struct BTreeNodeHeader {
 
    uint16_t count = 0;
    uint16_t spaceUsed = 0;
-   uint16_t dataOffset = static_cast<uint16_t>(pageSize);
+   uint16_t dataOffset;
    uint16_t prefixLength = 0;
 
    uint32_t hint[hintCount];
    uint32_t padding;
-
-   BTreeNodeHeader(bool isLeaf) : _tag(isLeaf ? Tag::Leaf : Tag::Inner) {}
 };
 
 struct BTreeNode : public BTreeNodeHeader {
@@ -165,14 +166,13 @@ struct BTreeNode : public BTreeNodeHeader {
       };
    } __attribute__((packed));
    union {
-      Slot slot[(pageSize - sizeof(BTreeNodeHeader)) / sizeof(Slot)];  // grows from front
-      uint8_t heap[pageSize - sizeof(BTreeNodeHeader)];                // grows from back
+      Slot slot[1]; // grows from front
+      uint8_t heap[1]; // grows from back
    };
 
-   static constexpr unsigned maxKVSize = ((pageSize - sizeof(BTreeNodeHeader) - (2 * sizeof(Slot)))) / 4;
+   static constexpr unsigned maxKVSize = ((pageSizeLeaf - sizeof(BTreeNodeHeader) - (2 * sizeof(Slot)))) / 4;
 
-   BTreeNode(bool isLeaf);
-
+   void init(bool isLeaf);
    uint8_t* ptr();
    bool isInner();
    bool isLeaf();
@@ -264,6 +264,12 @@ struct BTreeNode : public BTreeNodeHeader {
                           const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
 };
 
+union TmpBTreeNode{
+   BTreeNode node;
+   uint8_t _bytes[std::max(pageSizeLeaf,pageSizeLeaf)];
+   TmpBTreeNode(){}
+};
+
 typedef uint32_t NumericPart;
 constexpr unsigned maxNumericPartLen = sizeof(NumericPart);
 
@@ -294,14 +300,14 @@ struct DenseNode  {
          uint16_t upperFenceLen;
          uint16_t prefixLength;
          uint16_t _mask_pad[2];
-         Mask mask[(pageSize - 24) / sizeof(Mask)];
+         Mask mask[(pageSizeLeaf - 24) / sizeof(Mask)];
       };
       struct{
          uint16_t _union_pad[2];
          uint16_t dataOffset;
-         uint16_t slots[(pageSize - 22)/sizeof (uint16_t)];
+         uint16_t slots[(pageSizeLeaf - 22)/sizeof (uint16_t)];
       };
-      uint8_t _expand_heap[pageSize - 16];
+      uint8_t _expand_heap[pageSizeLeaf - 16];
    };
    unsigned fencesOffset();
    uint8_t* getLowerFence();
@@ -405,8 +411,8 @@ struct HashSlot {
 
 struct HashNode : public HashNodeHeader {
    union {
-      HashSlot slot[(pageSize - sizeof(HashNodeHeader)) / sizeof(HashSlot)];  // grows from front
-      uint8_t heap[pageSize - sizeof(HashNodeHeader)];                        // grows from back
+      HashSlot slot[(pageSizeLeaf - sizeof(HashNodeHeader)) / sizeof(HashSlot)];  // grows from front
+      uint8_t heap[pageSizeLeaf - sizeof(HashNodeHeader)];                        // grows from back
    };
 
    unsigned estimateCapacity();
@@ -479,8 +485,8 @@ struct HeadNode : public HeadNodeHead {
    uint32_t hint[hintCount];
    static constexpr unsigned paddedHeadSize = (sizeof(HeadNodeHead) + alignof(T) - 1) / alignof(T) * alignof(T) + sizeof(hint);
    union {
-      T keys[(pageSize - paddedHeadSize) / sizeof(T)];
-      uint8_t data[pageSize - paddedHeadSize];
+      T keys[(pageSizeInner - paddedHeadSize) / sizeof(T)];
+      uint8_t data[pageSizeInner - paddedHeadSize];
    };
 
    void destroy();
@@ -532,6 +538,8 @@ union AnyNode {
    void destroy();
 
    void dealloc();
+   static AnyNode* allocLeaf();
+   static AnyNode* allocInner();
 
    bool isAnyInner();
 

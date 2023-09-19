@@ -16,10 +16,15 @@ constexpr const char* configName = NAMED_CONFIG;
 
 typedef uint32_t HashSimdBitMask;  // maximum page size (in bytes) is 65536
 
-#ifdef PAGE_SIZE
-constexpr unsigned pageSize = PAGE_SIZE;
+#ifdef PS_L
+constexpr unsigned pageSizeLeaf = PS_L;
 #else
-constexpr unsigned pageSize = 4096;
+constexpr unsigned pageSizeLeaf = 4096;
+#endif
+#ifdef PS_I
+constexpr unsigned pageSizeInner = PS_I;
+#else
+constexpr unsigned pageSizeInner = 4096;
 #endif
 
 constexpr unsigned headNode4HintCount = 16;
@@ -31,6 +36,6 @@ constexpr unsigned hashSortUseStdMerge = true;
 
 #define S(x) {"const_" #x, x},
 static const std::vector<std::pair<const char*, unsigned>> btree_constexpr_settings{
-    S(pageSize) S(enablePrefix) S(enableBasicHead) S(enableDense) S(enableHash) S(enableHeadNode) S(basicHintCount) S(headNode4HintCount)
+    S(pageSizeInner) S(pageSizeLeaf) S(enablePrefix) S(enableBasicHead) S(enableDense) S(enableHash) S(enableHeadNode) S(basicHintCount) S(headNode4HintCount)
         S(headNode8HintCount) S(hashUseSimd) S(hashUseCrc32) S(hashSimdWidth) S(hashSortUseStdMerge)};
 #undef S
