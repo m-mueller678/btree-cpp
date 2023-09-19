@@ -16,9 +16,9 @@ done
 
 echo $targets
 
-while CONFIG= read -r line; do
+while read -r config; do
   rm -f $targets
-  env -S CONFIG make -j24 $targets
-  mkdir -p page-size-builds/"$CONFIG"/
-  mv $targets page-size-builds/"$CONFIG"/
-done <"$input_file"
+  env PAGE_SIZE_OVERRIDE_FLAG="$config" make -j24 $targets
+  mkdir -p page-size-builds/"$config"/
+  mv $targets page-size-builds/"$config"/
+done
