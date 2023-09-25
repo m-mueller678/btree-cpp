@@ -4,6 +4,8 @@ library(ggh4x)
 library(dplyr)
 library(stringr)
 library(scales)
+library(tidyr)
+library(patchwork)
 
 
 format_si <- function(...) {
@@ -33,7 +35,7 @@ format_si <- function(...) {
   }
 }
 
-fetch2 <- function(d,keyCol,keyA,keyB,group,metric) {
+fetch2 <- function(d, keyCol, keyA, keyB, group, metric) {
   counts <- fn$sqldf('select $group,$keyCol,count(*) as count from d group by $group,$keyCol')
   print(fn$sqldf('select min(count),max(count) from counts'))
   return(fn$sqldf('
@@ -50,13 +52,16 @@ fetch2 <- function(d,keyCol,keyA,keyB,group,metric) {
   order by $group'))
 }
 
-fetch2Relative <- function(d,keyCol,keyA,keyB,group,metric){
-  x <- fetch2(d,keyCol,keyA,keyB,group,metric)
+fetch2Relative <- function(d, keyCol, keyA, keyB, group, metric) {
+  x <- fetch2(d, keyCol, keyA, keyB, group, metric)
   return(fn$sqldf('select $group,b/a -1 as r from x order by $group'))
 }
 
-extremesBy <-function (r,d){
-  d[c(which.min(d[,r]),which.max(d[,r])),]
+extremesBy <- function(r, d) {
+  d[c(which.min(d[, r]), which.max(d[, r])),]
 }
 
 CONFIG_NAMES <- c('baseline', 'prefix', 'heads', 'hints', 'inner', 'hash', 'dense', 'dense1', 'dense2', 'art')
+
+VAL_COLS = c("time", "cycle", "instr", "L1_miss", "LLC_miss", "br_miss", "IPC", "CPU", "GHz","task")
+frame_id_cols <-function(c) setdiff(colnames(c),VAL_COLS)
