@@ -2,6 +2,8 @@
 set -e
 set -x
 
+# awk 'BEGIN{for(i=8;i<16;++i) for(l=8;l<16;++l) printf("-DPS_I=%d -DPS_L=%d\n",2^i,2^l)}' | ./build_var_page_size.sh
+
 rm page-size-builds -rf
 
 targets=""
