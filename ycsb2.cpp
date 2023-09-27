@@ -320,11 +320,13 @@ int main(int argc, char* argv[])
    unsigned payloadSize = envu64("PAYLOAD_SIZE");
    unsigned opCount = envu64("OP_COUNT");
    double zipfParameter = envf64("ZIPF");
+   double intDensity = envf64("DENSITY");
    BTreeCppPerfEvent e = makePerfEvent(keySet, false, keyCount);
    e.setParam("payload_size", payloadSize);
    e.setParam("run_id", envu64("RUN_ID"));
    e.setParam("ycsb_zipf", zipfParameter);
    e.setParam("bin_name", std::string{argv[0]});
+   e.setParam("density", intDensity);
    unsigned maxScanLength = envu64("SCAN_LENGTH");
    if (maxScanLength == 0) {
       throw;
@@ -332,13 +334,21 @@ int main(int argc, char* argv[])
    e.setParam("ycsb_range_len", maxScanLength);
 
    if (keySet == "int") {
+      std::random_device rd;
+      std::mt19937 gen(rd());
+      // Create a bernoulli_distribution with the given probability
+      std::bernoulli_distribution dist(intDensity);
+
+      // Generate a random boolean value
+      bool result = dist(gen);
       unsigned genCount = envu64("YCSB_VARIANT") == 3 ? keyCount : keyCount + opCount;
       vector<uint32_t> v;
       if (dryRun) {
          data.resize(genCount);
       } else {
-         for (uint32_t i = 0; i < genCount; i++)
-            v.push_back(i);
+         for (uint32_t i = 0; v.size() < genCount; i++)
+            if (intDensity >= 1.0 || dist(gen))
+               v.push_back(i);
          string s;
          s.resize(4);
          for (auto x : v) {
