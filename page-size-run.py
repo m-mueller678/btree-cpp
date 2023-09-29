@@ -31,7 +31,7 @@ while (True):
         'DENSITY': density,
     }
     env = {k: str(env[k]) for k in env}
-    path = f'page-size-builds/-DPS_I={psl} -DPS_L=4096/{config}-n3-ycsb'
+    path = f'page-size-builds/-DPS_I=4096 -DPS_L=4096/{psl}-n3-ycsb'
     try:
         print(path, env)
         with open('page-size-random-1.csv', 'a') as f:
