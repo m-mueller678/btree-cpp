@@ -63,5 +63,41 @@ extremesBy <- function(r, d) {
 
 CONFIG_NAMES <- c('baseline', 'prefix', 'heads', 'hints', 'inner', 'hash', 'dense', 'dense1', 'dense2', 'art')
 
-VAL_COLS = c("time", "cycle", "instr", "L1_miss", "LLC_miss", "br_miss", "IPC", "CPU", "GHz","task")
-frame_id_cols <-function(c) setdiff(colnames(c),VAL_COLS)
+VAL_COLS = c("time", "cycle", "instr", "L1_miss", "LLC_miss", "br_miss", "IPC", "CPU", "GHz", "task")
+frame_id_cols <- function(c) setdiff(colnames(c), VAL_COLS)
+
+augment <- function(d) {
+  d|>
+    mutate(
+      psi = log2(const_pageSizeInner),
+      psl = log2(const_pageSizeLeaf),
+      avg_key_size = case_when(
+        data_name == 'data/urls' ~ 62.280,
+        data_name == 'data/wiki' ~ 22.555,
+        data_name == 'data/access' ~ 125.54,
+        data_name == 'data/genome' ~ 9,
+        data_name == 'int' ~ 4,
+        TRUE ~ NA
+      ),
+      avg_trunc_key_size = case_when(
+        data_name == 'data/urls' ~ 10,
+        data_name == 'data/wiki' ~ 12,
+        data_name == 'int' ~ 2,
+        TRUE ~ NA
+      ),
+      keys_per_leaf = case_when(
+        config_name == 'hints' ~ (2^psl - 96) / (10 + avg_trunc_key_size + payload_size),
+        config_name == 'hash' ~ (2^psl - 20) / (7 + avg_trunc_key_size + payload_size),
+        config_name == 'heads' ~ (2^psl - 32) / (10 + avg_trunc_key_size + payload_size),
+        config_name == 'prefix' ~  (2^psl - 32) / (6 + avg_trunc_key_size + payload_size),
+        config_name == 'baseline' ~ (2^psl - 32) / (6 + avg_key_size + payload_size),
+        TRUE ~ NA
+      ),
+      config_name = factor(config_name, levels = CONFIG_NAMES)
+    )|>
+    select(-starts_with("const"))
+}
+
+label_page_size <- function(x) {
+  ifelse(2^x < 1024, paste(2^x, "B"), scales::label_bytes(units = 'auto_binary')(2^x))
+}
