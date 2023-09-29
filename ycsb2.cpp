@@ -316,6 +316,13 @@ int main(int argc, char* argv[])
       std::cerr << "no keyset" << std::endl;
       abort();
    }
+   const char* run_id = getenv("RUN_ID");
+   if (!run_id) {
+      std::cerr << "WARN: no run_id" << std::endl;
+      char* timestmap = new char[64];
+      sprintf(timestmap, "%lu",std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count());
+      run_id = timestmap;
+   }
    std::string keySet = getenv("DATA");
    unsigned payloadSize = envu64("PAYLOAD_SIZE");
    unsigned opCount = envu64("OP_COUNT");
@@ -323,7 +330,7 @@ int main(int argc, char* argv[])
    double intDensity = envf64("DENSITY");
    BTreeCppPerfEvent e = makePerfEvent(keySet, false, keyCount);
    e.setParam("payload_size", payloadSize);
-   e.setParam("run_id", envu64("RUN_ID"));
+   e.setParam("run_id", run_id);
    e.setParam("ycsb_zipf", zipfParameter);
    e.setParam("bin_name", std::string{argv[0]});
    e.setParam("density", intDensity);

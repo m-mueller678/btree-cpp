@@ -4,6 +4,7 @@ import subprocess
 import sys
 from math import floor
 from random import choices, randrange, random
+from uuid import uuid4
 
 run_id = 0
 while (True):
@@ -19,7 +20,7 @@ while (True):
     if config == 'dense1' and data != 'int':
         continue
     env = {
-        'RUN_ID': run_id,
+        'RUN_ID': uuid4(),
         'YCSB_VARIANT': ycsb,
         'SCAN_LENGTH': 100,
         'OP_COUNT': '1e7',
