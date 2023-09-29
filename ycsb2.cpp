@@ -103,7 +103,7 @@ void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
    {
       // insert
       e.setParam("op", "ycsb_c_init");
-      BTreeCppPerfEventBlock b(e, keyCount);
+      BTreeCppPerfEventBlock b(e, t, keyCount);
       if (!dryRun)
          for (uint64_t i = 0; i < keyCount; i++) {
             uint8_t* key = (uint8_t*)data[i].data();
@@ -114,7 +114,7 @@ void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
 
    {
       e.setParam("op", "ycsb_c");
-      BTreeCppPerfEventBlock b(e, opCount);
+      BTreeCppPerfEventBlock b(e, t, opCount);
       if (!dryRun)
          for (uint64_t i = 0; i < opCount; i++) {
             unsigned keyIndex = zipf_next(e, keyCount, zipfParameter, false);
@@ -178,7 +178,7 @@ void runYcsbD(BTreeCppPerfEvent e,
    {
       // insert
       e.setParam("op", "ycsb_d_init");
-      BTreeCppPerfEventBlock b(e, initialKeyCount);
+      BTreeCppPerfEventBlock b(e, t, initialKeyCount);
       if (!dryRun)
          for (uint64_t i = 0; i < initialKeyCount; i++) {
             uint8_t* key = (uint8_t*)data[i].data();
@@ -190,7 +190,7 @@ void runYcsbD(BTreeCppPerfEvent e,
    unsigned insertedCount = initialKeyCount;
    {
       e.setParam("op", "ycsb_d");
-      BTreeCppPerfEventBlock b(e, opCount);
+      BTreeCppPerfEventBlock b(e, t, opCount);
       if (!dryRun)
          for (uint64_t completedOps = 0; completedOps < opCount; ++completedOps) {
             if (op_next(e)) {
@@ -248,7 +248,7 @@ void runYcsbE(BTreeCppPerfEvent e,
    {
       // insert
       e.setParam("op", "ycsb_e_init");
-      BTreeCppPerfEventBlock b(e, initialKeyCount);
+      BTreeCppPerfEventBlock b(e, t, initialKeyCount);
       if (!dryRun)
          for (uint64_t i = 0; i < initialKeyCount; i++) {
             uint8_t* key = (uint8_t*)data[i].data();
@@ -264,7 +264,7 @@ void runYcsbE(BTreeCppPerfEvent e,
    unsigned sampleIndex = 0;
    {
       e.setParam("op", "ycsb_e");
-      BTreeCppPerfEventBlock b(e, opCount);
+      BTreeCppPerfEventBlock b(e, t, opCount);
       if (!dryRun)
          for (uint64_t completedOps = 0; completedOps < opCount; ++completedOps, ++sampleIndex) {
             if (op_next(e)) {

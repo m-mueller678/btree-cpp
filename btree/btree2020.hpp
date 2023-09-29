@@ -125,7 +125,11 @@ enum class Tag : uint8_t {
    Head4 = 4,
    Head8 = 5,
    Dense2 = 6,
+   _last = 6,
 };
+
+constexpr unsigned TAG_END = unsigned(Tag::_last) +1;
+const char* tag_name(Tag tag);
 
 struct BTreeNodeHeader {
    static constexpr unsigned hintCount = basicHintCount;
@@ -560,6 +564,7 @@ union AnyNode {
    void innerRemoveSlot(unsigned int slotId);
    unsigned innerKeyLen(unsigned index);
    bool splitNodeWithParent(AnyNode* parent, uint8_t* key, unsigned keyLength);
+   void nodeCount(unsigned counts[TAG_END]);
 };
 
 struct BTree {

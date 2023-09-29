@@ -39,6 +39,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <linux/perf_event.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+#include "btree2020.hpp"
 
 struct BTreeCppPerfEvent {
    struct event {
@@ -238,16 +239,36 @@ struct BTreeCppPerfEvent {
 struct BTreeCppPerfEventBlock {
    BTreeCppPerfEvent& e;
    uint64_t scale;
+   std::vector<std::pair<std::string,std::string>> additionalValues;
+   DataStructureWrapper* data_strcuture_wrapper;
 
-   BTreeCppPerfEventBlock(BTreeCppPerfEvent& e, uint64_t scale = 1) : e(e), scale(scale) { e.startCounters(); }
+   BTreeCppPerfEventBlock(BTreeCppPerfEvent& e,DataStructureWrapper& ds, uint64_t scale = 1) : e(e), scale(scale),data_strcuture_wrapper(&ds) { e.startCounters(); }
+
+   void pushNodeCounts(){
+      unsigned counts[TAG_END]={};
+#if defined(USE_STRUCTURE_BTREE)
+      data_strcuture_wrapper->impl.root->nodeCount(counts);
+#endif
+      for(int i=0;i<TAG_END;++i){
+         push(std::string{"nodeCount_"} + tag_name(Tag(i)),std::to_string(counts[i]));
+      }
+   }
+
+   void push(std::string k,std::string v){
+      additionalValues.push_back(std::pair(k,v));
+   }
 
    ~BTreeCppPerfEventBlock()
    {
       e.stopCounters();
+      pushNodeCounts();
       std::stringstream header;
       std::stringstream data;
       e.printParams(header, data);
       BTreeCppPerfEvent::printCounter(header, data, "time", e.getDuration());
+      for (auto& x : additionalValues) {
+         BTreeCppPerfEvent::printCounter(header, data, x.first, x.second);
+      }
       e.printReport(header, data, scale);
       if (e.printHeader) {
          std::cout << header.str() << std::endl;
@@ -268,7 +289,7 @@ struct BTreeCppPerfEvent {
 
 #include "config.hpp"
 
-BTreeCppPerfEvent makePerfEvent(std::string dataName, bool dataSorted, unsigned dataSize)
+inline BTreeCppPerfEvent makePerfEvent(std::string dataName, bool dataSorted, unsigned dataSize)
 {
    BTreeCppPerfEvent e;
    e.setParam("op", "none");

@@ -361,3 +361,47 @@ bool AnyNode::splitNodeWithParent(AnyNode* parent, uint8_t* key, unsigned keyLen
       }
    }
 }
+
+void AnyNode::nodeCount(unsigned counts[int(Tag::_last) + 1])
+{
+   counts[unsigned(tag())] += 1;
+   switch (tag()) {
+      case Tag::Inner:
+         for (int i = 0; i < basic()->count; ++i) {
+            basic()->getChild(i)->nodeCount(counts);
+         }
+         break;
+      case Tag::Head4:
+         for (int i = 0; i < head4()->count; ++i) {
+            head4()->children()[i]->nodeCount(counts);
+         }
+         break;
+      case Tag::Head8:
+         for (int i = 0; i < head8()->count; ++i) {
+            head8()->children()[i]->nodeCount(counts);
+         }
+         break;
+      case Tag::Leaf:
+      case Tag::Dense:
+      case Tag::Dense2:
+      case Tag::Hash:
+         break;
+   }
+}
+
+const char* tag_name(Tag tag)
+{
+   switch (tag) {
+#define T(L)    \
+   case Tag::L: \
+      return #L;
+      T(Leaf)
+      T(Inner)
+      T(Dense)
+      T(Hash)
+      T(Head4)
+      T(Head8)
+      T(Dense2)
+#undef T
+   }
+}
