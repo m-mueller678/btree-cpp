@@ -79,17 +79,31 @@ augment <- function(d) {
         data_name == 'int' ~ 4,
         TRUE ~ NA
       ),
+      data_name = factor(data_name,labels=c('data/urls'='urls','data/wiki'='wiki','int'='ints')),
+      op=factor(op),
       avg_trunc_key_size = case_when(
         data_name == 'data/urls' ~ 10,
         data_name == 'data/wiki' ~ 12,
         data_name == 'int' ~ 2,
         TRUE ~ NA
       ),
+      final_key_count = case_when(
+        op == 'ycsb_c' | op == 'ycsb_c_init' ~ data_size,
+        op == 'ycsb_e' ~ data_size + scale * 0.025,
+      ),
+      leaf_count = nodeCount_Leaf +
+        nodeCount_Hash +
+        nodeCount_Dense +
+        nodeCount_Dense2,
+      inner_count = nodeCount_Inner +
+        nodeCount_Head4 +
+        nodeCount_Head8,
+      node_count = leaf_count + inner_count,
       keys_per_leaf = case_when(
         config_name == 'hints' ~ (2^psl - 96) / (10 + avg_trunc_key_size + payload_size),
         config_name == 'hash' ~ (2^psl - 20) / (7 + avg_trunc_key_size + payload_size),
         config_name == 'heads' ~ (2^psl - 32) / (10 + avg_trunc_key_size + payload_size),
-        config_name == 'prefix' ~  (2^psl - 32) / (6 + avg_trunc_key_size + payload_size),
+        config_name == 'prefix' ~ (2^psl - 32) / (6 + avg_trunc_key_size + payload_size),
         config_name == 'baseline' ~ (2^psl - 32) / (6 + avg_key_size + payload_size),
         TRUE ~ NA
       ),
@@ -101,3 +115,10 @@ augment <- function(d) {
 label_page_size <- function(x) {
   ifelse(2^x < 1024, paste(2^x, "B"), scales::label_bytes(units = 'auto_binary')(2^x))
 }
+
+read_broken_csv <- function(path){
+  data <-read.csv(path, strip.white = TRUE)
+  data <- data[data[[1]] != colnames(data)[1],]
+  tibble(data.frame(lapply(data, type.convert,as.is=TRUE)))
+}
+

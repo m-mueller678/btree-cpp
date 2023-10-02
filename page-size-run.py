@@ -32,7 +32,7 @@ while (True):
     path = f'page-size-builds/-DPS_I=4096 -DPS_L={psl}/{config}-n3-ycsb'
     try:
         print(path, env)
-        with open('page-size-random-2.csv', 'a') as f:
+        with open('page-size-random-3.csv', 'a') as f:
             subprocess.run(path, stdout=f, env=env, check=True, timeout=120)
     except Exception as e:
         print(path, env, e, file=sys.stderr)

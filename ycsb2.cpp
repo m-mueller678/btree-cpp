@@ -257,7 +257,7 @@ void runYcsbE(BTreeCppPerfEvent e,
          }
    }
 
-   std::minstd_rand generator(0xabcdef42);
+   std::minstd_rand generator(std::rand());
    std::uniform_int_distribution<unsigned> scanLengthDistribution{1, maxScanLength};
 
    unsigned insertedCount = initialKeyCount;
@@ -311,6 +311,8 @@ int main(int argc, char* argv[])
 
    vector<string> data;
 
+   unsigned rand_seed = getenv("SEED") ? envu64("SEED") : time(NULL);
+   srand(rand_seed);
    unsigned keyCount = envu64("KEY_COUNT");
    if (!getenv("DATA")) {
       std::cerr << "no keyset" << std::endl;
@@ -320,7 +322,8 @@ int main(int argc, char* argv[])
    if (!run_id) {
       std::cerr << "WARN: no run_id" << std::endl;
       char* timestmap = new char[64];
-      sprintf(timestmap, "%lu",std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count());
+      sprintf(timestmap, "%lu",
+              std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count());
       run_id = timestmap;
    }
    std::string keySet = getenv("DATA");
@@ -334,6 +337,7 @@ int main(int argc, char* argv[])
    e.setParam("ycsb_zipf", zipfParameter);
    e.setParam("bin_name", std::string{argv[0]});
    e.setParam("density", intDensity);
+   e.setParam("rand_seed", rand_seed);
    unsigned maxScanLength = envu64("SCAN_LENGTH");
    if (maxScanLength == 0) {
       throw;
