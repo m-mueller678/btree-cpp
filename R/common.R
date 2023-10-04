@@ -107,6 +107,7 @@ augment <- function(d) {
         config_name == 'baseline' ~ (2^psl - 32) / (6 + avg_key_size + payload_size),
         TRUE ~ NA
       ),
+      total_size = data_size * (avg_key_size + payload_size),
       config_name = factor(config_name, levels = CONFIG_NAMES)
     )|>
     select(-starts_with("const"))
