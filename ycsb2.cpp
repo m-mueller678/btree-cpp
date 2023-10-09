@@ -5,6 +5,7 @@
 #include <string>
 #include "btree/BtreeCppPerfEvent.hpp"
 #include "btree/btree2020.hpp"
+#include "in-memory-structures/hot/libs/hot/single-threaded/include/hot/singlethreaded/HOTSingleThreaded.hpp"
 
 using namespace std;
 
@@ -14,7 +15,7 @@ void zipf_generate(uint32_t, double, uint32_t*, uint32_t, bool);
 }
 
 // zipfParameter is assumed to not change between invocations.
-unsigned zipf_next(BTreeCppPerfEvent& e, unsigned num_keys, double zipfParameter, bool shuffle)
+unsigned zipf_next(BTreeCppPerfEvent& e, unsigned num_keys, double zipfParameter, bool shuffle,bool overGenerate)
 {
    constexpr unsigned GEN_SIZE = 1 << 18;
    static unsigned ARRAY[GEN_SIZE];
@@ -31,8 +32,8 @@ unsigned zipf_next(BTreeCppPerfEvent& e, unsigned num_keys, double zipfParameter
          index = 0;
       if (index == 0) {
          e.disableCounters();
-         generatedNumKeys = num_keys + GEN_SIZE / 10;
-         zipf_generate(generatedNumKeys, zipfParameter, ARRAY, GEN_SIZE, true);
+         generatedNumKeys = num_keys + (overGenerate?GEN_SIZE / 10:0);
+         zipf_generate(generatedNumKeys, zipfParameter, ARRAY, GEN_SIZE, shuffle);
          e.enableCounters();
       }
       // COUNTER(zipf_reject_rate, ARRAY[index] >= num_keys, 1 << 10);
@@ -117,7 +118,7 @@ void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
       BTreeCppPerfEventBlock b(e, t, opCount);
       if (!dryRun)
          for (uint64_t i = 0; i < opCount; i++) {
-            unsigned keyIndex = zipf_next(e, keyCount, zipfParameter, false);
+            unsigned keyIndex = zipf_next(e, keyCount, zipfParameter, false,false);
             assert(keyIndex < data.size());
             unsigned payloadSizeOut;
             uint8_t* key = (uint8_t*)data[keyIndex].data();
@@ -203,7 +204,7 @@ void runYcsbD(BTreeCppPerfEvent e,
                t.insert(key, length, payload, payloadSize);
                ++insertedCount;
             } else {
-               unsigned zipfSample = zipf_next(e, insertedCount, zipfParameter, false);
+               unsigned zipfSample = zipf_next(e, insertedCount, zipfParameter, false,true);
                unsigned keyIndex = insertedCount - 1 - zipfSample;
                unsigned payloadSizeOut;
                uint8_t* key = (uint8_t*)data[keyIndex].data();
@@ -280,7 +281,7 @@ void runYcsbE(BTreeCppPerfEvent e,
                unsigned scanLength = scanLengthDistribution(generator);
                while (true) {
                   // num_keys for zipf distribution must remain constant to not mess with shuffling permutation.
-                  unsigned keyIndex = zipf_next(e, reasonableMaxKeys, zipfParameter, true);
+                  unsigned keyIndex = zipf_next(e, reasonableMaxKeys, zipfParameter, true,true);
                   // COUNTER(zipf_reject_rate_E, keyIndex >= insertedCount, 1 << 10);
                   if (keyIndex < insertedCount) {
                      uint8_t keyBuffer[BTreeNode::maxKVSize];

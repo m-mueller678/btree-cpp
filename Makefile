@@ -1,3 +1,4 @@
+hot_includes=$(shell find in-memory-structures/hot/ -type d -name include | sed 's/^/-I/')
 zipf_sources = $(zipfc/Cargo.toml zipfc/Cargo.lock zipfc/src/lib.rs)
 core_cpps=btree/*.cpp in-memory-structures/ART/ART.cpp
 cpp_sources=$(core_cpps) tpcc/*.?pp tpcc/tpcc/*.?pp named-configs/*.hpp test.cpp ycsb2.cpp
@@ -7,7 +8,7 @@ tpcc_cpps=tpcc/newbm.cpp $(core_cpps)
 ycsb_cpps=ycsb2.cpp $(core_cpps)
 cxx_base=/usr/bin/clang++-15
 cc_base=/usr/bin/clang-15
-cxx=$(cxx_base) $(PAGE_SIZE_OVERRIDE_FLAG) -std=c++17 -o $@ -march=native -g
+cxx=$(cxx_base) $(PAGE_SIZE_OVERRIDE_FLAG) -std=c++17 -o $@ -march=native -g $(hot_includes)
 
 zipfc_link_arg = -Lzipfc/target/release/ -lzipfc
 named_config_headers = $(shell ls named-configs)
