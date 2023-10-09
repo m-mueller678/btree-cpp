@@ -87,9 +87,13 @@ augment <- function(d) {
         data_name == 'int' ~ 2,
         TRUE ~ NA
       ),
-      final_key_count = case_when(
-        op == 'ycsb_c' | op == 'ycsb_c_init' ~ data_size,
-        op == 'ycsb_e' ~ data_size + scale * 0.025,
+      # final_key_count = case_when(
+      #   op == 'ycsb_c' | op == 'ycsb_c_init' ~ data_size,
+      #   op == 'ycsb_e' ~ data_size + scale * 0.025,
+      # ),
+      final_key_count= case_when(
+        config_name=='art' ~ 0,
+        TRUE ~ counted_final_key_count
       ),
       leaf_count = nodeCount_Leaf +
         nodeCount_Hash +
@@ -99,14 +103,7 @@ augment <- function(d) {
         nodeCount_Head4 +
         nodeCount_Head8,
       node_count = leaf_count + inner_count,
-      keys_per_leaf = case_when(
-        config_name == 'hints' ~ (2^psl - 96) / (10 + avg_trunc_key_size + payload_size),
-        config_name == 'hash' ~ (2^psl - 20) / (7 + avg_trunc_key_size + payload_size),
-        config_name == 'heads' ~ (2^psl - 32) / (10 + avg_trunc_key_size + payload_size),
-        config_name == 'prefix' ~ (2^psl - 32) / (6 + avg_trunc_key_size + payload_size),
-        config_name == 'baseline' ~ (2^psl - 32) / (6 + avg_key_size + payload_size),
-        TRUE ~ NA
-      ),
+      keys_per_leaf = counted_final_key_count / leaf_count,
       total_size = data_size * (avg_key_size + payload_size),
       config_name = factor(config_name, levels = CONFIG_NAMES)
     )|>

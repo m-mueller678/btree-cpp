@@ -6,7 +6,7 @@ from math import floor, log10
 from random import choices, randrange, random
 from uuid import uuid4
 
-STDOUT = 'random-1.csv'
+STDOUT = 'random-2.csv'
 STDERR = f'errlog-{STDOUT}'
 
 
@@ -35,18 +35,19 @@ while (True):
     psl_exp = 12  # randrange(lower, 16)
     psl = 2 ** psl_exp
     pl = randrange(0, 17)
-    target_total_size = 10 ** (random() * 2.5 + 6)
+    target_total_size = 10 ** (random() * 0.7 + 8)
     density = 1 / 2 ** random()
     key_count = floor(target_total_size / (pl + avg_key_size))
     if key_count > max_key_count:
         continue
-    # config = choices(population='dense1 hash hints dense2 baseline prefix'.split())[0]
-    config = choices(population='hash hints'.split())[0]
+    #config = choices(population='dense1 hash hints dense2 baseline prefix'.split())[0]
+    config='art'
+    # config = choices(population='hash hints'.split())[0]
     if (config == 'dense1' or config == 'dense2') and data != 'int':
         continue
-    if config == 'dense1':
-        continue
+    path = f'page-size-builds/-DPS_I=4096 -DPS_L={psl}/{config}-n3-ycsb'
     env = {
+        '_path':path,
         'RUN_ID': uuid4(),
         'YCSB_VARIANT': ycsb,
         'SCAN_LENGTH': 100,
@@ -58,7 +59,6 @@ while (True):
         'DENSITY': density,
     }
     env = {k: str(env[k]) for k in env}
-    path = f'page-size-builds/-DPS_I=4096 -DPS_L={psl}/{config}-n3-ycsb'
     try:
         process = subprocess.Popen(path, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, text=True)
         stdout, stderr = process.communicate()
@@ -69,4 +69,4 @@ while (True):
         stdout = ''
         stderr = f'exception: {e}\n'
     append(STDOUT, stdout)
-    append(STDERR, f'{env}{stderr}')
+    append(STDERR, f'{env}\n{stderr}')
