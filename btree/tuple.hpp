@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <cstring>
 
-constexpr bool ZERO_TERMINATE = true;
+constexpr bool ZERO_TERMINATE = false;
 
 struct Tuple {
    uint16_t keyLen;
