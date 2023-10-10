@@ -119,7 +119,7 @@ void loadKey(uintptr_t tid, uint8_t key[])
 {
    // Store the key of the tuple into the key vector
    // Implementation is database specific
-   ArtTuple* tuple = reinterpret_cast<ArtTuple*>(tid);
+   Tuple* tuple = reinterpret_cast<Tuple*>(tid);
    memcpy(key, tuple->data, tuple->keyLen);
 }
 
@@ -761,7 +761,7 @@ bool iterateAll(Node* n, uint8_t* keyOut, const std::function<bool(unsigned int,
    if (isLeaf(n)) {
       auto value = getLeafValue(n);
       loadKey(value, keyOut);
-      return found_record_cb(artTupleKeyLen(value), artTuplePayloadPtr(value), artTuplePayloadLen(value));
+      return found_record_cb(Tuple::tupleKeyLen(value), Tuple::tuplePayloadPtr(value), Tuple::tuplePayloadLen(value));
    } else {
       switch (n->type) {
          case NodeType4: {
@@ -812,8 +812,8 @@ bool scan(Node* n,
    if (isLeaf(n)) {
       if (depth != keyLength) {
          auto value = getLeafValue(n);
-         uint8_t* leafKey = artTupleKeyPtr(value);
-         unsigned leafKeyLen = artTupleKeyLen(value);
+         uint8_t* leafKey = Tuple::tupleKeyPtr(value);
+         unsigned leafKeyLen = Tuple::tupleKeyLen(value);
          ASSUME(depth <= leafKeyLen);
          unsigned cmpLen = min(leafKeyLen, keyLength);
          for (unsigned i = depth; i < cmpLen; i++)
@@ -932,12 +932,12 @@ ArtBTreeAdapter::ArtBTreeAdapter() : root(nullptr) {}
 uint8_t* ArtBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut)
 {
    uint64_t value = getLeafValue(art::lookup(root, key, keyLength, 0, BTreeNode::maxKVSize));
-   payloadSizeOut = artTuplePayloadLen(value);
-   return artTuplePayloadPtr(value);
+   payloadSizeOut = Tuple::tuplePayloadLen(value);
+   return Tuple::tuplePayloadPtr(value);
 }
 void ArtBTreeAdapter::insertImpl(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
 {
-   art::insert(root, &root, key, 0, makeArtTuple(key, keyLength, payload, payloadLength), BTreeNode::maxKVSize);
+   art::insert(root, &root, key, 0, Tuple::makeTuple(key, keyLength, payload, payloadLength), BTreeNode::maxKVSize);
 }
 bool ArtBTreeAdapter::removeImpl(uint8_t*, unsigned int) const
 {

@@ -1,14 +1,15 @@
 hot_includes=$(shell find in-memory-structures/hot/ -type d -name include | sed 's/^/-I/')
 zipf_sources = $(zipfc/Cargo.toml zipfc/Cargo.lock zipfc/src/lib.rs)
-core_cpps=btree/*.cpp in-memory-structures/ART/ART.cpp
+core_cpps=$(shell find btree -type f|grep cpp|grep -v hot) in-memory-structures/ART/ART.cpp
 cpp_sources=$(core_cpps) tpcc/*.?pp tpcc/tpcc/*.?pp named-configs/*.hpp test.cpp ycsb2.cpp
 sources= $(cpp_sources) $(zipf_sources)
 test_cpps=test.cpp $(core_cpps)
 tpcc_cpps=tpcc/newbm.cpp $(core_cpps)
+hot_sources=$(shell find in-memory-structures/hot/ -type f) btree/hot_adapter.*
 ycsb_cpps=ycsb2.cpp $(core_cpps)
 cxx_base=/usr/bin/clang++-15
 cc_base=/usr/bin/clang-15
-cxx=$(cxx_base) $(PAGE_SIZE_OVERRIDE_FLAG) -std=c++17 -o $@ -march=native -g $(hot_includes)
+cxx=$(cxx_base) $(PAGE_SIZE_OVERRIDE_FLAG) -std=c++17 -o $@ -march=native -g
 
 zipfc_link_arg = -Lzipfc/target/release/ -lzipfc
 named_config_headers = $(shell ls named-configs)
@@ -44,7 +45,7 @@ clean:
 	rm -rf leanstore/build
 
 format:
-	clang-format -i $(cpp_sources)
+	clang-format -i $(cpp_sources) btree/hot_adapter.*
 
 tpcc-optimzed.elf: $(sources)
 	$(cxx) $(tpcc_cpps) -O3  -DNDEBUG  -fnon-call-exceptions -fasynchronous-unwind-tables -ltbb
@@ -92,6 +93,9 @@ named-build/%-d0-ycsb: $(sources) zipfc/target/release/libzipfc.a
 named-build/%-d3-ycsb: $(sources) zipfc/target/release/libzipfc.a
 	@mkdir -p named-build
 	$(cxx) $(ycsb_cpps) -O3 $(named_args) $(zipfc_link_arg)
+
+hot.o: $(hot_sources)
+	g++-11 -c -O3 btree/hot_adapter.cpp -std=c++17 -o $@ -march=native -g $(hot_includes)
 
 #### phony
 
