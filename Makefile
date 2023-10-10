@@ -23,7 +23,7 @@ named_ycsb_n3_builds = $(config_names:%=named-build/%-n3-ycsb)
 named_ycsb_d0_builds = $(config_names:%=named-build/%-d0-ycsb)
 named_ycsb_d3_builds = $(config_names:%=named-build/%-d3-ycsb)
 named_builds = $(named_tpcc_d3_builds) $(named_tpcc_n3_builds) $(named_test_d3_builds) $(named_test_n3_builds) $(named_test_d0_builds) $(named_ycsb_n3_builds) $(named_ycsb_d0_builds) $(named_ycsb_d3_builds)
-named_args = -include named-configs/$*.hpp -DNAMED_CONFIG=\"$*\" hot.o
+named_args = -include named-configs/$*.hpp -DNAMED_CONFIG=\"$*\"
 
 all: test.elf optimized.elf $(named_builds)
 
@@ -58,44 +58,48 @@ zipfc/target/release/libzipfc.a: zipfc/Cargo.toml zipfc/Cargo.lock zipfc/src/lib
 
 #### named tpcc
 
-named-build/%-n3-tpcc: hot.o $(sources)
+named-build/%-n3-tpcc: hot-n3.o $(sources)
 	@mkdir -p named-build
-	$(cxx) $(tpcc_cpps) -O3  -DNDEBUG  -fnon-call-exceptions -fasynchronous-unwind-tables -ltbb $(named_args)
+	$(cxx) $(tpcc_cpps) -O3  -DNDEBUG  -fnon-call-exceptions -fasynchronous-unwind-tables -ltbb $(named_args) hot-n3.o
 
-named-build/%-d3-tpcc: hot.o $(sources)
+named-build/%-d3-tpcc: hot-d0.o $(sources)
 	@mkdir -p named-build
-	$(cxx) $(tpcc_cpps) -O3 -fnon-call-exceptions -fasynchronous-unwind-tables -ltbb $(named_args)
+	$(cxx) $(tpcc_cpps) -O3 -fnon-call-exceptions -fasynchronous-unwind-tables -ltbb $(named_args) hot-d0.o
 
 #### named test
 
-named-build/%-d0-test: hot.o $(sources)
+named-build/%-d0-test: hot-d0.o $(sources)
 	@mkdir -p named-build
-	$(cxx) $(test_cpps) $(named_args)
+	$(cxx) $(test_cpps) $(named_args) hot-d0.o
 
-named-build/%-d3-test: hot.o $(sources)
+named-build/%-d3-test: hot-d0.o $(sources)
 	@mkdir -p named-build
-	$(cxx) $(test_cpps) -O3 $(named_args)
+	$(cxx) $(test_cpps) -O3 $(named_args) hot-d0.o
 
-named-build/%-n3-test: hot.o $(sources)
+named-build/%-n3-test: hot-n3.o $(sources)
 	@mkdir -p named-build
-	$(cxx) $(test_cpps) -O3 -DNDEBUG $(named_args)
+	$(cxx) $(test_cpps) -O3 -DNDEBUG $(named_args) hot-n3.o
 
 #### named ycsb
-named-build/%-n3-ycsb: $(sources) hot.o zipfc/target/release/libzipfc.a
+named-build/%-n3-ycsb: $(sources) hot-n3.o zipfc/target/release/libzipfc.a
 	@mkdir -p named-build
-	$(cxx) $(ycsb_cpps) -O3 -DNDEBUG $(named_args) $(zipfc_link_arg)
+	$(cxx) $(ycsb_cpps) -O3 -DNDEBUG $(named_args) $(zipfc_link_arg) hot-n3.o
 
-named-build/%-d0-ycsb: $(sources) hot.o zipfc/target/release/libzipfc.a
+named-build/%-d0-ycsb: $(sources) hot-d0.o zipfc/target/release/libzipfc.a
 	@mkdir -p named-build
-	$(cxx) $(ycsb_cpps) $(named_args) $(zipfc_link_arg)
+	$(cxx) $(ycsb_cpps) $(named_args) $(zipfc_link_arg) hot-d0.o
 
 
-named-build/%-d3-ycsb: $(sources) hot.o zipfc/target/release/libzipfc.a
+named-build/%-d3-ycsb: $(sources) hot-d0.o zipfc/target/release/libzipfc.a
 	@mkdir -p named-build
-	$(cxx) $(ycsb_cpps) -O3 $(named_args) $(zipfc_link_arg)
+	$(cxx) $(ycsb_cpps) -O3 $(named_args) $(zipfc_link_arg) hot-d0.o
 
-hot.o: $(hot_sources)
-	g++-11 -c -O3 btree/hot_adapter.cpp -std=c++17 -o $@ -march=native -g $(hot_includes)
+hot-d0.o: $(hot_sources)
+	g++-11 -c btree/hot_adapter.cpp -std=c++17 -o $@ -march=native -g $(hot_includes)
+
+hot-n3.o: $(hot_sources)
+	g++-11 -c  -DNDEBUG -O3 btree/hot_adapter.cpp -std=c++17 -o $@ -march=native -g $(hot_includes)
+
 
 #### phony
 
