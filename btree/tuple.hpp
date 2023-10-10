@@ -2,21 +2,25 @@
 #include <stdlib.h>
 #include <cstring>
 
+constexpr bool ZERO_TERMINATE=true;
+
 struct Tuple {
    uint16_t keyLen;
    uint16_t payloadLen;
    uint8_t data[];
 
-   uint8_t* payload() { return data + keyLen; }
+   uint8_t* payload() { return data + keyLen+ZERO_TERMINATE; }
 
 
    static uintptr_t makeTuple(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
    {
-      Tuple* tuple = reinterpret_cast<Tuple*>(malloc(sizeof(Tuple) + keyLength + payloadLength));
+      Tuple* tuple = reinterpret_cast<Tuple*>(malloc(sizeof(Tuple) + keyLength +ZERO_TERMINATE+ payloadLength));
       tuple->keyLen = keyLength;
       tuple->payloadLen = payloadLength;
       memcpy(tuple->data, key, keyLength);
-      memcpy(tuple->data + keyLength, payload, payloadLength);
+      if(ZERO_TERMINATE)
+         tuple->data[keyLength]=0;
+      memcpy(tuple->payload(), payload, payloadLength);
       return reinterpret_cast<uintptr_t>(tuple);
    }
 
