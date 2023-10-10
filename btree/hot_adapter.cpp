@@ -23,6 +23,13 @@ uint8_t* HotTupleKeyExtractor<Tuple*>::operator()<uint8_t* const&>(uint8_t* cons
    return t;
 };
 
+template <>
+template <>
+uint8_t* HotTupleKeyExtractor<Tuple*>::operator()<uint8_t*>(uint8_t* t)
+{
+   return t;
+};
+
 struct Hot {
    hot::singlethreaded::HOTSingleThreaded<Tuple*, HotTupleKeyExtractor> hot;
 };
@@ -40,3 +47,23 @@ void HotBTreeAdapter::insertImpl(uint8_t* key, unsigned int keyLength, uint8_t* 
    uintptr_t tuple = Tuple::makeTuple(key, keyLength, payload, payloadLength);
    hot->hot.insert(reinterpret_cast<Tuple*>(tuple));
 }
+bool HotBTreeAdapter::removeImpl(uint8_t* key, unsigned int keyLength) const
+{
+   abort();
+}
+void HotBTreeAdapter::range_lookupImpl(uint8_t* key,
+                                       unsigned int keyLen,
+                                       uint8_t* keyOut,
+                                       const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
+{
+   abort();
+}
+void HotBTreeAdapter::range_lookup_descImpl(uint8_t* key,
+                                            unsigned int keyLen,
+                                            uint8_t* keyOut,
+                                            const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
+{
+   abort();
+}
+
+HotBTreeAdapter::HotBTreeAdapter() : hot(new Hot()) {}

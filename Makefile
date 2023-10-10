@@ -23,7 +23,7 @@ named_ycsb_n3_builds = $(config_names:%=named-build/%-n3-ycsb)
 named_ycsb_d0_builds = $(config_names:%=named-build/%-d0-ycsb)
 named_ycsb_d3_builds = $(config_names:%=named-build/%-d3-ycsb)
 named_builds = $(named_tpcc_d3_builds) $(named_tpcc_n3_builds) $(named_test_d3_builds) $(named_test_n3_builds) $(named_test_d0_builds) $(named_ycsb_n3_builds) $(named_ycsb_d0_builds) $(named_ycsb_d3_builds)
-named_args = -include named-configs/$*.hpp -DNAMED_CONFIG=\"$*\"
+named_args = -include named-configs/$*.hpp -DNAMED_CONFIG=\"$*\" hot.o
 
 all: test.elf optimized.elf $(named_builds)
 
@@ -58,39 +58,39 @@ zipfc/target/release/libzipfc.a: zipfc/Cargo.toml zipfc/Cargo.lock zipfc/src/lib
 
 #### named tpcc
 
-named-build/%-n3-tpcc: $(sources)
+named-build/%-n3-tpcc: hot.o $(sources)
 	@mkdir -p named-build
 	$(cxx) $(tpcc_cpps) -O3  -DNDEBUG  -fnon-call-exceptions -fasynchronous-unwind-tables -ltbb $(named_args)
 
-named-build/%-d3-tpcc: $(sources)
+named-build/%-d3-tpcc: hot.o $(sources)
 	@mkdir -p named-build
 	$(cxx) $(tpcc_cpps) -O3 -fnon-call-exceptions -fasynchronous-unwind-tables -ltbb $(named_args)
 
 #### named test
 
-named-build/%-d0-test: $(sources)
+named-build/%-d0-test: hot.o $(sources)
 	@mkdir -p named-build
 	$(cxx) $(test_cpps) $(named_args)
 
-named-build/%-d3-test: $(sources)
+named-build/%-d3-test: hot.o $(sources)
 	@mkdir -p named-build
 	$(cxx) $(test_cpps) -O3 $(named_args)
 
-named-build/%-n3-test: $(sources)
+named-build/%-n3-test: hot.o $(sources)
 	@mkdir -p named-build
 	$(cxx) $(test_cpps) -O3 -DNDEBUG $(named_args)
 
 #### named ycsb
-named-build/%-n3-ycsb: $(sources) zipfc/target/release/libzipfc.a
+named-build/%-n3-ycsb: $(sources) hot.o zipfc/target/release/libzipfc.a
 	@mkdir -p named-build
 	$(cxx) $(ycsb_cpps) -O3 -DNDEBUG $(named_args) $(zipfc_link_arg)
 
-named-build/%-d0-ycsb: $(sources) zipfc/target/release/libzipfc.a
+named-build/%-d0-ycsb: $(sources) hot.o zipfc/target/release/libzipfc.a
 	@mkdir -p named-build
 	$(cxx) $(ycsb_cpps) $(named_args) $(zipfc_link_arg)
 
 
-named-build/%-d3-ycsb: $(sources) zipfc/target/release/libzipfc.a
+named-build/%-d3-ycsb: $(sources) hot.o zipfc/target/release/libzipfc.a
 	@mkdir -p named-build
 	$(cxx) $(ycsb_cpps) -O3 $(named_args) $(zipfc_link_arg)
 

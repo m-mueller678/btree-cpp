@@ -618,6 +618,8 @@ struct DataStructureWrapper {
    BTree impl;
 #elif defined(USE_STRUCTURE_ART)
    ArtBTreeAdapter impl;
+#elif defined(USE_STRUCTURE_HOT)
+   HotBTreeAdapter impl;
 #endif
 
    uint8_t* lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut);
