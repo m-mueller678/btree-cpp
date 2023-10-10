@@ -16,14 +16,7 @@
 #include <algorithm>   // std::random_shuffle
 #include <iostream>
 #include "../../btree/btree2020.hpp"
-
-struct ArtTuple {
-   uint16_t keyLen;
-   uint16_t payloadLen;
-   uint8_t data[];
-
-   uint8_t* payload() { return data + keyLen; }
-};
+#include "../../btree/tuple.hpp"
 
 namespace art
 {
@@ -760,36 +753,6 @@ int main(int argc, char** argv)
    return 0;
 }
 }  // namespace art
-
-uintptr_t makeArtTuple(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
-{
-   ArtTuple* tuple = reinterpret_cast<ArtTuple*>(malloc(sizeof(ArtTuple) + keyLength + payloadLength));
-   tuple->keyLen = keyLength;
-   tuple->payloadLen = payloadLength;
-   memcpy(tuple->data, key, keyLength);
-   memcpy(tuple->data + keyLength, payload, payloadLength);
-   return reinterpret_cast<uintptr_t>(tuple);
-}
-
-uint8_t* artTuplePayloadPtr(uintptr_t tuple)
-{
-   return reinterpret_cast<ArtTuple*>(tuple)->payload();
-}
-
-uint8_t* artTupleKeyPtr(uintptr_t tuple)
-{
-   return reinterpret_cast<ArtTuple*>(tuple)->data;
-}
-
-unsigned artTuplePayloadLen(uintptr_t tuple)
-{
-   return reinterpret_cast<ArtTuple*>(tuple)->payloadLen;
-}
-
-unsigned artTupleKeyLen(uintptr_t tuple)
-{
-   return reinterpret_cast<ArtTuple*>(tuple)->keyLen;
-}
 
 namespace art
 {
