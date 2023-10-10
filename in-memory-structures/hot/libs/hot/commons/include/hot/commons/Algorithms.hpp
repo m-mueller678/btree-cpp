@@ -9,7 +9,7 @@
 namespace hot { namespace commons {
 
 inline uint32_t getBytesUsedInExtractionMask(uint64_t successiveExtractionMask) {
-	uint32_t const unsetBytes = _mm_movemask_pi8(_mm_cmpeq_pi8(_mm_and_si64(_mm_set_pi64x(successiveExtractionMask), _mm_set_pi64x(UINT64_MAX)), _mm_setzero_si64()));
+	uint32_t const unsetBytes = _mm_movemask_pi8(_mm_cmpeq_pi8(_mm_and_si64((__m64)(successiveExtractionMask), (__m64)(UINT64_MAX)), _mm_setzero_si64()));
 	//8 - numberUnsetBytes
 	return 8 - _mm_popcnt_u32(unsetBytes);
 }
