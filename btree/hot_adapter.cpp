@@ -30,13 +30,17 @@ uint8_t* HotTupleKeyExtractor<Tuple*>::operator()<uint8_t*>(uint8_t* t)
    return t;
 };
 
+typedef hot::singlethreaded::HOTSingleThreaded<Tuple*, HotTupleKeyExtractor> HotSS;
+
 struct Hot {
-   hot::singlethreaded::HOTSingleThreaded<Tuple*, HotTupleKeyExtractor> hot;
+   HotSS hot;
 };
 
 uint8_t* HotBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut)
 {
    auto it = hot->hot.find(key);
+   if (it == HotSS::END_ITERATOR)
+      return nullptr;
    Tuple* tuple = *it;
    payloadSizeOut = tuple->keyLen;
    return tuple->payload();
