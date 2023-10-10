@@ -79,7 +79,8 @@ uint8_t* HotBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsig
 void HotBTreeAdapter::insertImpl(uint8_t* key, unsigned int keyLength, uint8_t* payload, unsigned int payloadLength)
 {
    uintptr_t tuple = Tuple::makeTuple(key, keyLength, payload, payloadLength);
-   assert(hot->hot.insert(reinterpret_cast<Tuple*>(tuple)));
+   bool success = hot->hot.insert(reinterpret_cast<Tuple*>(tuple));
+   assert(success);
 }
 bool HotBTreeAdapter::removeImpl(uint8_t* key, unsigned int keyLength) const
 {
