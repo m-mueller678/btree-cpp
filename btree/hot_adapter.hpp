@@ -21,4 +21,5 @@ struct HotBTreeAdapter {
                               unsigned int keyLen,
                               uint8_t* keyOut,
                               const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
+   void printInfo();
 };

@@ -52,10 +52,16 @@ inline auto toFixSizedKey(TupleKeyRef const& key)
 {
    constexpr size_t maxLen = getMaxKeyLength<char const*>();
    std::array<uint8_t, maxLen> fixedSizeKey;
-   assert(key.length < maxLen);
+   assert(key.length <= maxLen);
    memcpy(fixedSizeKey.data(), key.data, key.length);
    memset(fixedSizeKey.data() + key.length, 0, maxLen - key.length);
    return fixedSizeKey;
+}
+
+template <>
+constexpr inline size_t getMaxKeyLength<TupleKeyRef>()
+{
+   return getMaxKeyLength<char const*>();
 }
 }  // namespace contenthelpers
 }  // namespace idx
@@ -73,7 +79,7 @@ uint8_t* HotBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsig
 void HotBTreeAdapter::insertImpl(uint8_t* key, unsigned int keyLength, uint8_t* payload, unsigned int payloadLength)
 {
    uintptr_t tuple = Tuple::makeTuple(key, keyLength, payload, payloadLength);
-   hot->hot.insert(reinterpret_cast<Tuple*>(tuple));
+   assert(hot->hot.insert(reinterpret_cast<Tuple*>(tuple)));
 }
 bool HotBTreeAdapter::removeImpl(uint8_t* key, unsigned int keyLength) const
 {
@@ -95,3 +101,13 @@ void HotBTreeAdapter::range_lookup_descImpl(uint8_t* key,
 }
 
 HotBTreeAdapter::HotBTreeAdapter() : hot(new Hot()) {}
+
+void HotBTreeAdapter::printInfo()
+{
+   auto stats = hot->hot.getStatistics();
+   std::cout << "HOT stats" << std::endl;
+   std::cout << "size: " << stats.first << std::endl;
+   for (auto x : stats.second) {
+      std::cout << x.first << ": " << x.second << std::endl;
+   }
+}
