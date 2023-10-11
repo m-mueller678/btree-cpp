@@ -2,6 +2,7 @@
 #include <csignal>
 #include <fstream>
 #include <random>
+#include <set>
 #include <string>
 #include "btree/BtreeCppPerfEvent.hpp"
 #include "btree/btree2020.hpp"
@@ -363,6 +364,30 @@ int main(int argc, char* argv[])
          string s;
          s.resize(4);
          for (auto x : v) {
+            *(uint32_t*)(s.data()) = __builtin_bswap32(x);
+            data.push_back(s);
+         }
+      }
+   } else if (keySet == "rng4") {
+      std::random_device rd;
+      std::mt19937 gen(rd());
+
+      // Create a bernoulli_distribution with the given probability
+      std::uniform_int_distribution dist(uint32_t(0), UINT32_MAX);
+
+      // Generate a random boolean value
+      bool result = dist(gen);
+      unsigned genCount = envu64("YCSB_VARIANT") == 3 ? keyCount : keyCount + opCount;
+      vector<uint32_t> v;
+      if (dryRun) {
+         data.resize(genCount);
+      } else {
+         std::set<uint32_t> keys;
+         while (keys.size() < genCount)
+            keys.insert(dist(gen));
+         string s;
+         s.resize(4);
+         for (uint32_t x : keys) {
             *(uint32_t*)(s.data()) = __builtin_bswap32(x);
             data.push_back(s);
          }
