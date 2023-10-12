@@ -311,7 +311,7 @@ void BTreeNode::storeKeyValue(uint16_t slotId, uint8_t* key, unsigned keyLength,
    dataOffset -= space;
    spaceUsed += space;
    slot[slotId].offset = dataOffset;
-   assert(getKey(slotId) >= reinterpret_cast<uint8_t*>(&slot[slotId]));
+   assert(getKey(slotId) >= reinterpret_cast<uint8_t*>(&slot[slotId + 1]));
    memcpy(getKey(slotId), key, keyLength);
    memcpy(getPayload(slotId), payload, payloadLength);
 }
@@ -370,6 +370,52 @@ void BTreeNode::setFences(uint8_t* lowerKey, unsigned lowerLen, uint8_t* upperKe
       ;
 }
 
+bool BTreeNode::hasBadHeads()
+{
+   unsigned threshold = count / 16;
+   unsigned collisionCount = 0;
+   for (unsigned i = 1; i < count; ++i) {
+      if (slot[i - 1].head[0] == slot[i].head[0]) {
+         collisionCount += 1;
+         if (collisionCount > threshold)
+            break;
+      }
+   }
+   return collisionCount > threshold;
+}
+
+void BTreeNode::copyKeyValueRangeToHash(HashNode* dst, unsigned dstSlot, unsigned srcSlot, unsigned srcCount)
+{
+   for (unsigned i = 0; i < srcCount; i++) {
+      unsigned fullLength = slot[srcSlot + i].keyLen + prefixLength;
+      uint8_t key[fullLength];
+      memcpy(key, getLowerFence(), prefixLength);
+      memcpy(key + prefixLength, getKey(srcSlot + i), slot[srcSlot + i].keyLen);
+      dst->storeKeyValue(dstSlot + i, key, fullLength, getPayload(srcSlot + i), slot[srcSlot + i].payloadLen,
+                         HashNode::compute_hash(key + dst->prefixLength, fullLength - dst->prefixLength));
+   }
+   dst->count += srcCount;
+   assert((dst->ptr() + dst->dataOffset) >= reinterpret_cast<uint8_t*>(dst->slot + dst->count));
+}
+
+void BTreeNode::splitToHash(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, unsigned sepLength)
+{
+   HashNode* nodeLeft = &(AnyNode::allocLeaf())->_hash;
+   unsigned capacity = count;
+   nodeLeft->init(getLowerFence(), lowerFence.length, sepKey, sepLength, capacity);
+   HashNode right;
+   right.init(sepKey, sepLength, getUpperFence(), upperFence.length, capacity);
+   bool succ = parent->insertChild(sepKey, sepLength, nodeLeft->any());
+   assert(succ);
+   copyKeyValueRangeToHash(nodeLeft, 0, 0, sepSlot + 1);
+   copyKeyValueRangeToHash(&right, 0, nodeLeft->count, count - nodeLeft->count);
+   nodeLeft->sortedCount = nodeLeft->count;
+   right.sortedCount = right.count;
+   nodeLeft->validate();
+   right.validate();
+   memcpy(this, &right, pageSizeLeaf);
+}
+
 void BTreeNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, unsigned sepLength)
 {
    // split this node into nodeLeft and nodeRight
@@ -377,6 +423,8 @@ void BTreeNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, un
    assert(sepSlot < ((isLeaf() ? pageSizeLeaf : pageSizeInner) / sizeof(BTreeNode*)));
    BTreeNode* nodeLeft;
    if (isLeaf()) {
+      if (hasBadHeads())
+         return splitToHash(parent, sepSlot, sepKey, sepLength);
       nodeLeft = makeLeaf()->basic();
    } else {
       AnyNode* r = AnyNode::allocInner();
@@ -534,7 +582,7 @@ void BTreeNode::destroy()
    this->any()->dealloc();
 }
 
-BTree::BTree() : root(enableHash ? HashNode::makeRootLeaf() : BTreeNode::makeLeaf())
+BTree::BTree() : root((enableHash && !enableHashAdapt) ? HashNode::makeRootLeaf() : BTreeNode::makeLeaf())
 {
 #ifndef NDEBUG
    // prevent print from being optimized out. It is otherwise never called, but nice for debugging
@@ -759,8 +807,7 @@ bool BTree::removeImpl(uint8_t* key, unsigned keyLength) const
             // find neighbor and merge
             if (parentCount >= 2 && ((pos + 1) < parentCount)) {
                AnyNode* right = parent->getChild(pos + 1);
-               ASSUME(right->_tag == Tag::Hash);
-               if (right->hash()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSizeLeaf) {
+               if (right->_tag == Tag::Hash && right->hash()->freeSpaceAfterCompaction() >= BTreeNodeHeader::underFullSizeLeaf) {
                   if (node->hash()->mergeNodes(pos, parent, right->hash()))
                      node->dealloc();
                }

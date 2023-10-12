@@ -5,10 +5,10 @@ Tag AnyNode::tag()
 {
    ASSUME(_tag == Tag::Inner || _tag == Tag::Leaf || _tag == Tag::Dense || _tag == Tag::Hash || _tag == Tag::Head4 || _tag == Tag::Head8 ||
           _tag == Tag::Dense2);
-   ASSUME((enableDense && !enableHash) || _tag != Tag::Dense);
+   ASSUME(enableDense || _tag != Tag::Dense);
    ASSUME((enableDense2 && !enableHash) || _tag != Tag::Dense2);
    ASSUME(enableHash || _tag != Tag::Hash);
-   ASSUME(!enableHash || _tag != Tag::Leaf);
+   ASSUME(!enableHash || enableHashAdapt || _tag != Tag::Leaf);
    ASSUME(enableHeadNode || _tag != Tag::Head4);
    ASSUME(enableHeadNode || _tag != Tag::Head8);
    return _tag;

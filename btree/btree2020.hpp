@@ -139,6 +139,7 @@ struct BTreeNodeHeader {
 
    Tag _tag;
 
+   BTreeNodeHeader(){}
    BTreeNodeHeader(bool isLeaf);
 
    struct FenceKeySlot {
@@ -160,6 +161,8 @@ struct BTreeNodeHeader {
    uint32_t padding;
 };
 
+struct HashNode;
+
 struct BTreeNode : public BTreeNodeHeader {
    struct Slot {
       uint16_t offset;
@@ -175,6 +178,9 @@ struct BTreeNode : public BTreeNodeHeader {
       uint8_t heap[1]; // grows from back
    };
 
+   // this struct does not have appropriate size.
+   // Get Some storage location and call init.
+   BTreeNode()=delete;
    static constexpr unsigned maxKVSize = ((pageSizeLeaf - sizeof(BTreeNodeHeader) - (2 * sizeof(Slot)))) / 4;
 
    void init(bool isLeaf);
@@ -267,6 +273,9 @@ struct BTreeNode : public BTreeNodeHeader {
                           unsigned int keyLen,
                           uint8_t* keyOut,
                           const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
+   bool hasBadHeads();
+   void splitToHash(AnyNode* parent, unsigned int sepSlot, uint8_t* sepKey, unsigned int sepLength);
+   void copyKeyValueRangeToHash(HashNode* dst, unsigned int dstSlot, unsigned int srcSlot, unsigned int srcCount);
 };
 
 union TmpBTreeNode{
@@ -466,6 +475,10 @@ struct HashNode : public HashNodeHeader {
                           uint8_t* keyOut,
                           const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
    void validate();
+   void copyKeyValueRangeToBasic(BTreeNode* dst, unsigned int dstSlot, unsigned int srcSlot, unsigned int srcCount);
+   void copyKeyValueToBasic(unsigned int srcSlot, BTreeNode* dst, unsigned int dstSlot);
+   void splitToBasic(AnyNode* parent, unsigned int sepSlot, uint8_t* sepKey, unsigned int sepLength);
+   bool hasGoodHeads();
 } __attribute__((aligned(hashUseSimd ? hashSimdWidth : 2)));
 
 struct HeadNodeHead {

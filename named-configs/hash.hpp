@@ -6,3 +6,4 @@ constexpr bool enableHash = true;
 constexpr bool enableHeadNode = false;
 constexpr unsigned basicHintCount = 16;
 constexpr bool enableDense2 = false;
+constexpr bool enableHashAdapt = false;

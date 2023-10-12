@@ -105,6 +105,9 @@ int HashNode::findIndexSimd(uint8_t* key, unsigned keyLength, uint8_t hash)
       unsigned trailing_zeros = std::__countr_zero(matches);
       if (trailing_zeros == hashSimdWidth) {
          shift = shift - shift % hashSimdWidth + hashSimdWidth;
+         if (shift >= shift_limit) {
+            return -1;
+         }
          haystack_ptr += 1;
          matches = hashSimdEq(haystack_ptr, &needle);
       } else {
@@ -372,8 +375,43 @@ void HashNode::getSep(uint8_t* sepKeyOut, BTreeNode::SeparatorInfo info)
    memcpy(sepKeyOut + prefixLength, getKey(info.slot + info.isTruncated), info.length - prefixLength);
 }
 
+void HashNode::splitToBasic(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, unsigned sepLength)
+{
+   // split this node into nodeLeft and nodeRight
+   assert(sepSlot > 0);
+   BTreeNode* nodeLeft = &(AnyNode::allocLeaf())->_basic_node;
+   nodeLeft->init(true);
+   nodeLeft->setFences(getLowerFence(), lowerFenceLen, sepKey, sepLength);
+   TmpBTreeNode right_tmp;
+   BTreeNode& right = right_tmp.node;
+   right.init(true);
+   right.setFences(sepKey, sepLength, getUpperFence(), upperFenceLen);
+   bool succ = parent->insertChild(sepKey, sepLength, nodeLeft->any());
+   assert(succ);
+   copyKeyValueRangeToBasic(nodeLeft, 0, 0, sepSlot + 1);
+   copyKeyValueRangeToBasic(&right, 0, nodeLeft->count, count - nodeLeft->count);
+   memcpy(this, &right, pageSizeLeaf);
+}
+
+bool HashNode::hasGoodHeads()
+{
+   unsigned threshold = count / 16;
+   unsigned collisionCount = 0;
+   for (unsigned i = 1; i < count; ++i) {
+      if (slot[i - 1].keyLen > 4 && slot[i].keyLen > 4 && memcmp(getKey(i - 1), getKey(i), 4) == 0) {
+         collisionCount += 1;
+         if (collisionCount > threshold)
+            return false;
+      }
+   }
+   return true;
+}
+
 void HashNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, unsigned sepLength)
 {
+   if (enableHashAdapt && hasGoodHeads()) {
+      return splitToBasic(parent, sepSlot, sepKey, sepLength);
+   }
    // split this node into nodeLeft and nodeRight
    assert(sepSlot > 0);
    HashNode* nodeLeft = &(AnyNode::allocLeaf())->_hash;
@@ -389,7 +427,7 @@ void HashNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, uns
    right.sortedCount = right.count;
    nodeLeft->validate();
    right.validate();
-   *this = right;
+   memcpy(this, &right, pageSizeLeaf);
 }
 
 void HashNode::copyKeyValueRange(HashNode* dst, unsigned dstSlot, unsigned srcSlot, unsigned srcCount)
@@ -416,6 +454,15 @@ void HashNode::copyKeyValueRange(HashNode* dst, unsigned dstSlot, unsigned srcSl
    assert((dst->ptr() + dst->dataOffset) >= reinterpret_cast<uint8_t*>(dst->slot + dst->count));
 }
 
+void HashNode::copyKeyValueRangeToBasic(BTreeNode* dst, unsigned dstSlot, unsigned srcSlot, unsigned srcCount)
+{
+   for (unsigned i = 0; i < srcCount; i++)
+      copyKeyValueToBasic(srcSlot + i, dst, dstSlot + i);
+   dst->count += srcCount;
+   dst->makeHint();
+   assert((dst->ptr() + dst->dataOffset) >= reinterpret_cast<uint8_t*>(dst->slot + dst->count));
+}
+
 void HashNode::copyKeyValue(unsigned srcSlot, HashNode* dst, unsigned dstSlot)
 {
    unsigned fullLength = slot[srcSlot].keyLen + prefixLength;
@@ -424,6 +471,15 @@ void HashNode::copyKeyValue(unsigned srcSlot, HashNode* dst, unsigned dstSlot)
    memcpy(key + prefixLength, getKey(srcSlot), slot[srcSlot].keyLen);
    dst->storeKeyValue(dstSlot, key, fullLength, getPayload(srcSlot), slot[srcSlot].payloadLen,
                       compute_hash(key + dst->prefixLength, fullLength - dst->prefixLength));
+}
+
+void HashNode::copyKeyValueToBasic(unsigned srcSlot, BTreeNode* dst, unsigned dstSlot)
+{
+   unsigned fullLength = slot[srcSlot].keyLen + prefixLength;
+   uint8_t key[fullLength];
+   memcpy(key, getLowerFence(), prefixLength);
+   memcpy(key + prefixLength, getKey(srcSlot), slot[srcSlot].keyLen);
+   dst->storeKeyValue(dstSlot, key, fullLength, getPayload(srcSlot), slot[srcSlot].payloadLen);
 }
 
 void HashNode::storeKeyValue(unsigned slotId, uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength, uint8_t hash)

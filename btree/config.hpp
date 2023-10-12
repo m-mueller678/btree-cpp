@@ -10,6 +10,7 @@ constexpr bool enableHash = false;
 constexpr bool enableHeadNode = false;
 constexpr unsigned basicHintCount = 16;
 constexpr bool enableDense2 = false;
+constexpr bool enableHashAdapt = false;
 #else
 constexpr const char* configName = NAMED_CONFIG;
 #endif
@@ -36,6 +37,6 @@ constexpr unsigned hashSortUseStdMerge = true;
 
 #define S(x) {"const_" #x, x},
 static const std::vector<std::pair<const char*, unsigned>> btree_constexpr_settings{
-    S(pageSizeInner) S(pageSizeLeaf) S(enablePrefix) S(enableBasicHead) S(enableDense) S(enableHash) S(enableHeadNode) S(basicHintCount) S(headNode4HintCount)
+    S(pageSizeInner) S(pageSizeLeaf) S(enablePrefix) S(enableBasicHead) S(enableDense) S(enableHash) S(enableHashAdapt) S(enableDense2) S(enableHeadNode) S(basicHintCount) S(headNode4HintCount)
         S(headNode8HintCount) S(hashUseSimd) S(hashUseCrc32) S(hashSimdWidth) S(hashSortUseStdMerge)};
 #undef S
