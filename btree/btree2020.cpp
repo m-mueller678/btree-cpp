@@ -423,7 +423,7 @@ void BTreeNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, un
    assert(sepSlot < ((isLeaf() ? pageSizeLeaf : pageSizeInner) / sizeof(BTreeNode*)));
    BTreeNode* nodeLeft;
    if (isLeaf()) {
-      if (hasBadHeads())
+      if (enableHashAdapt && hasBadHeads())
          return splitToHash(parent, sepSlot, sepKey, sepLength);
       nodeLeft = makeLeaf()->basic();
    } else {
