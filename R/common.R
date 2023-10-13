@@ -61,7 +61,7 @@ extremesBy <- function(r, d) {
   d[c(which.min(d[, r]), which.max(d[, r])),]
 }
 
-CONFIG_NAMES <- c('baseline', 'prefix', 'heads', 'hints', 'inner', 'hash', 'dense', 'dense1', 'dense2', 'art')
+CONFIG_NAMES <- c('baseline', 'prefix', 'heads', 'hints', 'inner', 'hash', 'dense', 'dense1', 'dense2','adapt', 'art','hot')
 
 VAL_COLS = c("time", "cycle", "instr", "L1_miss", "LLC_miss", "br_miss", "IPC", "CPU", "GHz", "task")
 frame_id_cols <- function(c) setdiff(colnames(c), VAL_COLS)
@@ -73,20 +73,17 @@ augment <- function(d) {
       psl = log2(const_pageSizeLeaf),
       avg_key_size = case_when(
         data_name == 'data/urls' ~ 62.280,
+        data_name == 'data/urls-short' ~ 62.204,
         data_name == 'data/wiki' ~ 22.555,
         data_name == 'data/access' ~ 125.54,
         data_name == 'data/genome' ~ 9,
         data_name == 'int' ~ 4,
+        data_name == 'rng4' ~ 4,
         TRUE ~ NA
       ),
-      data_name = factor(data_name,labels=c('data/urls'='urls','data/wiki'='wiki','int'='ints')),
+      data_name = ifelse(data_name =='data/urls-short','data/urls',data_name),
+      data_name = factor(data_name,labels=c('data/urls'='urls','data/wiki'='wiki','int'='ints','rng4'='sparse')),
       op=factor(op),
-      avg_trunc_key_size = case_when(
-        data_name == 'data/urls' ~ 10,
-        data_name == 'data/wiki' ~ 12,
-        data_name == 'int' ~ 2,
-        TRUE ~ NA
-      ),
       # final_key_count = case_when(
       #   op == 'ycsb_c' | op == 'ycsb_c_init' ~ data_size,
       #   op == 'ycsb_e' ~ data_size + scale * 0.025,

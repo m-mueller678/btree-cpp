@@ -6,7 +6,7 @@ from math import floor, log10
 from random import choices, randrange, random
 from uuid import uuid4
 
-STDOUT = 'random-sparse.csv'
+STDOUT = 'random-adapt.csv'
 STDERR = f'errlog-{STDOUT}'
 
 
@@ -36,7 +36,7 @@ while (True):
     psl_exp = 12  # randrange(lower, 16)
     psl = 2 ** psl_exp
     pl = randrange(0, 16) if random() < 0.75 else randrange(0, 256)
-    target_total_size = 10 ** (random() * 1.7 + 7)
+    target_total_size = 10 ** (random() * 0.5 + 8.25)
     density = 1 / 2 ** random()
     key_count = floor(target_total_size / (pl + avg_key_size))
     if key_count > max_key_count:

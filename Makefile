@@ -27,6 +27,8 @@ named_args = -include named-configs/$*.hpp -DNAMED_CONFIG=\"$*\"
 
 all: test.elf optimized.elf $(named_builds)
 
+ycsb-all: $(named_ycsb_n3_builds) $(named_ycsb_d0_builds) $(named_ycsb_d3_builds)
+
 asan.elf: $(sources)
 	$(cxx) -fsanitize=address $(test_cpps)
 
