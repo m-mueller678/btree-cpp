@@ -86,6 +86,12 @@ uint8_t* makePayload(unsigned len)
    return payload;
 }
 
+bool isDataInt(BTreeCppPerfEvent& e)
+{
+   auto name = e.params["data_name"];
+   return name == "int" || name == "rng4";
+}
+
 void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsigned payloadSize, unsigned opCount, double zipfParameter, bool dryRun)
 {
    if (keyCount <= data.size()) {
@@ -100,7 +106,7 @@ void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
 
    uint8_t* payload = makePayload(payloadSize);
 
-   DataStructureWrapper t;
+   DataStructureWrapper t(isDataInt(e));
    {
       // insert
       e.setParam("op", "ycsb_c_init");
@@ -175,7 +181,7 @@ void runYcsbD(BTreeCppPerfEvent e,
       random_shuffle(data.begin(), data.end());
    uint8_t* payload = makePayload(payloadSize);
 
-   DataStructureWrapper t;
+   DataStructureWrapper t(isDataInt(e));
    {
       // insert
       e.setParam("op", "ycsb_d_init");
@@ -245,7 +251,7 @@ void runYcsbE(BTreeCppPerfEvent e,
       random_shuffle(permutation, permutation + data.size());
       delete[] permutation;
    }
-   DataStructureWrapper t;
+   DataStructureWrapper t(isDataInt(e));
    {
       // insert
       e.setParam("op", "ycsb_e_init");

@@ -927,7 +927,7 @@ bool scan(Node* n,
 }
 }  // namespace art
 
-ArtBTreeAdapter::ArtBTreeAdapter() : root(nullptr) {}
+ArtBTreeAdapter::ArtBTreeAdapter(bool isInt) : root(nullptr) {}
 
 uint8_t* ArtBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut)
 {

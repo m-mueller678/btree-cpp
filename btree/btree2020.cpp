@@ -582,7 +582,8 @@ void BTreeNode::destroy()
    this->any()->dealloc();
 }
 
-BTree::BTree() : root((enableHash && !enableHashAdapt) ? HashNode::makeRootLeaf() : BTreeNode::makeLeaf())
+// take isInt to have same interface as in memory structures, but ignore it.
+BTree::BTree(bool isInt) : root((enableHash && !enableHashAdapt) ? HashNode::makeRootLeaf() : BTreeNode::makeLeaf())
 {
 #ifndef NDEBUG
    // prevent print from being optimized out. It is otherwise never called, but nice for debugging
@@ -1062,12 +1063,12 @@ void BTreeNode::validateHint()
    }
 }
 
-DataStructureWrapper::DataStructureWrapper()
+DataStructureWrapper::DataStructureWrapper(bool isInt)
     :
 #ifdef CHECK_TREE_OPS
       std_map(),
 #endif
-      impl(){};
+      impl(isInt){};
 
 void printKey(uint8_t* key, unsigned length)
 {
