@@ -4,3 +4,4 @@
 /data
 /named-build/
 /page-size-builds/
+/hot-*.o

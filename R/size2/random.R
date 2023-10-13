@@ -1,8 +1,8 @@
 source('../common.R')
 
 r1<-read_broken_csv('../../random-1.csv.gz')
-rhot<-read_broken_csv('../../random-hot.csv')
-rsparse<-read_broken_csv('../../random-sparse.csv')
+rhot<-read_broken_csv('../../random-hot.csv.gz')
+rsparse<-read_broken_csv('../../random-sparse.csv.gz')
 radapt<-read_broken_csv('../../random-adapt.csv.gz')
 
 r <- bind_rows(
