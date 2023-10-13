@@ -8,6 +8,9 @@ struct TupleKeyRef {
    unsigned length;
 
    bool operator==(const TupleKeyRef& rhs) const { return length == rhs.length && memcmp(data, rhs.data, length) == 0; }
+   bool operator<(const TupleKeyRef& rhs) const {
+      return std::basic_string_view{data,length} < std::basic_string_view{rhs.data,rhs.length};
+   }
 };
 
 template <typename T>
@@ -91,7 +94,17 @@ void HotBTreeAdapter::range_lookupImpl(uint8_t* key,
                                        uint8_t* keyOut,
                                        const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
-   abort();
+   auto it = hot->hot.lower_bound(TupleKeyRef{key, keyLen});
+   while(true){
+      if (it == HotSS::END_ITERATOR)
+         break;
+      Tuple* tuple = *it;
+      memcpy(keyOut,tuple->data,tuple->keyLen);
+      if (!found_record_cb(tuple->keyLen,tuple->payload(),tuple->payloadLen)) {
+         break;
+      }
+      ++it;
+   }
 }
 void HotBTreeAdapter::range_lookup_descImpl(uint8_t* key,
                                             unsigned int keyLen,
