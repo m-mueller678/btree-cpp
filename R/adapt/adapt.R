@@ -1,7 +1,11 @@
 source('../common.R')
 
 #r<-read_broken_csv('adapt-cmp-p16.csv')
-r <- read_broken_csv('../../adapt-cmp-seq.csv')
+#r <- read_broken_csv('../../adapt-cmp-seq.csv')
+r <- bind_rows(
+  read_broken_csv('adapt-cmp-seq.csv')|>filter(config_name!='hot'),
+  read_broken_csv('adapt-cmp-seq-hot-fixed.csv.gz')
+)
 
 d <- r |>
   augment()|>
