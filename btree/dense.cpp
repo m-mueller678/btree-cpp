@@ -513,6 +513,7 @@ NumericPart DenseNode::getNumericPart(uint8_t* key, unsigned length, unsigned ta
 NumericPart DenseNode::leastGreaterKey(uint8_t* key, unsigned length, unsigned targetLength)
 {
    auto a = getNumericPart(key, length, targetLength);
+   assert(a<UINT32_MAX); // TODO we should check this, but none of our key sets run into this issue
    auto b = length >= targetLength;
    return a + b;
 }
