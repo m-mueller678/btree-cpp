@@ -83,18 +83,18 @@ named-build/%-n3-test: hot-n3.o $(sources)
 	$(cxx) $(test_cpps) -O3 -DNDEBUG $(named_args) hot-n3.o
 
 #### named ycsb
-named-build/%-n3-ycsb: $(sources) hot-n3.o zipfc/target/release/libzipfc.a
+named-build/%-n3-ycsb: $(sources) hot-n3.o tlx_build_n3/libTlxWrapper.a zipfc/target/release/libzipfc.a
 	@mkdir -p named-build
-	$(cxx) $(ycsb_cpps) -O3 -DNDEBUG $(named_args) $(zipfc_link_arg) hot-n3.o
+	$(cxx) $(ycsb_cpps) -O3 -DNDEBUG $(named_args) $(zipfc_link_arg) -Ltlx_build_n3/ -lTlxWrapper hot-n3.o
 
-named-build/%-d0-ycsb: $(sources) hot-d0.o zipfc/target/release/libzipfc.a
+named-build/%-d0-ycsb: $(sources) hot-d0.o tlx_build_d0/libTlxWrapper.a zipfc/target/release/libzipfc.a
 	@mkdir -p named-build
-	$(cxx) $(ycsb_cpps) $(named_args) $(zipfc_link_arg) hot-d0.o
+	$(cxx) $(ycsb_cpps) $(named_args) $(zipfc_link_arg) -Ltlx_build_d0/ -lTlxWrapper hot-d0.o
 
 
-named-build/%-d3-ycsb: $(sources) hot-d0.o zipfc/target/release/libzipfc.a
+named-build/%-d3-ycsb: $(sources) hot-d0.o tlx_build_d0/libTlxWrapper.a zipfc/target/release/libzipfc.a
 	@mkdir -p named-build
-	$(cxx) $(ycsb_cpps) -O3 $(named_args) $(zipfc_link_arg) hot-d0.o
+	$(cxx) $(ycsb_cpps) -O3 $(named_args) $(zipfc_link_arg) -Ltlx_build_d0/ -lTlxWrapper hot-d0.o
 
 hot-d0.o: $(hot_sources)
 	g++-11 -c btree/hot_adapter.cpp -std=c++17 -o $@ -march=native -g $(hot_includes)
@@ -102,6 +102,13 @@ hot-d0.o: $(hot_sources)
 hot-n3.o: $(hot_sources)
 	g++-11 -c  -DNDEBUG -O3 btree/hot_adapter.cpp -std=c++17 -o $@ -march=native -g $(hot_includes)
 
+tlx_build_d0/libTlxWrapper.a: .FORCE
+	mkdir -p tlx_build_d0
+	cd tlx_build_d0; cmake ../tlx_wrapper; cmake --build .
+
+tlx_build_n3/libTlxWrapper.a: .FORCE
+	mkdir -p tlx_build_n3
+	cd tlx_build_n3; cmake ../tlx_wrapper/; cmake --build . --config Release
 
 #### phony
 
@@ -112,3 +119,6 @@ debug-named-tpcc: $(named_tpcc_d3_builds)
 .PHONY: tpcc
 tpcc: $(named_tpcc_n3_builds)
 	parallel --memfree 16G -q -- {1} ::: $(named_tpcc_n3_builds) | awk '/const/ {if(!header)print;header=1} !/const/' > tpcc.csv
+
+.PHONY: .FORCE
+.FORCE:

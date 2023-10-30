@@ -16,6 +16,7 @@
 #include "hot_adapter.hpp"
 #include <map>
 #include "config.hpp"
+#include "../tlx_wrapper/TlxWrapper.h"
 
 #ifndef NDEBUG
 #define CHECK_TREE_OPS
@@ -633,6 +634,8 @@ struct DataStructureWrapper {
    ArtBTreeAdapter impl;
 #elif defined(USE_STRUCTURE_HOT)
    HotBTreeAdapter impl;
+#elif defined(USE_STRUCTURE_TLX)
+   TlxWrapper impl;
 #endif
 
    uint8_t* lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut);
