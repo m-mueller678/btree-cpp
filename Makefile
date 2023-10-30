@@ -104,11 +104,11 @@ hot-n3.o: $(hot_sources)
 
 tlx_build_d0/libTlxWrapper.a: .FORCE
 	mkdir -p tlx_build_d0
-	cd tlx_build_d0; cmake ../tlx_wrapper; cmake --build .
+	cd tlx_build_d0; cmake -DCMAKE_BUILD_TYPE=Debug ../tlx_wrapper; cmake --build .
 
 tlx_build_n3/libTlxWrapper.a: .FORCE
 	mkdir -p tlx_build_n3
-	cd tlx_build_n3; cmake ../tlx_wrapper/; cmake --build . --config Release
+	cd tlx_build_n3; cmake -DCMAKE_BUILD_TYPE=Release ../tlx_wrapper/; cmake --build . --config Release
 
 #### phony
 
