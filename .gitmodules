@@ -1,3 +1,0 @@
-[submodule "tlx_wrapper/tlx"]
-	path = tlx_wrapper/tlx
-	url = git@github.com:tlx/tlx.git
