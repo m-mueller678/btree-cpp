@@ -61,7 +61,7 @@ extremesBy <- function(r, d) {
   d[c(which.min(d[, r]), which.max(d[, r])),]
 }
 
-CONFIG_NAMES <- c('baseline', 'prefix', 'heads', 'hints', 'inner', 'hash', 'dense', 'dense1', 'dense2','adapt', 'art','hot')
+CONFIG_NAMES <- c('baseline', 'prefix', 'heads', 'hints', 'inner', 'hash', 'dense', 'dense1', 'dense2','adapt', 'art','hot','tlx')
 
 VAL_COLS = c("time", "cycle", "instr", "L1_miss", "LLC_miss", "br_miss", "IPC", "CPU", "GHz", "task")
 frame_id_cols <- function(c) setdiff(colnames(c), VAL_COLS)
