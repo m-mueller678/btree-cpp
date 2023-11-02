@@ -13,10 +13,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <functional>
-#include "hot_adapter.hpp"
 #include <map>
-#include "config.hpp"
 #include "../tlx_wrapper/TlxWrapper.h"
+#include "config.hpp"
+#include "hot_adapter.hpp"
 
 #ifndef NDEBUG
 #define CHECK_TREE_OPS
@@ -130,18 +130,18 @@ enum class Tag : uint8_t {
    _last = 6,
 };
 
-constexpr unsigned TAG_END = unsigned(Tag::_last) +1;
+constexpr unsigned TAG_END = unsigned(Tag::_last) + 1;
 const char* tag_name(Tag tag);
 
 struct BTreeNodeHeader {
    static constexpr unsigned hintCount = basicHintCount;
-   static constexpr unsigned underFullSizeLeaf = pageSizeLeaf / 4;  // merge nodes below this size
+   static constexpr unsigned underFullSizeLeaf = pageSizeLeaf / 4;    // merge nodes below this size
    static constexpr unsigned underFullSizeInner = pageSizeInner / 4;  // merge nodes below this size
 
    Tag _tag;
-
-   BTreeNodeHeader(){}
-   BTreeNodeHeader(bool isLeaf);
+   uint16_t count = 0;
+   uint16_t spaceUsed = 0;
+   uint16_t dataOffset;
 
    struct FenceKeySlot {
       uint16_t offset;
@@ -153,13 +153,12 @@ struct BTreeNodeHeader {
    FenceKeySlot lowerFence = {0, 0};  // exclusive
    FenceKeySlot upperFence = {0, 0};  // inclusive
 
-   uint16_t count = 0;
-   uint16_t spaceUsed = 0;
-   uint16_t dataOffset;
    uint16_t prefixLength = 0;
 
    uint32_t hint[hintCount];
-   uint32_t padding;
+
+   BTreeNodeHeader() {}
+   BTreeNodeHeader(bool isLeaf);
 };
 
 struct HashNode;
@@ -175,13 +174,13 @@ struct BTreeNode : public BTreeNodeHeader {
       };
    } __attribute__((packed));
    union {
-      Slot slot[1]; // grows from front
-      uint8_t heap[1]; // grows from back
+      Slot slot[1];     // grows from front
+      uint8_t heap[1];  // grows from back
    };
 
    // this struct does not have appropriate size.
    // Get Some storage location and call init.
-   BTreeNode()=delete;
+   BTreeNode() = delete;
    static constexpr unsigned maxKVSize = ((pageSizeLeaf - sizeof(BTreeNodeHeader) - (2 * sizeof(Slot)))) / 4;
 
    void init(bool isLeaf);
@@ -279,10 +278,10 @@ struct BTreeNode : public BTreeNodeHeader {
    void copyKeyValueRangeToHash(HashNode* dst, unsigned int dstSlot, unsigned int srcSlot, unsigned int srcCount);
 };
 
-union TmpBTreeNode{
+union TmpBTreeNode {
    BTreeNode node;
-   uint8_t _bytes[std::max(pageSizeLeaf,pageSizeInner)];
-   TmpBTreeNode(){}
+   uint8_t _bytes[std::max(pageSizeLeaf, pageSizeInner)];
+   TmpBTreeNode() {}
 };
 
 typedef uint32_t NumericPart;
@@ -299,11 +298,11 @@ enum KeyError : int {
    FarTooLarge = -4,
 };
 
-struct DenseNode  {
+struct DenseNode {
    Tag tag;
    uint16_t fullKeyLen;
    NumericPart arrayStart;
-   union{
+   union {
       uint16_t spaceUsed;
       uint16_t valLen;
    };
@@ -311,16 +310,16 @@ struct DenseNode  {
    uint16_t occupiedCount;
    uint16_t lowerFenceLen;
    union {
-      struct{
+      struct {
          uint16_t upperFenceLen;
          uint16_t prefixLength;
          uint16_t _mask_pad[2];
          Mask mask[(pageSizeLeaf - 24) / sizeof(Mask)];
       };
-      struct{
+      struct {
          uint16_t _union_pad[2];
          uint16_t dataOffset;
-         uint16_t slots[(pageSizeLeaf - 22)/sizeof (uint16_t)];
+         uint16_t slots[(pageSizeLeaf - 22) / sizeof(uint16_t)];
       };
       uint8_t _expand_heap[pageSizeLeaf - 16];
    };
@@ -350,10 +349,10 @@ struct DenseNode  {
    static unsigned computeNumericPrefixLength(unsigned fullKeyLen);
 
    void changeLowerFence(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen);
-   static bool densify1(DenseNode* out,BTreeNode* basicNode);
-   static bool densify2(DenseNode* out,BTreeNode* from);
-   void init2b(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen, unsigned fullKeyLen,unsigned slotCount);
-   int cmpNumericPrefix(uint8_t* key,unsigned length);
+   static bool densify1(DenseNode* out, BTreeNode* basicNode);
+   static bool densify2(DenseNode* out, BTreeNode* from);
+   void init2b(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen, unsigned fullKeyLen, unsigned slotCount);
+   int cmpNumericPrefix(uint8_t* key, unsigned length);
 
    unsigned maskWordCount();
 
@@ -361,8 +360,8 @@ struct DenseNode  {
    void zeroSlots();
 
    // rounds down
-   static NumericPart getNumericPart(uint8_t* key,unsigned length,unsigned targetLength);
-   static NumericPart leastGreaterKey(uint8_t* key,unsigned length,unsigned targetLength);
+   static NumericPart getNumericPart(uint8_t* key, unsigned length, unsigned targetLength);
+   static NumericPart leastGreaterKey(uint8_t* key, unsigned length, unsigned targetLength);
    void updateArrayStart();
 
    uint8_t* ptr();
@@ -374,7 +373,7 @@ struct DenseNode  {
    bool isSlotPresent(unsigned i);
 
    void setSlotPresent(unsigned i);
-   void insertSlotWithSpace(unsigned i,uint8_t* payload,unsigned payloadLen);
+   void insertSlotWithSpace(unsigned i, uint8_t* payload, unsigned payloadLen);
    bool requestSpaceFor(unsigned payloadLen);
    unsigned slotEndOffset();
    unsigned slotValLen(unsigned index);
@@ -388,9 +387,9 @@ struct DenseNode  {
    bool is_underfull();
    BTreeNode* convertToBasic();
    bool range_lookup1(uint8_t* key,
-                     unsigned int keyLen,
-                     uint8_t* keyOut,
-                     const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
+                      unsigned int keyLen,
+                      uint8_t* keyOut,
+                      const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
    bool range_lookup2(uint8_t* key,
                       unsigned int keyLen,
                       uint8_t* keyOut,
@@ -399,7 +398,7 @@ struct DenseNode  {
                           unsigned int keyLen,
                           uint8_t* keyOut,
                           const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb);
-   bool isNumericRangeAnyLen(uint8_t* key,unsigned length);
+   bool isNumericRangeAnyLen(uint8_t* key, unsigned length);
    void print();
 };
 
