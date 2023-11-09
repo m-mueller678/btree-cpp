@@ -336,7 +336,7 @@ void runSortedScan(BTreeCppPerfEvent e,
    DataStructureWrapper t(isDataInt(e));
    {
       // insert
-      e.setParam("op", "ycsb_c_init");
+      e.setParam("op", "sorted_scan_init");
       BTreeCppPerfEventBlock b(e, t, keyCount);
       if (!dryRun)
          for (uint64_t i = 0; i < keyCount; i++) {
