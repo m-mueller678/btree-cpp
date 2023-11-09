@@ -312,6 +312,69 @@ void runYcsbE(BTreeCppPerfEvent e,
    }
 }
 
+void runSortedScan(BTreeCppPerfEvent e,
+                   vector<string>& data,
+                   unsigned keyCount,
+                   unsigned payloadSize,
+                   unsigned opCount,
+                   unsigned maxScanLength,
+                   double zipfParameter,
+                   bool dryRun)
+{
+   if (keyCount <= data.size()) {
+      if (!dryRun)
+         random_shuffle(data.begin(), data.end());
+      data.resize(keyCount);
+   } else {
+      std::cerr << "not enough keys" << std::endl;
+      keyCount = 0;
+      opCount = 0;
+   }
+
+   uint8_t* payload = makePayload(payloadSize);
+
+   DataStructureWrapper t(isDataInt(e));
+   {
+      // insert
+      e.setParam("op", "ycsb_c_init");
+      BTreeCppPerfEventBlock b(e, t, keyCount);
+      if (!dryRun)
+         for (uint64_t i = 0; i < keyCount; i++) {
+            uint8_t* key = (uint8_t*)data[i].data();
+            unsigned int length = data[i].size();
+            t.insert(key, length, payload, payloadSize);
+         }
+   }
+   uint8_t keyBuffer[BTreeNode::maxKVSize];
+   std::minstd_rand generator(std::rand());
+   std::uniform_int_distribution<unsigned> scanLengthDistribution{1, maxScanLength};
+
+   t.range_lookup(payload, 0, keyBuffer, [&](unsigned keyLen, uint8_t* payload, unsigned loadedPayloadLen) { return true; });
+
+   {
+      e.setParam("op", "sorted_scan");
+      BTreeCppPerfEventBlock b(e, t, opCount);
+      if (!dryRun)
+         for (uint64_t i = 0; i < opCount; i++) {
+            unsigned keyIndex = zipf_next(e, keyCount, zipfParameter, false, false);
+            assert(keyIndex < data.size());
+            unsigned scanLength = scanLengthDistribution(generator);
+
+            unsigned foundIndex = 0;
+            uint8_t* key = (uint8_t*)data[keyIndex].data();
+            unsigned int keyLen = data[keyIndex].size();
+            auto callback = [&](unsigned keyLen, uint8_t* payload, unsigned loadedPayloadLen) {
+               if (payloadSize != loadedPayloadLen) {
+                  throw;
+               }
+               foundIndex += 1;
+               return foundIndex < scanLength;
+            };
+            t.range_lookup(key, keyLen, keyBuffer, callback);
+         }
+   }
+}
+
 int main(int argc, char* argv[])
 {
    bool dryRun = getenv("DRYRUN");
@@ -461,6 +524,10 @@ int main(int argc, char* argv[])
       }
       case 5: {
          runYcsbE(e, data, keyCount, payloadSize, opCount, maxScanLength, zipfParameter, dryRun);
+         break;
+      }
+      case 501: {
+         runSortedScan(e, data, keyCount, payloadSize, opCount, maxScanLength, zipfParameter, dryRun);
          break;
       }
       default: {
