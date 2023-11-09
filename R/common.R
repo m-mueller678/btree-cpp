@@ -6,7 +6,7 @@ library(stringr)
 library(scales)
 library(tidyr)
 library(patchwork)
-
+library(forcats)
 
 format_si <- function(...) {
   # https://stackoverflow.com/a/21089837
@@ -61,10 +61,14 @@ extremesBy <- function(r, d) {
   d[c(which.min(d[, r]), which.max(d[, r])),]
 }
 
-CONFIG_NAMES <- c('baseline', 'prefix', 'heads', 'hints', 'inner', 'hash', 'dense', 'dense1', 'dense2','adapt', 'art','hot','tlx')
+CONFIG_NAMES <- c('baseline', 'prefix', 'heads', 'hints', 'inner', 'hash', 'dense', 'dense1', 'dense2', 'adapt', 'art', 'hot', 'tlx')
 
 VAL_COLS = c("time", "cycle", "instr", "L1_miss", "LLC_miss", "br_miss", "IPC", "CPU", "GHz", "task")
 frame_id_cols <- function(c) setdiff(colnames(c), VAL_COLS)
+
+DATA_LABELS <- c('data/urls' = 'urls-full', 'data/urls-short' = 'urls', 'data/wiki' = 'wiki', 'int' = 'ints', 'rng4' = 'sparse')
+
+OP_LABELS <- c('ycsb_c' = 'ycsb-c', 'ycsb_c_init' = 'insert', 'ycsb_e' = 'ycsb-e', 'ycsb_e_init' = 'ycsb_e_init','sorted_scan'='scan')
 
 augment <- function(d) {
   d|>
@@ -81,15 +85,14 @@ augment <- function(d) {
         data_name == 'rng4' ~ 4,
         TRUE ~ NA
       ),
-      data_name = ifelse(data_name =='data/urls-short','data/urls',data_name),
-      data_name = factor(data_name,labels=c('data/urls'='urls','data/wiki'='wiki','int'='ints','rng4'='sparse')),
-      op=factor(op),
+      data_name = factor(data_name, levels = names(DATA_LABELS), labels = DATA_LABELS),
+      op = factor(op,names(OP_LABELS)),
       # final_key_count = case_when(
       #   op == 'ycsb_c' | op == 'ycsb_c_init' ~ data_size,
       #   op == 'ycsb_e' ~ data_size + scale * 0.025,
       # ),
-      final_key_count= case_when(
-        config_name=='art' ~ 0,
+      final_key_count = case_when(
+        config_name == 'art' ~ 0,
         TRUE ~ counted_final_key_count
       ),
       leaf_count = nodeCount_Leaf +
@@ -102,18 +105,35 @@ augment <- function(d) {
       node_count = leaf_count + inner_count,
       keys_per_leaf = counted_final_key_count / leaf_count,
       total_size = data_size * (avg_key_size + payload_size),
-      config_name = factor(config_name, levels = CONFIG_NAMES)
+      config_name = factor(config_name, levels = CONFIG_NAMES),
+      txs=scale/time,
     )|>
     select(-starts_with("const"))
+}
+
+OUTPUT_COLS <- c("time", "nodeCount_Leaf", "nodeCount_Inner",
+                 "nodeCount_Dense", "nodeCount_Hash", "nodeCount_Head4", "nodeCount_Head8", "nodeCount_Dense2",
+                 "counted_final_key_count", "cycle", "instr", "L1_miss", "LLC_miss",
+                 "br_miss", "task", "IPC", "CPU",
+                 "GHz", "psi", "psl", "avg_key_size", "final_key_count",
+                 "leaf_count", "inner_count", "node_count", "keys_per_leaf", "total_size","rand_seed","txs"
+)
+
+display_rename <- function(d) {
+  d|>mutate(
+    data_name = fct_recode(data_name, 'dense' = 'ints'),
+    op = fct_recode(op, 'ycsb-c' = 'ycsb_c', 'insert' = 'ycsb_c_init', 'ycsb-e' = 'ycsb_e'),
+    config_name = fct_recode(config_name, 'prefix truncation' = 'prefix', 'fully dense' = 'dense1', 'semi dense' = 'dense2', 'fingerprinting' = 'hash', 'integer separators' = 'inner')
+  )
 }
 
 label_page_size <- function(x) {
   ifelse(2^x < 1024, paste(2^x, "B"), scales::label_bytes(units = 'auto_binary')(2^x))
 }
 
-read_broken_csv <- function(path){
-  data <-read.csv(path, strip.white = TRUE)
+read_broken_csv <- function(path) {
+  data <- read.csv(path, strip.white = TRUE)
   data <- data[data[[1]] != colnames(data)[1],]
-  tibble(data.frame(lapply(data, type.convert,as.is=TRUE)))
+  tibble(data.frame(lapply(data, type.convert, as.is = TRUE)))
 }
 
