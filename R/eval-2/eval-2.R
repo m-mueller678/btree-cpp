@@ -2,17 +2,18 @@ source('../common.R')
 
 
 r <- bind_rows(
-  # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 10) ::: 3 5 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/*-n3-ycsb | tee R/eval-2/seq-zipf-2.csv
+  # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 50) ::: 3 5 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/*-n3-ycsb | tee R/eval-2/seq-zipf-2.csv
   read_broken_csv('seq-zipf-2.csv'),
   # sorted scans for hash vs hint
   # init is wrongly labeled as ycsb_c_init
-  # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 10) ::: 501 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/hints-n3-ycsb named-build/hash-n3-ycsb | tee R/eval-2/sorted-scan-seq.csv
-  read_broken_csv('sorted-scan-seq.csv')|>filter(op=='sorted_scan')
+  # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 50) ::: 501 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/hints-n3-ycsb named-build/hash-n3-ycsb | tee R/eval-2/sorted-scan-seq.csv
+  read_broken_csv('sorted-scan-seq.csv')|>filter(op=='sorted_scan'),
+  read_broken_csv('dense-sorted.csv'),
 )
 
 
 d <- r |>
-  filter(op %in% c("ycsb_c", "ycsb_c_init", "ycsb_e","sorted_scan"))|>
+  filter(op != "ycsb_e_init")|>
   augment()|>
   filter(scale > 0)
 
@@ -294,3 +295,114 @@ config_pivot|>
   mutate(r = br_miss_hash / br_miss_hints - 1)|>
   select(data_name, op, br_miss_hints, br_miss_hash, r)|>
   arrange(r)
+
+#dense leaves
+
+dense_joined <- d|>
+  filter(config_name %in% c('dense1', 'dense2'))|>
+  full_join( d|>filter(config_name=='hints') ,by=c('op','run_id','data_name'),relationship = 'many-to-one')
+
+d|>group_by(config_name,data_name,op)|>mutate(count=n())|>filter(n()>1)|>glimpse()
+d|>filter(config_name=='art',data_name=='urls',op=='ycsb_c')|>glimpse()
+
+config_pivot|>
+  filter(data_name=='ints')|>
+  select(data_name,op,br_miss_hints,br_miss_dense1,br_miss_dense2)
+
+config_pivot|>
+  filter(data_name=='ints')|>
+  filter(op=='ycsb_c')|>
+  select(data_name,op,node_count_hints,node_count_dense1,node_count_dense2,
+         final_key_count_hints,final_key_count_dense1,final_key_count_dense2)|>glimpse()
+
+# TODO dense2 final key count seems broken.
+
+d|>filter(config_name=='dense2',data_name=='ints')|>View()
+
+(
+  dense_joined|>
+    filter(op == 'ycsb_c',data_name=='ints')|>
+    ggplot() +
+    geom_bar(aes(x = config_name.x, y = 1-node_count.x / node_count.y),stat='summary',fun=mean) +
+    scale_y_continuous(labels = label_percent(), expand = expansion(mult = c(0, .1)),) +
+    labs(x = 'key set', y = "Relative") +
+    coord_flip()
+)|(
+  dense_joined|>
+    filter(op == 'ycsb_c',data_name=='ints')|>
+    ggplot() +
+    geom_bar(aes(x = config_name.x, y = node_count.x*4096/final_key_count.x - node_count.y*4096/final_key_count.y),stat='summary',fun=mean) +
+    scale_y_continuous(
+      labels = function(y) paste0(y," B"),
+      expand = expansion(mult = c(0, .1)))+
+    labs(y = "Per Record") +
+    theme(axis.title.y = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank())+
+    coord_flip()
+)
+
+d|>filter(op %in% c("ycsb_c", "ycsb_c_init", "ycsb_e","sorted_insert"))|>
+  filter(config_name %in% c("dense1","dense2","hints"))|>
+  filter(data_name=='ints')|>
+  group_by(op,config_name)|>
+  summarise(txs=mean(txs))
+
+
+  d|>
+  filter(op %in% c("ycsb_c", "ycsb_c_init", "ycsb_e","sorted_insert"))|>
+  filter(config_name %in% c("dense1","dense2","hints"))|>
+  filter(data_name=='ints')|>
+  ggplot()+
+  geom_bar(aes(x=op,fill=config_name,y=txs),stat='summary',fun=mean,position='dodge')
+
+d|>filter(op=='sorted_insert',config_name=='dense2')|>glimpse()
+
+dense_joined|>
+  filter(data_name=='ints')|>
+  filter(op %in% c("ycsb_c", "ycsb_c_init", "ycsb_e","sorted_insert"))|>
+  ggplot() +
+  facet_nested(. ~ config_name.x,labeller = labeller('config_name.x' = CONFIG_LABELS)) +
+  geom_bar(aes(x = op, y = txs.x / txs.y - 1),position = 'dodge',stat='summary',fun=mean) +
+  scale_y_continuous(labels = label_percent()) +
+  scale_x_discrete(labels = OP_LABELS) +
+  labs(x = NULL, y = "Speedup")
+
+var_density<- read_broken_csv('dense-density.csv')|>
+  filter(op %in% c("ycsb_c"),run_id<=15)|>
+  augment()
+
+(
+var_density|>
+  ggplot(aes(x=density,y=txs,col=config_name))+
+  geom_smooth(se=FALSE)+
+  scale_x_continuous(labels=NULL,expand = expansion(add=0))+
+  scale_y_continuous(
+    expand = expansion(mult = c(0, .1)),
+    labels = label_number(scale_cut = cut_si('tx/s'))
+  )+
+  geom_point()+
+  labs(y='Throughput',x=NULL)+
+theme(axis.title.y = element_text(angle = 0, vjust = 0.5, hjust=1),legend.position = "none")
+)/ (
+  var_density|>
+    ggplot(aes(x=density,y=node_count*4096/25000000,col=config_name))+
+    geom_point()+
+    labs(y="Space per Record",x=NULL)+
+    scale_x_continuous(expand = expansion(add=0),labels=NULL)+
+    scale_y_continuous(
+      labels = function(y) paste0(y," B"),
+      expand = expansion(mult = c(0, .1)))+
+    theme(axis.title.y = element_text(angle = 0, vjust = 0.5, hjust=1))
+)/(
+  var_density|>
+    ggplot(aes(x=density,y=(nodeCount_Dense2+nodeCount_Dense)/leaf_count,col=config_name))+
+    geom_point()+
+    scale_y_continuous(labels = label_percent()) +
+    scale_x_continuous(expand = expansion(add=0),labels = label_percent())+
+    labs(y="Fraction of Dense Leaves")+
+    theme(axis.title.y = element_text(angle = 0, vjust = 0.5, hjust=1),legend.position = "none")
+)
+
+
+#integer separators

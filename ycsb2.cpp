@@ -138,6 +138,35 @@ void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
    data.clear();
 }
 
+void runSortedInsert(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsigned payloadSize, bool dryRun)
+{
+   if (keyCount <= data.size()) {
+      data.resize(keyCount);
+      if (!dryRun) {
+         std::sort(data.begin(), data.end());
+      }
+   } else {
+      std::cerr << "not enough keys" << std::endl;
+      keyCount = 0;
+   }
+
+   uint8_t* payload = makePayload(payloadSize);
+
+   DataStructureWrapper t(isDataInt(e));
+   {
+      // insert
+      e.setParam("op", "sorted_insert");
+      BTreeCppPerfEventBlock b(e, t, keyCount);
+      if (!dryRun)
+         for (uint64_t i = 0; i < keyCount; i++) {
+            uint8_t* key = (uint8_t*)data[i].data();
+            unsigned int length = data[i].size();
+            t.insert(key, length, payload, payloadSize);
+         }
+   }
+   data.clear();
+}
+
 bool computeInitialKeyCount(unsigned avgKeyCount,
                             unsigned availableKeyCount,
                             unsigned opCount,
@@ -422,14 +451,13 @@ int main(int argc, char* argv[])
 
       // Generate a random boolean value
       bool result = dist(gen);
-      unsigned genCount = envu64("YCSB_VARIANT") == 3 ? keyCount : keyCount + opCount;
+      unsigned genCount = (envu64("YCSB_VARIANT") == 3 ? keyCount : keyCount + opCount) / intDensity;
       vector<uint32_t> v;
       if (dryRun) {
          data.resize(genCount);
       } else {
          for (uint32_t i = 0; v.size() < genCount; i++)
-            if (intDensity >= 1.0 || dist(gen))
-               v.push_back(i);
+            v.push_back(i);
          string s;
          s.resize(4);
          for (auto x : v) {
@@ -520,6 +548,10 @@ int main(int argc, char* argv[])
       }
       case 4: {
          runYcsbD(e, data, keyCount, payloadSize, opCount, zipfParameter, dryRun);
+         break;
+      }
+      case 401: {
+         runSortedInsert(e, data, keyCount, payloadSize, dryRun);
          break;
       }
       case 5: {

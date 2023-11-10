@@ -68,7 +68,8 @@ frame_id_cols <- function(c) setdiff(colnames(c), VAL_COLS)
 
 DATA_LABELS <- c('data/urls' = 'urls-full', 'data/urls-short' = 'urls', 'data/wiki' = 'wiki', 'int' = 'ints', 'rng4' = 'sparse')
 
-OP_LABELS <- c('ycsb_c' = 'ycsb-c', 'ycsb_c_init' = 'insert', 'ycsb_e' = 'ycsb-e', 'ycsb_e_init' = 'ycsb_e_init','sorted_scan'='scan')
+OP_LABELS <- c('ycsb_c' = 'ycsb-c', 'ycsb_c_init' = 'insert', 'ycsb_e' = 'ycsb-e', 'ycsb_e_init' = 'ycsb_e_init','sorted_scan'='scan','sorted_insert'='ordered insert')
+CONFIG_LABELS <- c('prefix'='prefix truncation', 'dense1'='fully dense', 'dense2'='semi dense', 'hash'='fingerprinting', 'inner'='integer separators')
 
 augment <- function(d) {
   d|>
@@ -123,7 +124,7 @@ display_rename <- function(d) {
   d|>mutate(
     data_name = fct_recode(data_name, 'dense' = 'ints'),
     op = fct_recode(op, 'ycsb-c' = 'ycsb_c', 'insert' = 'ycsb_c_init', 'ycsb-e' = 'ycsb_e'),
-    config_name = fct_recode(config_name, 'prefix truncation' = 'prefix', 'fully dense' = 'dense1', 'semi dense' = 'dense2', 'fingerprinting' = 'hash', 'integer separators' = 'inner')
+    config_name = fct_recode(config_name, setNames(names(CONFIG_LABELS), CONFIG_LABELS))
   )
 }
 
