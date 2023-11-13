@@ -41,21 +41,28 @@ TupleKeyRef HotTupleKeyExtractor<Tuple*>::operator()(TupleKeyRef k)
 template <typename T>
 struct HotTupleIntKeyExtractor {
    template <typename K>
-   uint32_t operator()(K);
+   std::array<uint8_t, 4> operator()(K);
 };
 
 template <>
 template <>
-uint32_t HotTupleIntKeyExtractor<Tuple*>::operator()(Tuple* t)
+std::array<uint8_t, 4> HotTupleIntKeyExtractor<Tuple*>::operator()(Tuple* t)
 {
    assert(t->keyLen == 4);
-   uint32_t x;
+   std::array<uint8_t, 4> x;
    memcpy(&x, t->data, 4);
    return x;
 };
 
+template <>
+template <>
+std::array<uint8_t, 4> HotTupleIntKeyExtractor<Tuple*>::operator()(std::array<uint8_t, 4> x)
+{
+   return x;
+};
+
 typedef hot::singlethreaded::HOTSingleThreaded<Tuple*, HotTupleKeyExtractor> HotSS;
-typedef hot::singlethreaded::HOTSingleThreaded<Tuple*, HotTupleKeyExtractor> HotSSI;
+typedef hot::singlethreaded::HOTSingleThreaded<Tuple*, HotTupleIntKeyExtractor> HotSSI;
 
 struct Hot {
    HotSS string_hot;
@@ -89,8 +96,8 @@ constexpr inline size_t getMaxKeyLength<TupleKeyRef>()
 uint8_t* HotBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut)
 {
    if (hot->isInt) {
-      auto it = hot->int_hot.find(TupleKeyRef{key, keyLength});
-      if (it == HotSS::END_ITERATOR)
+      auto it = hot->int_hot.find(*reinterpret_cast<std::array<uint8_t, 4>*>(key));
+      if (it == HotSSI::END_ITERATOR)
          return nullptr;
       Tuple* tuple = *it;
       payloadSizeOut = tuple->payloadLen;
@@ -127,9 +134,9 @@ void HotBTreeAdapter::range_lookupImpl(uint8_t* key,
                                        const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
    if (hot->isInt) {
-      auto it = hot->int_hot.lower_bound(TupleKeyRef{key, keyLen});
+      auto it = hot->int_hot.lower_bound(*reinterpret_cast<std::array<uint8_t, 4>*>(key));
       while (true) {
-         if (it == HotSS::END_ITERATOR)
+         if (it == HotSSI::END_ITERATOR)
             break;
          Tuple* tuple = *it;
          memcpy(keyOut, tuple->data, tuple->keyLen);
