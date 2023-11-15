@@ -512,6 +512,8 @@ int main(int argc, char* argv[])
          data.resize(262084);
       else if (dryRun && keySet == "file:data/urls")
          data.resize(6393703);
+      else if (dryRun && keySet == "file:data/urls-short")
+         data.resize(6391379);
       else if (dryRun && keySet == "file:data/wiki")
          data.resize(15772029);
       else if (dryRun) {

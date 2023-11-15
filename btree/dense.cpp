@@ -382,9 +382,6 @@ bool DenseNode::densify2(DenseNode* out, BTreeNode* from)
    ASSUME(arrayStart < arrayEnd);
    if (arrayEnd - arrayStart >= pageSizeLeaf / 2)
       return false;
-   for (unsigned i = from->prefixLength; i + sizeof(NumericPart) < keyLen && i < from->upperFence.length; ++i)
-      if (from->getLowerFence()[i] != from->getUpperFence()[i])
-         return false;
    for (unsigned i = 1; i < from->count; ++i) {
       if (from->slot[i].keyLen != from->slot[0].keyLen) {
          return false;
