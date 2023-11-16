@@ -7,6 +7,7 @@ library(scales)
 library(tidyr)
 library(patchwork)
 library(forcats)
+library(readr)
 
 format_si <- function(...) {
   # https://stackoverflow.com/a/21089837
@@ -66,7 +67,9 @@ CONFIG_NAMES <- c('baseline', 'prefix', 'heads', 'hints', 'inner', 'hash', 'dens
 VAL_COLS = c("time", "cycle", "instr", "L1_miss", "LLC_miss", "br_miss", "IPC", "CPU", "GHz", "task")
 frame_id_cols <- function(c) setdiff(colnames(c), VAL_COLS)
 
-DATA_LABELS <- c('data/urls' = 'urls-full', 'data/urls-short' = 'urls', 'data/wiki' = 'wiki', 'int' = 'ints', 'rng4' = 'sparse')
+DATA_MAP <- c('data/urls' = 'urls-full', 'data/urls-short' = 'urls', 'data/wiki' = 'wiki', 'int' = 'ints', 'rng4' = 'sparse')
+DATA_LABELS <- c('urls-full' = 'urls-full', 'urls' = 'urls', 'wiki' = 'wiki', 'ints' = 'dense', 'sparse' = 'sparse')
+
 
 OP_LABELS <- c('ycsb_c' = 'ycsb-c', 'ycsb_c_init' = 'insert', 'ycsb_e' = 'ycsb-e', 'ycsb_e_init' = 'ycsb_e_init','sorted_scan'='scan','sorted_insert'='ordered insert')
 CONFIG_LABELS <- c('prefix'='prefix truncation', 'dense1'='fully dense', 'dense2'='semi dense', 'hash'='fingerprinting', 'inner'='integer separators')
@@ -86,7 +89,7 @@ augment <- function(d) {
         data_name == 'rng4' ~ 4,
         TRUE ~ NA
       ),
-      data_name = factor(data_name, levels = names(DATA_LABELS), labels = DATA_LABELS),
+      data_name = factor(data_name, levels = names(DATA_MAP), labels = DATA_MAP),
       op = factor(op,names(OP_LABELS)),
       # final_key_count = case_when(
       #   op == 'ycsb_c' | op == 'ycsb_c_init' ~ data_size,
@@ -119,14 +122,6 @@ OUTPUT_COLS <- c("time", "nodeCount_Leaf", "nodeCount_Inner",
                  "GHz", "psi", "psl", "avg_key_size", "final_key_count",
                  "leaf_count", "inner_count", "node_count", "keys_per_leaf", "total_size","rand_seed","txs"
 )
-
-display_rename <- function(d) {
-  d|>mutate(
-    data_name = fct_recode(data_name, 'dense' = 'ints'),
-    op = fct_recode(op, 'ycsb-c' = 'ycsb_c', 'insert' = 'ycsb_c_init', 'ycsb-e' = 'ycsb_e'),
-    config_name = fct_recode(config_name, setNames(names(CONFIG_LABELS), CONFIG_LABELS))
-  )
-}
 
 label_page_size <- function(x) {
   ifelse(2^x < 1024, paste(2^x, "B"), scales::label_bytes(units = 'auto_binary')(2^x))

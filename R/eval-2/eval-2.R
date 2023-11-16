@@ -40,17 +40,26 @@ config_pivot <- d|>
 d|>
   filter(!(config_name %in% c('adapt', 'hot', 'art', 'tlx')))|>
   filter(op %in% c('ycsb_c', 'ycsb_c_init'))|>
-  display_rename()|>
   ggplot() +
-  facet_nested(op ~ data_name, scales = 'free') +
+  facet_nested(op ~ data_name, scales = 'free',labeller = labeller(
+    op=OP_LABELS,
+    data_name=DATA_LABELS,
+  ))+
   geom_bar(aes(x = config_name, y = scale / time, fill = config_name), stat = 'summary', fun = mean) +
   scale_y_continuous(
     expand = expansion(mult = c(0, .1)),
-    labels = label_number(scale_cut = cut_si('tx/s'))
+    labels = label_number(scale_cut = cut_si('op/s'))
   ) +
-  scale_fill_hue() +
+  scale_fill_brewer(labels = CONFIG_LABELS,type='qual',palette='Dark2') +
+  theme_bw()+
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
-  labs(x = NULL, y = "Throughput", fill = 'Configuration')
+  labs(x = NULL, y = "Throughput", fill = 'Configuration')+
+  theme(
+    text = element_text(size = 24),
+        legend.position = 'bottom',
+        panel.spacing.y = unit(1.5, "lines"),
+  )+
+  guides(fill = guide_legend(ncol = 2))
 
 d|>
   filter(!(config_name %in% c('adapt', 'hot', 'art', 'tlx')))|>
@@ -68,6 +77,11 @@ d|>
   labs(x = NULL, y = "Node Count", fill = 'Configuration')
 
 config_pivot|>
+  mutate(r=txs_hints/txs_baseline)|>
+  select(data_name,op,txs_baseline,txs_hints,r)|>
+    arrange(r)
+
+config_pivot|>
   select(data_name, op, txs_baseline, txs_best, txs_best_speedup)|>
   arrange(op, txs_best_speedup)
 
@@ -77,6 +91,16 @@ config_pivot|>
 
 
 # prefix
+
+config_pivot|>
+  mutate(r=keys_per_leaf_prefix/keys_per_leaf_baseline)|>
+  select(data_name,op,keys_per_leaf_prefix,keys_per_leaf_baseline,r)|>
+  arrange(r)
+
+config_pivot|>
+  mutate(r=1-node_count_prefix/node_count_baseline)|>
+  select(data_name,op,node_count_prefix,node_count_baseline,r)|>
+  arrange(r)
 
 config_pivot|>
   mutate(r = instr_prefix / instr_baseline - 1)|>
@@ -155,6 +179,15 @@ config_pivot|>
     coord_flip()
 )
 
+config_pivot|>
+  mutate(r=1-keys_per_leaf_heads/keys_per_leaf_prefix)|>
+  select(data_name,op,keys_per_leaf_heads,keys_per_leaf_prefix,r)|>
+  arrange(r)
+
+config_pivot|>
+  mutate(r = txs_heads / txs_prefix - 1)|>
+  select(data_name, op, txs_prefix, txs_heads, r)|>
+  arrange(r)
 
 config_pivot|>
   mutate(r = instr_heads / instr_prefix - 1)|>
@@ -278,6 +311,11 @@ config_pivot|>
 )
 
 config_pivot|>
+  mutate(r = txs_hash / txs_hints - 1)|>
+  select(data_name, op, txs_hints, txs_hash, r)|>
+  arrange(r)
+
+config_pivot|>
   mutate(r = instr_hash / instr_hints - 1)|>
   select(data_name, op, instr_hints, instr_hash, r)|>
   arrange(r)
@@ -307,6 +345,16 @@ config_pivot|>
 dense_joined <- d|>
   filter(config_name %in% c('dense1', 'dense2'))|>
   full_join(d|>filter(config_name == 'hints'), by = c('op', 'run_id', 'data_name'), relationship = 'many-to-one')
+
+config_pivot|>
+  mutate(r = txs_dense1 / txs_hints - 1)|>
+  select(data_name, op, txs_hints, txs_dense1, r)|>
+  arrange(r)
+
+config_pivot|>
+  mutate(r = txs_dense2 / txs_hints - 1)|>
+  select(data_name, op, txs_hints, txs_dense2, r)|>
+  arrange(r)
 
 d|>
   group_by(config_name, data_name, op)|>
