@@ -1,5 +1,6 @@
 #include "btree2020.hpp"
 #include "head.hpp"
+#include <iostream>
 
 Tag AnyNode::tag()
 {
@@ -384,6 +385,7 @@ void AnyNode::nodeCount(unsigned counts[int(Tag::_last) + 2])
          }
          break;
       case Tag::Leaf:
+         std::cout<<basic()->prefixLength<<"\n";
          counts[key_count_index] += basic()->count;
          break;
       case Tag::Dense:

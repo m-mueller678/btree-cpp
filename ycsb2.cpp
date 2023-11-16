@@ -109,14 +109,19 @@ void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
    DataStructureWrapper t(isDataInt(e));
    {
       // insert
-      e.setParam("op", "ycsb_c_init");
-      BTreeCppPerfEventBlock b(e, t, keyCount);
+      //e.setParam("op", "ycsb_c_init");
+      //BTreeCppPerfEventBlock b(e, t, keyCount);
       if (!dryRun)
          for (uint64_t i = 0; i < keyCount; i++) {
             uint8_t* key = (uint8_t*)data[i].data();
             unsigned int length = data[i].size();
             t.insert(key, length, payload, payloadSize);
          }
+      unsigned counts[200];
+#if defined(USE_STRUCTURE_BTREE)
+      t.impl.root->nodeCount(counts);
+#endif
+      std::exit(0);
    }
 
    {
