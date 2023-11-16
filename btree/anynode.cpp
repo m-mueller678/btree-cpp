@@ -385,7 +385,7 @@ void AnyNode::nodeCount(unsigned counts[int(Tag::_last) + 2])
          }
          break;
       case Tag::Leaf:
-         std::cout<<basic()->prefixLength<<"\n";
+         std::cout<<basic()->prefixLength<<","<<basic()->count<<"\n";
          counts[key_count_index] += basic()->count;
          break;
       case Tag::Dense:
