@@ -364,36 +364,37 @@ bool AnyNode::splitNodeWithParent(AnyNode* parent, uint8_t* key, unsigned keyLen
 
 void AnyNode::nodeCount(unsigned counts[int(Tag::_last) + 2])
 {
-   int key_count_index = int(Tag::_last) + 1;
-   counts[unsigned(tag())] += 1;
    switch (tag()) {
-      case Tag::Inner:
+      case Tag::Inner: {
+         for (int i = 1; i < basic()->count; ++i) {
+            counts[0] += 1;
+            counts[1] += basic()->slot[i - 1].head[0] != basic()->slot[i].head[0];
+         }
          for (int i = 0; i < basic()->count; ++i) {
             basic()->getChild(i)->nodeCount(counts);
+            basic()->upper->nodeCount(counts);
          }
-         basic()->upper->nodeCount(counts);
-         break;
+      } break;
       case Tag::Head4:
-         for (int i = 0; i <= head4()->count; ++i) {
-            head4()->children()[i]->nodeCount(counts);
-         }
+         abort();
          break;
       case Tag::Head8:
-         for (int i = 0; i <= head8()->count; ++i) {
-            head8()->children()[i]->nodeCount(counts);
-         }
+         abort();
          break;
       case Tag::Leaf:
-         counts[key_count_index] += basic()->count;
+         for (int i = 1; i < basic()->count; ++i) {
+            counts[2] += 1;
+            counts[3] += basic()->slot[i - 1].head[0] != basic()->slot[i].head[0];
+         }
          break;
       case Tag::Dense:
-         counts[key_count_index] += dense()->occupiedCount;
+         abort();
          break;
       case Tag::Dense2:
-         counts[key_count_index] += dense()->occupiedCount;
+         abort();
          break;
       case Tag::Hash:
-         counts[key_count_index] += hash()->count;
+         abort();
          break;
    }
 }

@@ -245,14 +245,14 @@ struct BTreeCppPerfEventBlock {
    BTreeCppPerfEventBlock(BTreeCppPerfEvent& e,DataStructureWrapper& ds, uint64_t scale = 1) : e(e), scale(scale),data_strcuture_wrapper(&ds) { e.startCounters(); }
 
    void pushNodeCounts(){
-      unsigned counts[TAG_END+1]={};
+      unsigned counts[TAG_END+2]={};
 #if defined(USE_STRUCTURE_BTREE)
       data_strcuture_wrapper->impl.root->nodeCount(counts);
 #endif
-      for(int i=0;i<TAG_END;++i){
-         push(std::string{"nodeCount_"} + tag_name(Tag(i)),std::to_string(counts[i]));
-      }
-      push("counted_final_key_count",std::to_string(counts[TAG_END]));
+      push("inner_pairs_total",std::to_string(counts[0]));
+      push("inner_pairs_distinct",std::to_string(counts[1]));
+      push("leaf_pairs_total",std::to_string(counts[2]));
+      push("leaf_pairs_distinct",std::to_string(counts[3]));
    }
 
    void push(std::string k,std::string v){
