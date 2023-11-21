@@ -138,11 +138,11 @@ void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
    data.clear();
 }
 
-void runSortedInsert(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsigned payloadSize, bool dryRun)
+void runSortedInsert(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsigned payloadSize, bool dryRun, bool doSort = true)
 {
    if (keyCount <= data.size()) {
       data.resize(keyCount);
-      if (!dryRun) {
+      if (!dryRun && doSort) {
          std::sort(data.begin(), data.end());
       }
    } else {
@@ -503,6 +503,26 @@ int main(int argc, char* argv[])
             s.push_back('A' + random() % 60);
          data.push_back(s);
       }
+   } else if (keySet == "partitioned_id") {
+      unsigned partitionCount = maxScanLength;
+      std::vector<uint32_t> next_id;
+      for (unsigned i = 0; i < partitionCount; ++i)
+         next_id.push_back(0);
+
+      std::mt19937 gen(rand_seed);
+      std::uniform_int_distribution dist(uint32_t(0), uint32_t(partitionCount));
+
+      data.reserve(keyCount);
+      for (uint32_t i = 0; i < keyCount; i++) {
+         uint64_t partition = dist(gen);
+         uint64_t id = next_id[partition]++;
+         union {
+            uint64_t key;
+            uint8_t keyBytes[8];
+         };
+         key = __builtin_bswap64(partition << 32 | id);
+         data.emplace_back(keyBytes, keyBytes + 8);
+      }
    } else {
       ifstream in(keySet);
       keySet = "file:" + keySet;
@@ -554,6 +574,10 @@ int main(int argc, char* argv[])
       }
       case 401: {
          runSortedInsert(e, data, keyCount, payloadSize, dryRun);
+         break;
+      }
+      case 402: {
+         runSortedInsert(e, data, keyCount, payloadSize, dryRun, false);
          break;
       }
       case 5: {
