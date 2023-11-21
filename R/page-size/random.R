@@ -10,7 +10,8 @@ d <- r |>
   augment()|>
   filter(op %in% c("ycsb_c", "ycsb_c_init", "ycsb_e"))|>
   filter(psi == 12)|>
-  filter(scale > 0)
+  filter(scale > 0)|>
+  mutate(final_key_count = ifelse(op=="ycsb_e",data_size + 0.25*scale,data_size))
 
 if (anyDuplicated(d['run_id', 'op'])) {
   stop('duplicated')
@@ -67,7 +68,7 @@ d|>
 
 {
   make_plot <- function(select_int) {
-    d|>filter(xor(select_int ,data_name == 'ints') )|>
+    d|>filter(xor(TRUE ,data_name == 'ints') )|>
       filter(data_name != 'ints' | density > 0.75)|>
       filter(scale/time<if_else(op=='ycsb_e',1e6,6e6))|>
       filter(near(total_size, 3e8, 1e3))|>

@@ -71,7 +71,7 @@ DATA_MAP <- c('data/urls' = 'urls-full', 'data/urls-short' = 'urls', 'data/wiki'
 DATA_LABELS <- c('urls-full' = 'urls-full', 'urls' = 'urls', 'wiki' = 'wiki', 'ints' = 'dense', 'sparse' = 'sparse')
 
 
-OP_LABELS <- c('ycsb_c' = 'ycsb-c', 'ycsb_c_init' = 'insert', 'ycsb_e' = 'ycsb-e', 'ycsb_e_init' = 'ycsb_e_init','sorted_scan'='scan','sorted_insert'='ordered insert')
+OP_LABELS <- c('ycsb_c' = 'ycsb-c', 'ycsb_c_init' = 'insert', 'ycsb_e' = 'ycsb-e', 'ycsb_e_init' = 'ycsb_e_init','sorted_scan'='scan','sorted_insert'='sorted insert')
 CONFIG_LABELS <- c('prefix'='prefix truncation', 'dense1'='fully dense', 'dense2'='semi dense', 'hash'='fingerprinting', 'inner'='integer separators')
 
 augment <- function(d) {
@@ -79,6 +79,7 @@ augment <- function(d) {
     mutate(
       psi = log2(const_pageSizeInner),
       psl = log2(const_pageSizeLeaf),
+      total_leaf_prefix = if ('total_leaf_prefix' %in% colnames(d)) {total_leaf_prefix}else{NA},
       avg_key_size = case_when(
         data_name == 'data/urls' ~ 62.280,
         data_name == 'data/urls-short' ~ 62.204,
@@ -95,10 +96,7 @@ augment <- function(d) {
       #   op == 'ycsb_c' | op == 'ycsb_c_init' ~ data_size,
       #   op == 'ycsb_e' ~ data_size + scale * 0.025,
       # ),
-      final_key_count = case_when(
-        config_name == 'art' ~ 0,
-        TRUE ~ counted_final_key_count
-      ),
+      final_key_count = if ('counted_final_key_count' %in% colnames(d)) {counted_final_key_count}else{NA},
       leaf_count = nodeCount_Leaf +
         nodeCount_Hash +
         nodeCount_Dense +
@@ -107,8 +105,9 @@ augment <- function(d) {
         nodeCount_Head4 +
         nodeCount_Head8,
       node_count = leaf_count + inner_count,
-      keys_per_leaf = counted_final_key_count / leaf_count,
+      keys_per_leaf = final_key_count / leaf_count,
       total_size = data_size * (avg_key_size + payload_size),
+      avg_leaf_prefix = total_leaf_prefix/leaf_count,
       config_name = factor(config_name, levels = CONFIG_NAMES),
       txs=scale/time,
     )|>
@@ -120,7 +119,7 @@ OUTPUT_COLS <- c("time", "nodeCount_Leaf", "nodeCount_Inner",
                  "counted_final_key_count", "cycle", "instr", "L1_miss", "LLC_miss",
                  "br_miss", "task", "IPC", "CPU",
                  "GHz", "psi", "psl", "avg_key_size", "final_key_count",
-                 "leaf_count", "inner_count", "node_count", "keys_per_leaf", "total_size","rand_seed","txs"
+                 "leaf_count", "inner_count", "node_count", "keys_per_leaf", "total_size","rand_seed","txs","total_leaf_prefix","avg_leaf_prefix"
 )
 
 label_page_size <- function(x) {
