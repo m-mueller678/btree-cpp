@@ -388,14 +388,6 @@ DenseSeparorInfo DenseNode::densifySplit(uint8_t* sepBuffer, BTreeNode* basicNod
       return DenseSeparorInfo{0, 0};
    unsigned fenceLen = basicNode->slot[takeKeyCount].keyLen + basicNode->prefixLength;
    memcpy(sepBuffer + basicNode->prefixLength, basicNode->getKey(takeKeyCount), fenceLen - basicNode->prefixLength);
-
-   uint8_t maxKey[fullKeyLen];
-   basicNode->restoreKey(maxKey, fullKeyLen, takeKeyCount - 1);
-   NumericPart maxKeyNumericPart = getNumericPart(maxKey, fullKeyLen, fullKeyLen);
-   unsigned maxKeyOffest = maxKeyNumericPart - arrayStart;
-   if (maxKeyOffest * 2 > takeKeyCount * 3)
-      return DenseSeparorInfo{0, 0};
-
    // generate separator between next key and max key
    {
       if (fenceLen == fullKeyLen) {
