@@ -7,3 +7,4 @@ constexpr bool enableHeadNode = false;
 constexpr unsigned basicHintCount = 0;
 constexpr bool enableDense2 = false;
 constexpr bool enableHashAdapt = false;
+constexpr bool enableDensifySplit=false;

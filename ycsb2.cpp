@@ -6,6 +6,7 @@
 #include <string>
 #include "btree/BtreeCppPerfEvent.hpp"
 #include "btree/btree2020.hpp"
+#include <iostream>
 
 using namespace std;
 
@@ -510,7 +511,7 @@ int main(int argc, char* argv[])
          next_id.push_back(0);
 
       std::mt19937 gen(rand_seed);
-      std::uniform_int_distribution dist(uint32_t(0), uint32_t(partitionCount));
+      std::uniform_int_distribution dist(uint32_t(0), uint32_t(partitionCount-1));
 
       data.reserve(keyCount);
       for (uint32_t i = 0; i < keyCount; i++) {

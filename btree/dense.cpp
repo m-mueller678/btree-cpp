@@ -44,7 +44,7 @@ uint8_t* DenseNode::getPrefix()
    return getLowerFence();
 }
 
-void DenseNode::restoreKey(uint8_t* prefix, uint8_t* dst, unsigned index)
+void DenseNode::restoreKey(NumericPart arrayStart, unsigned fullKeyLen, uint8_t* prefix, uint8_t* dst, unsigned index)
 {
    unsigned numericPartLen = computeNumericPartLen(fullKeyLen);
    memcpy(dst, prefix, fullKeyLen - numericPartLen);
@@ -206,7 +206,7 @@ void DenseNode::splitNode1(AnyNode* parent, uint8_t* key, unsigned keyLen)
          break;
    }
    uint8_t full_boundary[fullKeyLen];
-   restoreKey(getLowerFence(), full_boundary, slotCount - 1);
+   restoreKey(arrayStart, fullKeyLen, getLowerFence(), full_boundary, slotCount - 1);
 
    DenseNode* denseLeft = reinterpret_cast<DenseNode*>(AnyNode::allocLeaf());
    memcpy(denseLeft, this, sizeof(DenseNode));
@@ -237,7 +237,7 @@ void DenseNode::splitNode2(AnyNode* parent, uint8_t* key, unsigned keyLen)
       }
       splitSlot += 1;
    }
-   restoreKey(getLowerFence(), splitKeyBuffer, splitSlot);
+   restoreKey(arrayStart, fullKeyLen, getLowerFence(), splitKeyBuffer, splitSlot);
    left->init2b(getLowerFence(), lowerFenceLen, splitKeyBuffer, fullKeyLen, fullKeyLen, splitSlot + 1);
    for (unsigned i = 0; i <= splitSlot; ++i) {
       if (slots[i])
@@ -352,6 +352,68 @@ bool DenseNode::densify1(DenseNode* out, BTreeNode* basicNode)
    }
    out->occupiedCount = basicNode->count;
    return true;
+}
+
+DenseSeparorInfo DenseNode::densifySplit(uint8_t* sepBuffer, BTreeNode* basicNode)
+{
+   unsigned minTake = basicNode->count / 2;
+   unsigned preKeyLen1 = basicNode->slot[0].keyLen;
+   unsigned fullKeyLen = preKeyLen1 + basicNode->prefixLength;
+   // COUNTER(reject_0, basicNode->lowerFence.length + sizeof(NumericPart) < fullKeyLen, 1);
+   if (basicNode->lowerFence.length + sizeof(NumericPart) < fullKeyLen) {
+      // this might be possible to handle, but requires more thought and should be rare.
+      return DenseSeparorInfo{0, 0};
+   }
+   unsigned valLen1 = basicNode->slot[0].payloadLen;
+   unsigned equalLen = 1;
+   for (; equalLen < basicNode->count && basicNode->slot[equalLen].keyLen == preKeyLen1 && basicNode->slot[equalLen].payloadLen == valLen1;
+        ++equalLen)
+      ;
+   if (equalLen < minTake) {
+      return DenseSeparorInfo{0, 0};
+   }
+   NumericPart arrayStart = leastGreaterKey(basicNode->getLowerFence(), basicNode->lowerFence.length, fullKeyLen);
+   unsigned slotCount = computeSlotCount(valLen1, pageSizeLeaf - 2 * basicNode->lowerFence.length);
+   NumericPart prefixNumericPart = getNumericPart(basicNode->getPrefix(), basicNode->prefixLength, fullKeyLen);
+   restoreKey(arrayStart, fullKeyLen, basicNode->getLowerFence(), sepBuffer, slotCount - 1);
+   unsigned takeKeyCount;
+   {
+      bool found;
+      unsigned lowerBound = basicNode->lowerBound(sepBuffer, basicNode->lowerFence.length, found);
+      takeKeyCount = lowerBound + found;
+   }
+   if (takeKeyCount > equalLen)
+      takeKeyCount = equalLen;
+   if (takeKeyCount < minTake)
+      return DenseSeparorInfo{0, 0};
+   unsigned fenceLen = basicNode->slot[takeKeyCount].keyLen + basicNode->prefixLength;
+   memcpy(sepBuffer + basicNode->prefixLength, basicNode->getKey(takeKeyCount), fenceLen - basicNode->prefixLength);
+
+   uint8_t maxKey[fullKeyLen];
+   basicNode->restoreKey(maxKey, fullKeyLen, takeKeyCount - 1);
+   NumericPart maxKeyNumericPart = getNumericPart(maxKey, fullKeyLen, fullKeyLen);
+   unsigned maxKeyOffest = maxKeyNumericPart - arrayStart;
+   if (maxKeyOffest * 2 > takeKeyCount * 3)
+      return DenseSeparorInfo{0, 0};
+
+   // generate separator between next key and max key
+   {
+      if (fenceLen == fullKeyLen) {
+         if (sepBuffer[fenceLen - 1] > 0)
+            sepBuffer[fenceLen - 1] -= 1;
+         else {
+            fenceLen -= 1;
+         }
+      } else if (fenceLen < fullKeyLen) {
+         sepBuffer[fenceLen - 1] -= 1;
+         for (; fenceLen < fullKeyLen; ++fenceLen) {
+            sepBuffer[fenceLen] = 255;
+         }
+      } else if (fenceLen > fullKeyLen) {
+         fenceLen -= 1;
+      }
+   }
+   return DenseSeparorInfo{fenceLen, takeKeyCount};
 }
 
 bool DenseNode::densify2(DenseNode* out, BTreeNode* from)
@@ -713,7 +775,7 @@ void DenseNode::print()
    for (unsigned i = 0; i < slotCount; ++i) {
       if (tag == Tag::Dense ? isSlotPresent(i) : slots[i] != 0) {
          printf("%d: ", i);
-         restoreKey(getLowerFence(), keyBuffer, i);
+         restoreKey(arrayStart, fullKeyLen, getLowerFence(), keyBuffer, i);
          printKey(keyBuffer + prefixLength, fullKeyLen - prefixLength);
          printf("\n");
       }

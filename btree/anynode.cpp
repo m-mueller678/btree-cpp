@@ -297,6 +297,22 @@ bool AnyNode::splitNodeWithParent(AnyNode* parent, uint8_t* key, unsigned keyLen
 {
    switch (tag()) {
       case Tag::Leaf:
+         if(enableDensifySplit){
+            uint8_t sepBuffer[BTreeNode::maxKVSize];
+            auto sep = DenseNode::densifySplit(sepBuffer,basic());
+            if(sep.lowerCount!=0){
+               if (parent->innerRequestSpaceFor(sep.fenceLen)){
+                  bool found;
+                  unsigned index = basic()->lowerBound(sepBuffer,sep.fenceLen,found);
+                  assert(sep.lowerCount == index+found);
+                  basic()->splitNode(parent,sep.lowerCount-1,sepBuffer,sep.fenceLen);
+                  return true;
+               }else{
+                  return false;
+               }
+            }
+         }
+         // continue with normal node split
       case Tag::Inner: {
          BTreeNode::SeparatorInfo sepInfo = basic()->findSeparator();
          if (parent->innerRequestSpaceFor(sepInfo.length)) {  // is there enough space in the parent for the separator?
@@ -307,7 +323,6 @@ bool AnyNode::splitNodeWithParent(AnyNode* parent, uint8_t* key, unsigned keyLen
          } else {
             return false;
          }
-         break;
       }
       case Tag::Dense:
       case Tag::Dense2: {

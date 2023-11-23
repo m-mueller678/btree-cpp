@@ -298,6 +298,11 @@ enum KeyError : int {
    FarTooLarge = -4,
 };
 
+struct DenseSeparorInfo {
+   unsigned fenceLen;
+   unsigned lowerCount;
+};
+
 struct DenseNode {
    Tag tag;
    uint16_t fullKeyLen;
@@ -331,7 +336,7 @@ struct DenseNode {
 
    uint8_t* getPrefix();
 
-   void restoreKey(uint8_t* prefix, uint8_t* dst, unsigned index);
+   static void restoreKey(NumericPart arrayStart, unsigned fullKeyLen, uint8_t* prefix, uint8_t* dst, unsigned index);
 
    void changeUpperFence(uint8_t* fence, unsigned len);
 
@@ -351,6 +356,7 @@ struct DenseNode {
    void changeLowerFence(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen);
    static bool densify1(DenseNode* out, BTreeNode* basicNode);
    static bool densify2(DenseNode* out, BTreeNode* from);
+   static DenseSeparorInfo densifySplit(uint8_t* sepBuffer, BTreeNode* basicNode);
    void init2b(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen, unsigned fullKeyLen, unsigned slotCount);
    int cmpNumericPrefix(uint8_t* key, unsigned length);
 
