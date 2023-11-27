@@ -62,24 +62,24 @@ extremesBy <- function(r, d) {
   d[c(which.min(d[, r]), which.max(d[, r])),]
 }
 
-CONFIG_NAMES <- c('baseline', 'prefix', 'heads', 'hints', 'inner', 'hash', 'dense', 'dense1', 'dense2', 'adapt', 'art', 'hot', 'tlx')
+CONFIG_NAMES <- c('baseline', 'prefix', 'heads', 'hints', 'inner', 'hash', 'dense', 'dense1', 'dense2', 'dense3', 'adapt', 'art', 'hot', 'tlx')
 
 VAL_COLS = c("time", "cycle", "instr", "L1_miss", "LLC_miss", "br_miss", "IPC", "CPU", "GHz", "task")
 frame_id_cols <- function(c) setdiff(colnames(c), VAL_COLS)
 
-DATA_MAP <- c('data/urls' = 'urls-full', 'data/urls-short' = 'urls', 'data/wiki' = 'wiki', 'int' = 'ints', 'rng4' = 'sparse')
-DATA_LABELS <- c('urls-full' = 'urls-full', 'urls' = 'urls', 'wiki' = 'wiki', 'ints' = 'dense', 'sparse' = 'sparse')
+DATA_MAP <- c('data/urls' = 'urls-full', 'data/urls-short' = 'urls', 'data/wiki' = 'wiki', 'int' = 'ints', 'rng4' = 'sparse', 'partitioned_id' = 'partitioned_id')
+DATA_LABELS <- c('urls-full' = 'urls-full', 'urls' = 'urls', 'wiki' = 'wiki', 'ints' = 'dense', 'sparse' = 'sparse', 'partitioned_id' = 'partitioned_id')
 
 
-OP_LABELS <- c('ycsb_c' = 'ycsb-c', 'ycsb_c_init' = 'insert', 'ycsb_e' = 'ycsb-e', 'ycsb_e_init' = 'ycsb_e_init','sorted_scan'='scan','sorted_insert'='sorted insert')
-CONFIG_LABELS <- c('prefix'='prefix truncation', 'dense1'='fully dense', 'dense2'='semi dense', 'hash'='fingerprinting', 'inner'='integer separators')
+OP_LABELS <- c('ycsb_c' = 'ycsb-c', 'ycsb_c_init' = 'insert', 'ycsb_e' = 'ycsb-e', 'ycsb_e_init' = 'ycsb_e_init', 'sorted_scan' = 'scan', 'sorted_insert' = 'sorted insert')
+CONFIG_LABELS <- c('prefix' = 'prefix truncation', 'dense1' = 'legacy dense', 'dense2' = 'semi dense','dense3' = 'fully dense', 'hash' = 'fingerprinting', 'inner' = 'integer separators')
 
 augment <- function(d) {
   d|>
     mutate(
       psi = log2(const_pageSizeInner),
       psl = log2(const_pageSizeLeaf),
-      total_leaf_prefix = if ('total_leaf_prefix' %in% colnames(d)) {total_leaf_prefix}else{NA},
+      total_leaf_prefix = if ('total_leaf_prefix' %in% colnames(d)) { total_leaf_prefix }else { NA },
       avg_key_size = case_when(
         data_name == 'data/urls' ~ 62.280,
         data_name == 'data/urls-short' ~ 62.204,
@@ -91,12 +91,12 @@ augment <- function(d) {
         TRUE ~ NA
       ),
       data_name = factor(data_name, levels = names(DATA_MAP), labels = DATA_MAP),
-      op = factor(op,names(OP_LABELS)),
+      op = factor(op, names(OP_LABELS)),
       # final_key_count = case_when(
       #   op == 'ycsb_c' | op == 'ycsb_c_init' ~ data_size,
       #   op == 'ycsb_e' ~ data_size + scale * 0.025,
       # ),
-      final_key_count = if ('counted_final_key_count' %in% colnames(d)) {counted_final_key_count}else{NA},
+      final_key_count = if ('counted_final_key_count' %in% colnames(d)) { counted_final_key_count }else { NA },
       leaf_count = nodeCount_Leaf +
         nodeCount_Hash +
         nodeCount_Dense +
@@ -107,9 +107,9 @@ augment <- function(d) {
       node_count = leaf_count + inner_count,
       keys_per_leaf = final_key_count / leaf_count,
       total_size = data_size * (avg_key_size + payload_size),
-      avg_leaf_prefix = total_leaf_prefix/leaf_count,
+      avg_leaf_prefix = total_leaf_prefix / leaf_count,
       config_name = factor(config_name, levels = CONFIG_NAMES),
-      txs=scale/time,
+      txs = scale / time,
     )|>
     select(-starts_with("const"))
 }
@@ -119,7 +119,7 @@ OUTPUT_COLS <- c("time", "nodeCount_Leaf", "nodeCount_Inner",
                  "counted_final_key_count", "cycle", "instr", "L1_miss", "LLC_miss",
                  "br_miss", "task", "IPC", "CPU",
                  "GHz", "psi", "psl", "avg_key_size", "final_key_count",
-                 "leaf_count", "inner_count", "node_count", "keys_per_leaf", "total_size","rand_seed","txs","total_leaf_prefix","avg_leaf_prefix"
+                 "leaf_count", "inner_count", "node_count", "keys_per_leaf", "total_size", "rand_seed", "txs", "total_leaf_prefix", "avg_leaf_prefix"
 )
 
 label_page_size <- function(x) {
@@ -132,3 +132,7 @@ read_broken_csv <- function(path) {
   tibble(data.frame(lapply(data, type.convert, as.is = TRUE)))
 }
 
+save_as<-function (name,h,w=85){
+  ggsave(path = '~/develop/btree-paper/fig/' ,device='svg',filename=paste0(name,'.svg'), width = w,units='mm', height = h)
+  plot
+}

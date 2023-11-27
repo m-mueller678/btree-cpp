@@ -32,7 +32,7 @@ leaf_count|>
   pivot_wider(names_from = c('config'), values_from = 'n')|>
   mutate(
     r = heads / prefix,
-    d = (heads - prefix) * 4096 / KEY_COUNT,
+    d = (heads - prefix) * 4096 / key_count,
   )
 
 counted|>

@@ -1,6 +1,5 @@
 source('../common.R')
 
-
 r <- bind_rows(
   # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 50) ::: 3 5 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/*-n3-ycsb | tee R/eval-2/seq-zipf-2.csv
   read_broken_csv('seq-zipf-2.csv')|>
@@ -14,23 +13,6 @@ r <- bind_rows(
   read_broken_csv('sorted-scan-seq.csv')|>filter(op == 'sorted_scan'),
   read_broken_csv('dense-sorted.csv'),
 )
-
-perf_common<-config_pivot|>
-  ggplot() + theme_bw()+
-  facet_nested(. ~ data_name, independent = 'y', scales = 'free',labeller = labeller(
-    op=OP_LABELS,
-    data_name=DATA_LABELS,
-  )) +
-  scale_y_continuous(labels = label_percent(),expand = expansion(mult=0.1)) +
-  scale_x_discrete(labels = OP_LABELS,expand=expansion(add=0.1)) +
-  coord_cartesian(xlim=c(0.4,3.6))+
-  theme(
-    text = element_text(size = 24),
-    axis.text.x = element_blank(), axis.ticks.x = element_blank(),
-    legend.position = 'bottom',
-  )+
-  scale_fill_brewer(palette = 'Dark2',labels=OP_LABELS)+
-  labs(x = NULL, y = NULL, fill = 'Worload')
 
 COMMON_OPS <- c("ycsb_c", "ycsb_c_init", "ycsb_e")
 
@@ -56,6 +38,23 @@ config_pivot <- d|>
     txs_best_speedup = txs_best / txs_baseline,
     best_space_saving = 1 - node_count_best / node_count_baseline,
   )
+
+perf_common<-config_pivot|>
+  ggplot() + theme_bw()+
+  facet_nested(. ~ data_name, independent = 'y', scales = 'free',labeller = labeller(
+    op=OP_LABELS,
+    data_name=DATA_LABELS,
+  )) +
+  scale_y_continuous(labels = label_percent(),expand = expansion(mult=0.1)) +
+  scale_x_discrete(labels = OP_LABELS,expand=expansion(add=0.1)) +
+  coord_cartesian(xlim=c(0.4,3.6))+
+  theme(
+    text = element_text(size = 24),
+    axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+    legend.position = 'bottom',
+  )+
+  scale_fill_brewer(palette = 'Dark2',labels=OP_LABELS)+
+  labs(x = NULL, y = NULL, fill = 'Worload')
 
 
 d|>
@@ -389,106 +388,6 @@ config_pivot|>
   arrange(r)
 
 #dense leaves
-
-dense_joined <- d|>
-  filter(config_name %in% c('dense1', 'dense2'))|>
-  full_join(d|>filter(config_name == 'hints'), by = c('op', 'run_id', 'data_name'), relationship = 'many-to-one')
-
-config_pivot|>
-  mutate(r = txs_dense1 / txs_hints - 1)|>
-  select(data_name, op, txs_hints, txs_dense1, r)|>
-  arrange(r)
-
-config_pivot|>
-  mutate(r = txs_dense2 / txs_hints - 1)|>
-  select(data_name, op, txs_hints, txs_dense2, r)|>
-  arrange(r)
-
-d|>
-  group_by(config_name, data_name, op)|>
-  mutate(count = n())|>
-  filter(n() > 1)|>
-  glimpse()
-d|>
-  filter(config_name == 'art', data_name == 'urls', op == 'ycsb_c')|>
-  glimpse()
-
-config_pivot|>
-  filter(data_name == 'ints')|>
-  select(data_name, op, br_miss_hints, br_miss_dense1, br_miss_dense2)
-
-config_pivot|>
-  filter(data_name == 'ints')|>
-  filter(op == 'ycsb_c')|>
-  select(data_name, op, node_count_hints, node_count_dense1, node_count_dense2,
-         final_key_count_hints, final_key_count_dense1, final_key_count_dense2)|>
-  glimpse()
-
-# TODO dense2 final key count seems broken.
-
-d|>
-  filter(config_name == 'dense2', data_name == 'ints')|>
-  View()
-
-(
-  dense_joined|>
-    filter(op == 'ycsb_c', data_name == 'ints')|>
-    ggplot() +
-    geom_bar(aes(x = config_name.x, y = 1 - node_count.x / node_count.y), stat = 'summary', fun = mean) +
-    scale_y_continuous(labels = label_percent(), expand = expansion(mult = c(0, .1)),) +
-    labs(x = 'key set', y = "Relative") +
-    coord_flip()
-) | (
-  dense_joined|>
-    filter(op == 'ycsb_c', data_name == 'ints')|>
-    ggplot() +
-    geom_bar(aes(x = config_name.x, y = node_count.x * 4096 / final_key_count.x - node_count.y * 4096 / final_key_count.y), stat = 'summary', fun = mean) +
-    scale_y_continuous(
-      labels = function(y) paste0(y, " B"),
-      expand = expansion(mult = c(0, .1))) +
-    labs(y = "Per Record") +
-    theme(axis.title.y = element_blank(),
-          axis.text.y = element_blank(),
-          axis.ticks.y = element_blank()) +
-    coord_flip()
-)
-
-d|>
-  filter(op %in% c("ycsb_c", "ycsb_c_init", "ycsb_e", "sorted_insert"))|>
-  filter(config_name %in% c("dense1", "dense2", "hints"))|>
-  filter(data_name == 'ints')|>
-  group_by(op, config_name)|>
-  summarise(txs = mean(txs))
-
-
-d|>
-  filter(op %in% c("ycsb_c", "ycsb_c_init", "ycsb_e", "sorted_insert"))|>
-  filter(config_name %in% c("dense1", "dense2", "hints"))|>
-  filter(data_name == 'ints')|>
-  ggplot() +
-  geom_bar(aes(x = op, fill = config_name, y = txs), stat = 'summary', fun = mean, position = 'dodge')
-
-d|>
-  filter(op == 'sorted_insert', config_name == 'dense2')|>
-  glimpse()
-
-dense_joined|>
-  filter(data_name == 'ints')|>
-  filter(op %in% c("ycsb_c", "ycsb_c_init", "ycsb_e", "sorted_insert"))|>
-  ggplot() + theme_bw()+
-  facet_nested(. ~ config_name.x, labeller = labeller('config_name.x' = CONFIG_LABELS)) +
-  geom_bar(aes(x = op,fill=op, y = txs.x / txs.y - 1), position = 'dodge', stat = 'summary', fun = mean) +
-  geom_hline(yintercept = 0)+
-  scale_y_continuous(labels = label_percent(),expand = expansion(mult=0.1),breaks=(0:20)*0.3) +
-  scale_x_discrete(labels = OP_LABELS,expand=expansion(add=0.1)) +
-  coord_cartesian(xlim=c(0.4,4.6))+
-  theme(
-    text = element_text(size = 24),
-    axis.text.x = element_blank(), axis.ticks.x = element_blank(),
-    legend.position = 'bottom',
-  )+
-  scale_fill_brewer(palette = 'Dark2',labels=OP_LABELS)+
-  labs(x = NULL, y = NULL, fill = 'Worload')
 
 var_density <- read_broken_csv('dense-density.csv')|>
   filter(op %in% c("ycsb_c"), run_id <= 15)|>
