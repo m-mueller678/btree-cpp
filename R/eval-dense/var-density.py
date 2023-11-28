@@ -1,8 +1,10 @@
-def print_work(data,config,id,ycsb,sl=100,op=int(1e7),pl=8):
-    print(f'env DATA={data[0]} KEY_COUNT={data[1]} YCSB_VARIANT={ycsb} SCAN_LENGTH={sl} RUN_ID={id} OP_COUNT={op} PAYLOAD_SIZE={pl} ZIPF=0.99 DENSITY=1 named-build/{config}-n3-ycsb')
+def print_work(data,config,id,ycsb,sl=100,op=int(1e7),pl=8,density=1.0):
+    print(f'env DATA={data[0]} KEY_COUNT={data[1]} YCSB_VARIANT={ycsb} SCAN_LENGTH={sl} RUN_ID={id} OP_COUNT={op} PAYLOAD_SIZE={pl} ZIPF=0.99 DENSITY={density} named-build/{config}-n3-ycsb')
 
 
-for density in range(101):
-    df=density/100
-    for config in ['dense1','dense2','dense3','hints']:
-        print_work(['int',int(25e6)],config,1,401,op=0)
+for run_id in range(2,10):
+    for config in ['dense3','dense2','hints','dense1']:
+        for density in range(5,101):
+            if density%3 != 0:
+                continue
+            print_work(['int',int(25e6)],config,run_id,3,op=int(1e7),density=density/100)

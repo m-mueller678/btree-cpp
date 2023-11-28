@@ -11,7 +11,6 @@ r <- bind_rows(
   # init is wrongly labeled as ycsb_c_init
   # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 50) ::: 501 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/hints-n3-ycsb named-build/hash-n3-ycsb | tee R/eval-2/sorted-scan-seq.csv
   read_broken_csv('sorted-scan-seq.csv')|>filter(op == 'sorted_scan'),
-  read_broken_csv('dense-sorted.csv'),
 )
 
 COMMON_OPS <- c("ycsb_c", "ycsb_c_init", "ycsb_e")
@@ -387,47 +386,6 @@ config_pivot|>
   select(data_name, op, br_miss_hints, br_miss_hash, r)|>
   arrange(r)
 
-#dense leaves
-
-var_density <- read_broken_csv('dense-density.csv')|>
-  filter(op %in% c("ycsb_c"), run_id <= 15)|>
-  augment()
-
-(
-  var_density|>
-    ggplot(aes(x = density, y = txs, col = config_name)) +
-    geom_smooth(se = FALSE) +
-    scale_x_continuous(labels = NULL, expand = expansion(add = 0)) +
-    scale_y_continuous(
-      expand = expansion(mult = c(0, .1)),
-      labels = label_number(scale_cut = cut_si('tx/s'))
-    ) +
-    geom_point() +
-    labs(y = 'Throughput', x = NULL) +
-    theme(axis.title.y = element_text(angle = 0, vjust = 0.5, hjust = 1), legend.position = "none")
-) /
-  (
-    var_density|>
-      ggplot(aes(x = density, y = node_count * 4096 / 25000000, col = config_name)) +
-      geom_point() +
-      labs(y = "Space per Record", x = NULL) +
-      scale_x_continuous(expand = expansion(add = 0), labels = NULL) +
-      scale_y_continuous(
-        labels = function(y) paste0(y, " B"),
-        expand = expansion(mult = c(0, .1))) +
-      theme(axis.title.y = element_text(angle = 0, vjust = 0.5, hjust = 1))
-  ) /
-  (
-    var_density|>
-      ggplot(aes(x = density, y = (nodeCount_Dense2 + nodeCount_Dense) / leaf_count, col = config_name)) +
-      geom_point() +
-      scale_y_continuous(labels = label_percent()) +
-      scale_x_continuous(expand = expansion(add = 0), labels = label_percent()) +
-      labs(y = "Fraction of Dense Leaves") +
-      theme(axis.title.y = element_text(angle = 0, vjust = 0.5, hjust = 1), legend.position = "none")
-  )
-
-
 #integer separators
 config_pivot|>
   filter(op %in% COMMON_OPS)|>
@@ -477,22 +435,45 @@ config_pivot|>
 # in-memory
 
 in_mem_plot <-function(show_op){
-  d|>
-    filter(config_name %in% c('baseline','art', 'hot', 'dense1', 'hash'), op ==show_op)|>
-    ggplot() +
-    facet_nested(. ~ data_name, scales = 'free') +
-    geom_bar(aes(x = config_name, y = txs, fill = config_name), stat = 'summary', fun = mean) +
-    scale_x_discrete(labels = CONFIG_LABELS) +
-    scale_y_continuous(
-      expand = expansion(mult = c(0, .1)),
-      labels = label_number(scale_cut = cut_si('tx/s'))
-    ) +
-    scale_fill_brewer(palette = "Dark2") +
-    labs(x = NULL, y = "Throughput", fill = 'Configuration') +
-    theme(axis.text.x = element_blank())
+  make_plot<-function(data)
+    data|>
+      filter(config_name %in% CONFIGS)|>
+      filter(op=='ycsb_c')|>
+      group_by(config_name,data_name)|>
+      summarise(txs=mean(txs))|>
+      mutate(
+        g=unname(c('baseline'=2,'dense1'=2,'hash'=2,'art'=3,'hot'=3)[as.character(config_name)])
+      )|>
+      group_by(g,data_name)|>
+      arrange(txs,.by_group = TRUE)|>
+      mutate(
+        hwidth=0.55 - rank(txs)*0.1,
+        bar_bottom = lag(txs,default=0),
+        bar_top=txs,
+      )|>
+      ggplot() + theme_bw() +
+      facet_wrap(~data_name,labeller = labeller(
+        data_name=DATA_LABELS,
+      )) +
+      geom_rect(aes(ymin=bar_bottom,ymax=bar_top, xmin = g-hwidth, xmax = g+hwidth,,fill=config_name)) +
+      scale_x_continuous(
+        breaks = NULL
+      ) +
+      scale_y_continuous(
+        expand = expansion(mult = c(0, .1)),
+        labels = label_number(scale_cut = cut_si('op/s')),
+        name=NULL
+      ) +
+      guides(fill = guide_legend(override.aes = list(size = 0.1),title.position="top",title.hjust = 0.5,nrow = 2))+
+      scale_fill_brewer(palette = "Dark2",labels = CONFIG_LABELS) +
+      labs(x = NULL, y = "Throughput", fill = 'Configuration') +
+      theme(legend.position = 'bottom',axis.text.x = element_blank())
+  op_data<-d|>filter(op==show_op)|>mutate(text=data_name %in% c('urls','wiki'))
+  (make_plot(op_data|>filter(text))|make_plot(op_data|>filter(!text)))+plot_layout(guides = "collect")&theme(legend.position = 'bottom')
 }
 
 in_mem_plot('ycsb_c')
+save_as('in-mem-lookup',60)
 in_mem_plot('ycsb_c_init')
 in_mem_plot('ycsb_e')
 

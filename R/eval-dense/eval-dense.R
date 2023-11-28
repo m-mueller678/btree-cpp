@@ -15,21 +15,29 @@ d <- r |>
   augment()|>
   filter(scale > 0)
 
-
-# python3 R/eval-dense/var-density.py |parallel -j1 --joblog joblog -- {1}| tee R/eval-dense/var-density.csv
-r_var_density<-bind_rows('var-density.csv')
-d_var_density<-r_var_density|>augment()
-
 config_pivot <- d|>
   pivot_wider(id_cols = (!any_of(c(OUTPUT_COLS, 'bin_name', 'run_id'))), names_from = config_name, values_from = any_of(OUTPUT_COLS), values_fn = mean)
 
 dense_joined <- d|>
+  filter(data_name!='partitioned_id')|>
   filter(config_name %in% c('dense1', 'dense2', 'dense3'))|>
   full_join(d|>filter(config_name == 'hints'), by = c('op', 'run_id', 'data_name'), relationship = 'many-to-one')
 
 config_pivot|>
   filter(data_name == 'ints')|>
   select(data_name, op, br_miss_hints, br_miss_dense1, br_miss_dense2)
+
+d|>
+  filter(op %in% c("ycsb_c", "ycsb_c_init", "ycsb_e", "sorted_insert"))|>
+  filter(data_name == 'ints')|>
+  group_by(op, config_name)|>
+  summarise(txs = mean(txs))
+
+config_pivot|>
+  filter(data_name!='partitioned_id')|>
+  mutate(c3 = txs_dense3/txs_hints-1,c2 = txs_dense2/txs_hints-1,c1 = txs_dense1/txs_hints-1)|>
+  select(data_name,op,c3,c2,c1)|>
+  arrange(data_name)
 
 (
   dense_joined|>
@@ -57,13 +65,6 @@ config_pivot|>
 d|>
   filter(op %in% c("ycsb_c", "ycsb_c_init", "ycsb_e", "sorted_insert"))|>
   filter(data_name == 'ints')|>
-  group_by(op, config_name)|>
-  summarise(txs = mean(txs))
-
-
-d|>
-  filter(op %in% c("ycsb_c", "ycsb_c_init", "ycsb_e", "sorted_insert"))|>
-  filter(data_name == 'ints')|>
   ggplot() +
   geom_bar(aes(x = op, fill = config_name, y = txs), stat = 'summary', fun = mean, position = 'dodge')
 
@@ -79,13 +80,14 @@ dense_joined|>
   scale_y_continuous(labels = label_percent(), expand = expansion(mult = 0.1), breaks = (0:20) * 0.3) +
   scale_x_discrete(labels = OP_LABELS, expand = expansion(add = 0.1)) +
   coord_cartesian(xlim = c(0.4, 4.6)) +
+  guides(fill = guide_legend(nrow=2))+
   theme(
     axis.text.x = element_blank(), axis.ticks.x = element_blank(),
     legend.position = 'bottom',
   ) +
   scale_fill_brewer(palette = 'Dark2', labels = OP_LABELS) +
-  labs(x = NULL, y = NULL, fill = 'Worload')
-save_as('dense-speedup', 40)
+  labs(x = NULL, y = NULL, fill = 'Workload')
+save_as('dense-speedup', 50)
 
 d|>
   ggplot() +
@@ -170,3 +172,4 @@ d|>
   ggplot() +
   geom_point(aes(x = data_size / ycsb_range_len, y = 1 - nodeCount_Leaf / leaf_count, col = config_name)) +
   expand_limits(y = 0)
+

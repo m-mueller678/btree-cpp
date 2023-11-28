@@ -72,7 +72,7 @@ DATA_LABELS <- c('urls-full' = 'urls-full', 'urls' = 'urls', 'wiki' = 'wiki', 'i
 
 
 OP_LABELS <- c('ycsb_c' = 'ycsb-c', 'ycsb_c_init' = 'insert', 'ycsb_e' = 'ycsb-e', 'ycsb_e_init' = 'ycsb_e_init', 'sorted_scan' = 'scan', 'sorted_insert' = 'sorted insert')
-CONFIG_LABELS <- c('prefix' = 'prefix truncation', 'dense1' = 'legacy dense', 'dense2' = 'semi dense','dense3' = 'fully dense', 'hash' = 'fingerprinting', 'inner' = 'integer separators')
+CONFIG_LABELS <- c('prefix' = 'prefix truncation', 'dense2' = 'semi dense','dense3' = 'fully dense', 'dense1' = 'fully dense, no split','hash' = 'fingerprinting', 'inner' = 'integer separators')
 
 augment <- function(d) {
   d|>
