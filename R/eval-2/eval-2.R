@@ -38,23 +38,33 @@ config_pivot <- d|>
     best_space_saving = 1 - node_count_best / node_count_baseline,
   )
 
-perf_common<-config_pivot|>
-  ggplot() + theme_bw()+
-  facet_nested(. ~ data_name, independent = 'y', scales = 'free',labeller = labeller(
-    op=OP_LABELS,
-    data_name=DATA_LABELS,
-  )) +
-  scale_y_continuous(labels = label_percent(),expand = expansion(mult=0.1)) +
-  scale_x_discrete(labels = OP_LABELS,expand=expansion(add=0.1)) +
-  coord_cartesian(xlim=c(0.4,3.6))+
-  theme(
-    text = element_text(size = 24),
-    axis.text.x = element_blank(), axis.ticks.x = element_blank(),
-    legend.position = 'bottom',
-  )+
-  scale_fill_brewer(palette = 'Dark2',labels=OP_LABELS)+
-  labs(x = NULL, y = NULL, fill = 'Worload')
-
+perf_common<-function(x=config_pivot,geom)
+  x|>
+    ggplot() + theme_bw()+
+    facet_nested(. ~ data_name, independent = 'y', scales = 'free',labeller = labeller(
+      op=OP_LABELS,
+      data_name=DATA_LABELS,
+    )) +
+    scale_y_continuous(labels = label_percent(),expand = expansion(mult=0.1)) +
+    scale_x_discrete(labels = OP_LABELS,expand=expansion(add=0.1)) +
+    coord_cartesian(xlim=c(0.4,3.6))+
+    theme(
+      axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+      legend.position = 'bottom',
+      legend.text = element_text(margin = margin(t = 0)),
+      legend.title=element_blank(),
+      legend.margin = margin(0),
+      legend.box.margin=margin(0),
+      legend.spacing.x = unit(0, "mm"),
+      legend.spacing.y = unit(-5, "mm"),
+    )+
+    scale_fill_brewer(palette = 'Dark2',labels=OP_LABELS)+
+    scale_color_brewer(palette = 'Dark2',labels=OP_LABELS)+
+    geom_point(aes(fill = op,col=op),x=0,y=-1, size = 0)+
+    labs(x = NULL, y = NULL, fill = 'Worload',col='Workload')+
+    guides(col = guide_legend(override.aes = list(size = 3)),fill='none')+
+    geom+
+    geom_hline(yintercept=0)
 
 d|>
   filter(!(config_name %in% c('adapt', 'hot', 'art', 'tlx')))|>
@@ -158,7 +168,7 @@ config_pivot|>
   select(data_name, op, br_miss_baseline, br_miss_prefix, r)|>
   arrange(r)
 
-perf_common + geom_col(aes(x = op,fill=op, y = txs_prefix / txs_baseline - 1)) + geom_hline(yintercept = 0)
+perf_common() + geom_col(aes(x = op,fill=op, y = txs_prefix / txs_baseline - 1)) + geom_hline(yintercept = 0)
 
 config_pivot|>
   filter(op == 'ycsb_c')|>
@@ -179,7 +189,7 @@ config_pivot|>
   coord_flip()
 
 # heads
-perf_common+ geom_col(aes(x = op, y = txs_heads / txs_prefix - 1,fill=op))+geom_hline(yintercept=0)
+perf_common()+ geom_col(aes(x = op, y = txs_heads / txs_prefix - 1,fill=op))+geom_hline(yintercept=0)
 
 config_pivot|>
   filter(op=='ycsb_c')|>
@@ -271,7 +281,7 @@ config_pivot|>
 
 # hints
 
-perf_common + geom_col(aes(x = op,fill=op, y = txs_hints / txs_heads - 1)) + geom_hline(yintercept = 0)
+perf_common() + geom_col(aes(x = op,fill=op, y = txs_hints / txs_heads - 1)) + geom_hline(yintercept = 0)
 
 config_pivot|>
   filter(op == 'ycsb_c')|>
@@ -312,7 +322,7 @@ config_pivot|>
   arrange(r)
 
 # hash
-perf_common+ geom_col(aes(x = op, y = txs_hash / txs_hints - 1,fill=op))+coord_cartesian(xlim=c(0.4,4.6))+geom_hline(yintercept=0)
+perf_common()+ geom_col(aes(x = op, y = txs_hash / txs_hints - 1,fill=op))+coord_cartesian(xlim=c(0.4,4.6))+geom_hline(yintercept=0)
 
 config_pivot|>
   ggplot() +
@@ -387,14 +397,13 @@ config_pivot|>
   arrange(r)
 
 #integer separators
-config_pivot|>
-  filter(op %in% COMMON_OPS)|>
-  ggplot() +
-  facet_nested(. ~ data_name, independent = 'y', scales = 'free') +
-  geom_col(aes(x = op, y = txs_inner / txs_hints - 1)) +
-  scale_y_continuous(labels = label_percent()) +
-  scale_x_discrete(labels = OP_LABELS) +
-  labs(x = NULL, y = "Speedup")
+perf_common(config_pivot|>filter(op!='sorted_scan',data_name %in% c('ints','sparse')),geom_col(aes(x = op, y = txs_inner / txs_hints - 1,fill=op)))+
+  facet_nested(. ~ data_name,labeller = labeller(
+    op=OP_LABELS,
+    data_name=DATA_LABELS,
+  ))+
+  theme(legend.position = 'right')
+save_as('inner-speedup',20)
 
 d|>
   filter(config_name == 'inner', op == 'ycsb_c', data_name %in% c('ints', 'sparse'), nodeCount_Inner > 0)|>
