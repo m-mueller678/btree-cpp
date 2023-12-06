@@ -3,7 +3,8 @@ source('../common.R')
 r <- bind_rows(
   # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 50) ::: 3 5 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/*-n3-ycsb | tee R/eval-2/seq-zipf-2.csv
   read_broken_csv('seq-zipf-2.csv')|>
-    filter(!(config_name == 'hot' & (data_name %in% c('int', 'rng4')))),
+    filter(!(config_name == 'hot' & (data_name %in% c('int', 'rng4'))))|>
+    filter(config_name!='adapt'),
   # hot build with integer specialization
   # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 50) ::: 3 5 :::  'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/hot-n3-ycsb | tee R/eval-2/seq-zipf-hot.csv
   read_broken_csv('seq-zipf-hot.csv'),
@@ -12,6 +13,8 @@ r <- bind_rows(
   # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 50) ::: 501 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/hints-n3-ycsb named-build/hash-n3-ycsb | tee R/eval-2/sorted-scan-seq.csv
   read_broken_csv('sorted-scan-seq.csv')|>filter(op == 'sorted_scan'),
   read_broken_csv('seq-zipf-dense3.csv'),
+  # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 50) ::: 3 5 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/adapt-n3-ycsb | tee R/eval-2/seq-adapt-dense3.csv
+  read_broken_csv('seq-adapt-dense3.csv'),
 )
 
 COMMON_OPS <- c("ycsb_c", "ycsb_c_init", "ycsb_e")
@@ -171,9 +174,8 @@ config_pivot|>
   select(data_name, op, br_miss_baseline, br_miss_prefix, r)|>
   arrange(r)
 
-perf_common() +
-  geom_col(aes(x = op, fill = op, y = txs_prefix / txs_baseline - 1)) +
-  geom_hline(yintercept = 0)
+perf_common(geom=geom_col(aes(x = op, fill = op, y = txs_prefix / txs_baseline - 1)))
+save_as('prefix-speedup',h=40)
 
 config_pivot|>
   filter(op == 'ycsb_c')|>
@@ -334,18 +336,9 @@ config_pivot|>
   arrange(r)
 
 # hash
-perf_common() +
-  geom_col(aes(x = op, y = txs_hash / txs_hints - 1, fill = op)) +
-  coord_cartesian(xlim = c(0.4, 4.6)) +
-  geom_hline(yintercept = 0)
-
-config_pivot|>
-  ggplot() +
-  facet_nested(. ~ data_name, independent = 'y', scales = 'free') +
-  geom_col(aes(x = op, y = txs_hash / txs_hints - 1)) +
-  scale_y_continuous(labels = label_percent()) +
-  scale_x_discrete(labels = OP_LABELS) +
-  labs(x = NULL, y = "Speedup")
+perf_common(geom=geom_col(aes(x = op, y = txs_hash / txs_hints - 1, fill = op))) +
+  coord_cartesian(xlim = c(0.4, 4.6))
+save_as('hash-speedup',40)
 
 ((
   config_pivot|>
@@ -557,3 +550,52 @@ d|>
   scale_fill_brewer(palette = "Dark2") +
   labs(x = NULL, y = "Count", fill = 'Configuration') +
   theme(axis.text.x = element_blank())
+
+# adapt
+config_pivot|>
+  filter(op %in% COMMON_OPS)|>
+  mutate(
+    ref_txs_best = pmax(txs_hash,txs_hints,txs_dense3),
+    ref_txs_worst = pmin(txs_hash,txs_hints,txs_dense3),
+   # ref_txs_hash = txs_hash,
+   # ref_txs_dense = txs_dense3,
+   # ref_txs_hints = txs_hints,
+  )|>
+  pivot_longer(contains('ref_txs_'),names_to = 'reference_name',values_to = 'reference_value',names_prefix = 'ref_txs_')|>
+  ggplot() +
+  theme_bw() +
+  facet_nested(reference_name ~ data_name, scales = 'free', labeller = labeller(
+    op = OP_LABELS,
+    data_name = DATA_LABELS,
+    reference_name= function(x) paste('vs',x)
+  )) +
+  scale_y_continuous(labels = label_percent(), expand = expansion(mult = 0.1)) +
+  scale_x_discrete(labels = OP_LABELS, expand = expansion(add = 0.1)) +
+  coord_cartesian(xlim = c(0.4, 3.6)) +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = 'bottom',
+    legend.text = element_text(margin = margin(t = 0)),
+    legend.title = element_blank(),
+    legend.margin = margin(0),
+    legend.box.margin = margin(0),
+    legend.spacing.x = unit(0, "mm"),
+    legend.spacing.y = unit(-5, "mm"),
+    #strip.text.y = element_blank(),
+  ) +
+  scale_fill_brewer(palette = 'Dark2', labels = OP_LABELS) +
+  scale_color_brewer(palette = 'Dark2', labels = OP_LABELS) +
+  geom_point(aes(fill = op, col = op), x = 0, y = -1, size = 0) +
+  labs(x = NULL, y = NULL, fill = 'Worload', col = 'Workload') +
+  guides(col = guide_legend(override.aes = list(size = 3)), fill = 'none') +
+  geom_col(aes(x = op, fill = op, y = txs_adapt/reference_value - 1)) +
+  geom_hline(yintercept = 0)
+save_as('adapt-perf-a', 50)
+
+in_mem_plot(COMMON_OPS,c('hints' = 1, 'hash' = 1, 'dense3' = 1, 'adapt' = 2))
+save_as('adapt-perf-c', 90)
+
+
+in_mem_plot(COMMON_OPS,c('hints' = 1, 'hash' = 1, 'dense3' = 1, 'adapt' = 2))
+save_as('adapt-perf', 90)
