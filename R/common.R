@@ -70,9 +70,20 @@ frame_id_cols <- function(c) setdiff(colnames(c), VAL_COLS)
 DATA_MAP <- c('data/urls' = 'urls-full', 'data/urls-short' = 'urls', 'data/wiki' = 'wiki', 'int' = 'ints', 'rng4' = 'sparse', 'partitioned_id' = 'partitioned_id')
 DATA_LABELS <- c('urls-full' = 'urls-full', 'urls' = 'urls', 'wiki' = 'wiki', 'ints' = 'dense', 'sparse' = 'sparse', 'partitioned_id' = 'partitioned_id')
 
-
+BASIC_OPTS<-c('prefix','heads','hints')
 OP_LABELS <- c('ycsb_c' = 'ycsb-c', 'ycsb_c_init' = 'insert', 'ycsb_e' = 'ycsb-e', 'ycsb_e_init' = 'ycsb_e_init', 'sorted_scan' = 'scan', 'sorted_insert' = 'sorted insert')
-CONFIG_LABELS <- c('prefix' = 'prefix truncation', 'dense2' = 'semi dense','dense3' = 'fully dense', 'dense1' = 'fully dense, no split','hash' = 'fingerprinting', 'inner' = 'integer separators')
+CONFIG_LABELS <- c('prefix' = 'prefix truncation', 'dense2' = 'semi dense','dense3' = 'fully dense', 'dense1' = 'fully dense, no split','hash' = 'fingerprinting', 'inner' = 'integer separators','art'='ART','hot'='HOT','tlx'='TLX')
+
+config_reference<-function(d){
+  case_when(
+    d=='baseline'~NA,
+    d=='prefix'~'baseline',
+    d=='heads'~'prefix',
+    d=='hints'~'heads',
+    TRUE~'hints'
+  )
+}
+
 
 augment <- function(d) {
   d|>
@@ -119,7 +130,7 @@ OUTPUT_COLS <- c("time", "nodeCount_Leaf", "nodeCount_Inner",
                  "counted_final_key_count", "cycle", "instr", "L1_miss", "LLC_miss",
                  "br_miss", "task", "IPC", "CPU",
                  "GHz", "psi", "psl", "avg_key_size", "final_key_count",
-                 "leaf_count", "inner_count", "node_count", "keys_per_leaf", "total_size", "rand_seed", "txs", "total_leaf_prefix", "avg_leaf_prefix"
+                 "leaf_count", "inner_count", "node_count", "keys_per_leaf", "rand_seed", "txs", "total_leaf_prefix", "avg_leaf_prefix"
 )
 
 label_page_size <- function(x) {
