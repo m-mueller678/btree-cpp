@@ -562,6 +562,7 @@ config_pivot|>
    # ref_txs_hints = txs_hints,
   )|>
   pivot_longer(contains('ref_txs_'),names_to = 'reference_name',values_to = 'reference_value',names_prefix = 'ref_txs_')|>
+  #transmute(op,data_name,r=txs_adapt/reference_value-1,reference_name)|>arrange(reference_name,op,r)|>View()
   ggplot() +
   theme_bw() +
   facet_nested(reference_name ~ data_name, scales = 'free', labeller = labeller(
@@ -569,7 +570,7 @@ config_pivot|>
     data_name = DATA_LABELS,
     reference_name= function(x) paste('vs',x)
   )) +
-  scale_y_continuous(labels = label_percent(), expand = expansion(mult = 0.1)) +
+  scale_y_continuous(labels = label_percent(style_positive = "plus"), expand = expansion(mult = 0.1)) +
   scale_x_discrete(labels = OP_LABELS, expand = expansion(add = 0.1)) +
   coord_cartesian(xlim = c(0.4, 3.6)) +
   theme(
