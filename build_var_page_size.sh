@@ -24,3 +24,7 @@ while read -r config; do
   mkdir -p page-size-builds/"$config"/
   mv $targets page-size-builds/"$config"/
 done
+
+cd page-size-builds
+renames="$(ls | sed 's:^.*$:"\0":;h; s:[ =-]:_:g;x; G; s:\n: :')"
+echo "$renames" | xargs -L1 mv --
