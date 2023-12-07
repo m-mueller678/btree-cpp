@@ -93,14 +93,22 @@ bool isDataInt(BTreeCppPerfEvent& e)
    return name == "int" || name == "rng4";
 }
 
+bool keySizeAcceptable(unsigned maxPayload,vector<string>& data){
+   for(auto& k:data){
+      if(k.size()+maxPayload>BTreeNode::maxKVSize)
+         return false;
+   }
+   return true;
+}
+
 void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsigned payloadSize, unsigned opCount, double zipfParameter, bool dryRun)
 {
-   if (keyCount <= data.size()) {
+   if (keyCount <= data.size() && keySizeAcceptable(payloadSize,data)) {
       if (!dryRun)
          random_shuffle(data.begin(), data.end());
       data.resize(keyCount);
    } else {
-      std::cerr << "not enough keys" << std::endl;
+      std::cerr << "UNACCEPTABLE" << std::endl;
       keyCount = 0;
       opCount = 0;
    }
@@ -141,13 +149,13 @@ void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
 
 void runSortedInsert(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsigned payloadSize, bool dryRun, bool doSort = true)
 {
-   if (keyCount <= data.size()) {
+   if (keyCount <= data.size() && keySizeAcceptable(payloadSize,data)) {
       data.resize(keyCount);
       if (!dryRun && doSort) {
          std::sort(data.begin(), data.end());
       }
    } else {
-      std::cerr << "not enough keys" << std::endl;
+      std::cerr << "UNACCEPTABLE" << std::endl;
       keyCount = 0;
    }
 
@@ -201,7 +209,7 @@ void runYcsbD(BTreeCppPerfEvent e,
 {
    unsigned initialKeyCount = 0;
    unsigned reasonableMaxKeys = 0;
-   if (!computeInitialKeyCount(avgKeyCount, data.size(), opCount, initialKeyCount, reasonableMaxKeys)) {
+   if (!computeInitialKeyCount(avgKeyCount, data.size(), opCount, initialKeyCount, reasonableMaxKeys) || ! keySizeAcceptable(payloadSize,data)) {
       opCount = 0;
       initialKeyCount = 0;
       data.resize(0);
@@ -264,7 +272,7 @@ void runYcsbE(BTreeCppPerfEvent e,
 {
    unsigned initialKeyCount = 0;
    unsigned reasonableMaxKeys = 0;
-   if (!computeInitialKeyCount(avgKeyCount, data.size(), opCount, initialKeyCount, reasonableMaxKeys)) {
+   if (!computeInitialKeyCount(avgKeyCount, data.size(), opCount, initialKeyCount, reasonableMaxKeys) || ! keySizeAcceptable(payloadSize,data)) {
       opCount = 0;
       initialKeyCount = 0;
       data.resize(0);

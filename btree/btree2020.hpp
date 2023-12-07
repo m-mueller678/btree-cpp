@@ -181,7 +181,7 @@ struct BTreeNode : public BTreeNodeHeader {
    // this struct does not have appropriate size.
    // Get Some storage location and call init.
    BTreeNode() = delete;
-   static constexpr unsigned maxKVSize = ((pageSizeLeaf - sizeof(BTreeNodeHeader) - (2 * sizeof(Slot)))) / 4;
+   static constexpr unsigned maxKVSize = (((pageSizeLeaf<pageSizeInner?pageSizeLeaf:pageSizeInner) - sizeof(BTreeNodeHeader) - (2 * sizeof(Slot)))) / 3;
 
    void init(bool isLeaf);
    uint8_t* ptr();
