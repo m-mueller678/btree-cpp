@@ -416,6 +416,8 @@ void BTreeNode::splitToHash(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, 
    memcpy(this, &right, pageSizeLeaf);
 }
 
+unsigned BTreeNode::leaf_count=1;
+
 void BTreeNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, unsigned sepLength)
 {
    // split this node into nodeLeft and nodeRight
@@ -423,6 +425,7 @@ void BTreeNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, un
    assert(sepSlot < ((isLeaf() ? pageSizeLeaf : pageSizeInner) / sizeof(BTreeNode*)));
    BTreeNode* nodeLeft;
    if (isLeaf()) {
+      ++leaf_count;
       if (enableHashAdapt && hasBadHeads())
          return splitToHash(parent, sepSlot, sepKey, sepLength);
       nodeLeft = makeLeaf()->basic();

@@ -164,6 +164,8 @@ struct BTreeNodeHeader {
 struct HashNode;
 
 struct BTreeNode : public BTreeNodeHeader {
+   static unsigned leaf_count;
+
    struct Slot {
       uint16_t offset;
       uint16_t keyLen;

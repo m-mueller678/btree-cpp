@@ -125,8 +125,11 @@ void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
             uint8_t* key = (uint8_t*)data[i].data();
             unsigned int length = data[i].size();
             t.insert(key, length, payload, payloadSize);
+            std::cout<<BTreeNode::leaf_count<<"\n";
          }
    }
+
+   exit(0);
 
    {
       e.setParam("op", "ycsb_c");
