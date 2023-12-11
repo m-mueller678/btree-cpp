@@ -4,7 +4,7 @@ r <- bind_rows(
   # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 50) ::: 3 5 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/*-n3-ycsb | tee R/eval-2/seq-zipf-2.csv
   read_broken_csv('seq-zipf-2.csv')|>
     filter(!(config_name == 'hot' & (data_name %in% c('int', 'rng4'))))|>
-    filter(config_name!='adapt'),
+    filter(config_name != 'adapt'),
   # hot build with integer specialization
   # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 50) ::: 3 5 :::  'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/hot-n3-ycsb | tee R/eval-2/seq-zipf-hot.csv
   read_broken_csv('seq-zipf-hot.csv'),
@@ -174,8 +174,8 @@ config_pivot|>
   select(data_name, op, br_miss_baseline, br_miss_prefix, r)|>
   arrange(r)
 
-perf_common(geom=geom_col(aes(x = op, fill = op, y = txs_prefix / txs_baseline - 1)))
-save_as('prefix-speedup',h=40)
+perf_common(geom = geom_col(aes(x = op, fill = op, y = txs_prefix / txs_baseline - 1)))
+save_as('prefix-speedup', h = 40)
 
 config_pivot|>
   filter(op == 'ycsb_c')|>
@@ -336,11 +336,11 @@ config_pivot|>
   arrange(r)
 
 # hash
-perf_common(geom=geom_col(aes(x = op, y = txs_hash / txs_hints - 1, fill = op))) +
+perf_common(geom = geom_col(aes(x = op, y = txs_hash / txs_hints - 1, fill = op))) +
   coord_cartesian(xlim = c(0.4, 4.6))
-save_as('hash-speedup',40)
+save_as('hash-speedup', 40)
 
-((
+{ (
   config_pivot|>
     filter(op == 'ycsb_c')|>
     ggplot() +
@@ -368,7 +368,7 @@ save_as('hash-speedup',40)
           panel.spacing.x = unit(1.5, "lines"),
           text = element_text(size = 24)) +
     coord_flip()
-))
+) }
 
 
 config_pivot|>
@@ -380,6 +380,18 @@ config_pivot|>
   mutate(r = txs_hash / txs_prefix - 1)|>
   select(data_name, op, r)|>
   arrange(data_name, r)
+
+config_pivot|>
+  mutate(r = node_count_hash / node_count_prefix - 1)|>
+  select(data_name, op, r)|>
+  filter(op == 'ycsb_c')|>
+  arrange(r)
+
+config_pivot|>
+  mutate(r = node_count_hash / node_count_hints - 1)|>
+  select(data_name, op, r)|>
+  filter(op == 'ycsb_c')|>
+  arrange(r)
 
 config_pivot|>
   mutate(r = instr_hash / instr_hints - 1)|>
@@ -405,6 +417,56 @@ config_pivot|>
   mutate(r = br_miss_hash / br_miss_hints - 1)|>
   select(data_name, op, br_miss_hints, br_miss_hash, r)|>
   arrange(r)
+
+# hash head space
+{
+  space_data <- config_pivot|>
+    filter(op == 'ycsb_c')|>
+    transmute(
+      data_name,
+      abs_heads = (node_count_heads - node_count_prefix) * 4096 / data_size,
+      abs_hash = (node_count_hash - node_count_prefix) * 4096 / data_size,
+      rel_heads = node_count_heads / node_count_prefix - 1,
+      rel_hash = node_count_hash / node_count_prefix - 1,
+    )|>
+    pivot_longer(!any_of('data_name'), names_sep = '_', names_to = c('ref', 'config'))|>
+    mutate(config = factor(config,levels = CONFIG_NAMES))
+
+  plot <- function(ref_filter) {
+    space_data|>
+      filter(ref == ref_filter)|>
+      ggplot() +
+      theme_bw() +
+      geom_col(aes(x = data_name, y = value, fill = config), position = position_dodge2(reverse = TRUE)) +
+      scale_fill_brewer(palette = 'Dark2',labels = CONFIG_LABELS,name=NULL)+
+      scale_x_discrete(labels = DATA_LABELS, name = 'key set') +
+      theme(legend.position = 'bottom')+
+      coord_flip()
+  }
+  hide_y<-theme(
+    axis.title.y=element_blank(),
+    axis.ticks.y=element_blank(),
+    axis.text.y=element_blank(),
+  )
+  pr <- plot('rel') +
+    scale_y_continuous(
+      labels = label_percent(),
+      name = 'Relative',
+      expand = expansion(mult = c(0, .1)),
+      breaks = (0:2) * 0.1
+    )
+  pa <- plot('abs') +
+    scale_y_continuous(
+      labels = label_bytes(),
+      name = 'Per Record',
+      expand = expansion(mult = c(0, .1)),
+      breaks = c(0, 2, 4, 6)
+    )
+
+  (pr + (pa+hide_y)) + plot_layout(guides = 'collect')&theme(legend.position = 'bottom',legend.margin = margin(0,0,0,0),plot.margin = margin(0,0,0,0),legend.key.size = unit(4,'mm'))
+  save_as('hash-head-space-overhead',30)
+}
+
 
 #integer separators
 perf_common(config_pivot|>filter(op != 'sorted_scan', data_name %in% c('ints', 'sparse')), geom_col(aes(x = op, y = txs_inner / txs_hints - 1, fill = op))) +
@@ -453,15 +515,16 @@ config_pivot|>
 
 # in-memory
 
-in_mem_plot <- function(show_op,configs) {
+in_mem_plot <- function(show_op, configs) {
+
   make_plot <- function(data) {
     data|>
-      group_by(config_name,op, data_name)|>
-      summarise(txs = mean(txs)/1e6)|>
+      group_by(config_name, op, data_name)|>
+      summarise(txs = mean(txs) / 1e6)|>
       mutate(
         g = unname(configs[as.character(config_name)])
       )|>
-      group_by(op,g, data_name)|>
+      group_by(op, g, data_name)|>
       arrange(txs, .by_group = TRUE)|>
       mutate(
         hwidth = 0.55 - rank(txs) * 0.1,
@@ -471,13 +534,13 @@ in_mem_plot <- function(show_op,configs) {
       ggplot() +
       theme_bw() +
       facet_nested(
-         if(length(show_op)>1) {op~data_name} else {.~data_name},
-         labeller = labeller(
-        data_name = DATA_LABELS,
-        op=OP_LABELS,
-      ),
-          scales='free_y'
-      )+
+        if (length(show_op) > 1) { op ~ data_name } else { . ~ data_name },
+        labeller = labeller(
+          data_name = DATA_LABELS,
+          op = OP_LABELS,
+        ),
+        scales = 'free_y'
+      ) +
       geom_rect(aes(ymin = bar_bottom, ymax = bar_top, xmin = g - hwidth, xmax = g + hwidth, , fill = config_name)) +
       scale_x_continuous(
         breaks = NULL
@@ -490,7 +553,7 @@ in_mem_plot <- function(show_op,configs) {
       scale_fill_brewer(palette = "Dark2", labels = CONFIG_LABELS) +
       labs(x = NULL, y = "Throughput", fill = 'Configuration') +
       theme(legend.position = 'bottom',
-            legend.title=element_blank(),
+            legend.title = element_blank(),
             axis.text.x = element_blank(),
             panel.spacing.x = unit(0.1, "lines"),
             panel.spacing.y = unit(1, "lines")
@@ -501,26 +564,34 @@ in_mem_plot <- function(show_op,configs) {
     filter(config_name %in% names(configs))|>
     filter(op %in% show_op)|>
     mutate(text = data_name %in% c('urls', 'wiki'))
-  no_facet<-theme(
+  no_facet <- theme(
     strip.background.y = element_blank(),
     strip.text.y = element_blank()
   )
-  ((make_plot(op_data|>filter(text))+no_facet) | make_plot(op_data|>filter(!text))) + plot_layout(guides = "collect") & theme(legend.position = 'bottom')
+  ((make_plot(op_data|>filter(text)) + no_facet) | make_plot(op_data|>filter(!text))) + plot_layout(guides = "collect") & theme(legend.position = 'bottom')
 }
 
-HOT_ART_CONFIGS<-c('baseline' = 2, 'dense3' = 2, 'hash' = 2, 'art' = 3, 'hot' = 3)
-TLX_CONFIGS<-c('baseline' = 2, 'dense3' = 2, 'hash' = 2, 'tlx' = 3)
-ALL_CONFIGS<-c(HOT_ART_CONFIGS,'tlx'=4)
+HOT_ART_CONFIGS <- c('baseline' = 2, 'dense3' = 2, 'hash' = 2, 'art' = 3, 'hot' = 3)
+TLX_CONFIGS <- c('baseline' = 2, 'dense3' = 2, 'hash' = 2, 'tlx' = 3)
+ALL_CONFIGS <- c(HOT_ART_CONFIGS, 'tlx' = 4)
 
-in_mem_plot(COMMON_OPS,ALL_CONFIGS)
+in_mem_plot(COMMON_OPS, ALL_CONFIGS)
 save_as('mem-trie', 90)
 in_mem_plot('ycsb_c_init')
 in_mem_plot('ycsb_e')
 
-config_pivot|>transmute(r=txs_art/txs_dense3,op,data_name)|>arrange(op,data_name)
-config_pivot|>transmute(r=txs_hash/txs_art,op,data_name)|>arrange(op,data_name)
-config_pivot|>transmute(r=txs_dense3/pmax(txs_hot,txs_art)-1,op,data_name)|>arrange(op,data_name)
-config_pivot|>transmute(r1=txs_baseline/txs_tlx,r2=pmax(txs_baseline,txs_dense3,txs_hash)/txs_tlx,r3=txs_baseline/txs_tlx-1,op,data_name)|>arrange(data_name,op)
+config_pivot|>
+  transmute(r = txs_art / txs_dense3, op, data_name)|>
+  arrange(op, data_name)
+config_pivot|>
+  transmute(r = txs_hash / txs_art, op, data_name)|>
+  arrange(op, data_name)
+config_pivot|>
+  transmute(r = txs_dense3 / pmax(txs_hot, txs_art) - 1, op, data_name)|>
+  arrange(op, data_name)
+config_pivot|>
+  transmute(r1 = txs_baseline / txs_tlx, r2 = pmax(txs_baseline, txs_dense3, txs_hash) / txs_tlx, r3 = txs_baseline / txs_tlx - 1, op, data_name)|>
+  arrange(data_name, op)
 
 d|>
   filter(config_name %in% c('baseline', 'art', 'hot', 'dense1', 'hash'), op %in% COMMON_OPS)|>
@@ -555,20 +626,20 @@ d|>
 config_pivot|>
   filter(op %in% COMMON_OPS)|>
   mutate(
-    ref_txs_best = pmax(txs_hash,txs_hints,txs_dense3),
-    ref_txs_worst = pmin(txs_hash,txs_hints,txs_dense3),
-   # ref_txs_hash = txs_hash,
-   # ref_txs_dense = txs_dense3,
-   # ref_txs_hints = txs_hints,
+    ref_txs_best = pmax(txs_hash, txs_hints, txs_dense3),
+    ref_txs_worst = pmin(txs_hash, txs_hints, txs_dense3),
+    # ref_txs_hash = txs_hash,
+    # ref_txs_dense = txs_dense3,
+    # ref_txs_hints = txs_hints,
   )|>
-  pivot_longer(contains('ref_txs_'),names_to = 'reference_name',values_to = 'reference_value',names_prefix = 'ref_txs_')|>
+  pivot_longer(contains('ref_txs_'), names_to = 'reference_name', values_to = 'reference_value', names_prefix = 'ref_txs_')|>
   #transmute(op,data_name,r=txs_adapt/reference_value-1,reference_name)|>arrange(reference_name,op,r)|>View()
   ggplot() +
   theme_bw() +
   facet_nested(reference_name ~ data_name, scales = 'free', labeller = labeller(
     op = OP_LABELS,
     data_name = DATA_LABELS,
-    reference_name= function(x) paste('vs',x)
+    reference_name = function(x) paste('vs', x)
   )) +
   scale_y_continuous(labels = label_percent(style_positive = "plus"), expand = expansion(mult = 0.1)) +
   scale_x_discrete(labels = OP_LABELS, expand = expansion(add = 0.1)) +
@@ -590,13 +661,13 @@ config_pivot|>
   geom_point(aes(fill = op, col = op), x = 0, y = -1, size = 0) +
   labs(x = NULL, y = NULL, fill = 'Worload', col = 'Workload') +
   guides(col = guide_legend(override.aes = list(size = 3)), fill = 'none') +
-  geom_col(aes(x = op, fill = op, y = txs_adapt/reference_value - 1)) +
+  geom_col(aes(x = op, fill = op, y = txs_adapt / reference_value - 1)) +
   geom_hline(yintercept = 0)
 save_as('adapt-perf-a', 50)
 
-in_mem_plot(COMMON_OPS,c('hints' = 1, 'hash' = 1, 'dense3' = 1, 'adapt' = 2))
+in_mem_plot(COMMON_OPS, c('hints' = 1, 'hash' = 1, 'dense3' = 1, 'adapt' = 2))
 save_as('adapt-perf-c', 90)
 
 
-in_mem_plot(COMMON_OPS,c('hints' = 1, 'hash' = 1, 'dense3' = 1, 'adapt' = 2))
+in_mem_plot(COMMON_OPS, c('hints' = 1, 'hash' = 1, 'dense3' = 1, 'adapt' = 2))
 save_as('adapt-perf', 90)

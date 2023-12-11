@@ -62,6 +62,16 @@ config_pivot|>
     coord_flip()
 )
 
+dense_joined|>
+  filter(op == 'ycsb_c', data_name == 'ints')|>
+  group_by(config_name.x)|>
+  summarize(
+    use_per_record = node_count.x * 4096 / 25000000,
+    per_record = mean(node_count.y * 4096 / 25000000 - node_count.x * 4096 / 25000000),
+    rel=1 - mean(node_count.x) / mean(node_count.y),
+  )
+
+
 d|>
   filter(op %in% c("ycsb_c", "ycsb_c_init", "ycsb_e", "sorted_insert"))|>
   filter(data_name == 'ints')|>
@@ -80,14 +90,15 @@ dense_joined|>
   scale_y_continuous(labels = label_percent(), expand = expansion(mult = 0.1), breaks = (0:20) * 0.3) +
   scale_x_discrete(labels = OP_LABELS, expand = expansion(add = 0.1)) +
   coord_cartesian(xlim = c(0.4, 4.6)) +
-  guides(fill = guide_legend(nrow=2))+
+  guides(fill = guide_legend(ncol=1,title = NULL))+
   theme(
     axis.text.x = element_blank(), axis.ticks.x = element_blank(),
-    legend.position = 'bottom',
+    legend.position = 'right',
+    legend.margin = margin(-20,0,0,0),
   ) +
   scale_fill_brewer(palette = 'Dark2', labels = OP_LABELS) +
   labs(x = NULL, y = NULL, fill = 'Workload')
-save_as('dense-speedup', 50)
+save_as('dense-speedup', 25)
 
 d|>
   ggplot() +
