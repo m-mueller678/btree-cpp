@@ -65,6 +65,7 @@ cp|>
         name = "Optimization",
         values = palette,
         drop = FALSE,
+        labels = CONFIG_LABELS,
       ) +
       scale_y_continuous(
         labels = if(y_axis){label_percent(style_positive = "plus")}else{NULL},
@@ -98,7 +99,7 @@ cp|>
     filter(data_name == 'urls' & config_name %in% c('prefix', 'heads', 'hints', 'hash'))|>
     zipf_plot(TRUE,TRUE,0.1)
   p2 <- cp|>
-    filter(data_name == 'wiki' & config_name %in% c('heads', 'hints', 'hash'))|>
+    filter(data_name == 'wiki' & config_name %in% c('prefix','heads', 'hints', 'hash'))|>
     zipf_plot(FALSE,TRUE,0.3)
   p3 <- cp|>
     filter(data_name == 'ints' & config_name %in% c('heads', 'hints', 'hash', 'dense3', 'dense2'))|>

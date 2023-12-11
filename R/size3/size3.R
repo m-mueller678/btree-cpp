@@ -41,7 +41,7 @@ v2|>
   theme_bw() +
   facet_nested(op+payload_size~config_name,scales='free_y',independent = 'y')+
   #facet_wrap(~data_name+inner+op,scales='free_y')+
-  geom_line(aes(psv, txs, col = data_name),stat='summary',fun=length)+
+  geom_line(aes(psv, txs, col = data_name),stat='summary',fun=mean)+
   scale_color_brewer(palette = 'Dark2')+
   scale_y_continuous(name = NULL, labels = label_number(scale_cut = cut_si('op/s')))
 
@@ -99,8 +99,9 @@ v1|>filter(inner)|>select(config_name)|>unique()
 
 v1|>
   filter(inner)|>
-  group_by(config_name,op,data_name)|>
   filter(psv>=11)|>
+  group_by(config_name,op,data_name,psv)|>
+  summarize(txs=mean(txs),.groups = 'drop_last')|>
   arrange(psv,.by_group = TRUE)|>
   summarize(
     minmax = first(txs)/last(txs),

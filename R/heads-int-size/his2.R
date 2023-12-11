@@ -15,6 +15,7 @@ config_pivot <- d|>
 
 config_pivot$avg_leaf_prefix_prefix
 
+d|>filter(payload_size==8,data_size==25e6)|>select(config_name,leaf_count)|>arrange(leaf_count)
 
 config_pivot|>
   ggplot()+

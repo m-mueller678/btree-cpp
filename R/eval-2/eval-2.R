@@ -2,6 +2,7 @@ source('../common.R')
 
 r <- bind_rows(
   # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 50) ::: 3 5 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/*-n3-ycsb | tee R/eval-2/seq-zipf-2.csv
+  # this one has weirdly low node counts for heads, cannot reproduce.
   read_broken_csv('seq-zipf-2.csv')|>
     filter(!(config_name == 'hot' & (data_name %in% c('int', 'rng4'))))|>
     filter(config_name != 'adapt'),
@@ -13,8 +14,11 @@ r <- bind_rows(
   # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 50) ::: 501 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/hints-n3-ycsb named-build/hash-n3-ycsb | tee R/eval-2/sorted-scan-seq.csv
   read_broken_csv('sorted-scan-seq.csv')|>filter(op == 'sorted_scan'),
   read_broken_csv('seq-zipf-dense3.csv'),
-  # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 50) ::: 3 5 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/adapt-n3-ycsb | tee R/eval-2/seq-adapt-dense3.csv
+  # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 20) ::: 3 5 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/adapt-n3-ycsb | tee R/eval-2/seq-adapt-dense3.csv
   read_broken_csv('seq-adapt-dense3.csv'),
+
+  # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 30) ::: 3 5 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/*-n3-ycsb | tee R/eval-2/seq-zipf-3.csv
+
 )
 
 COMMON_OPS <- c("ycsb_c", "ycsb_c_init", "ycsb_e")
@@ -200,6 +204,8 @@ config_pivot|>
 perf_common() +
   geom_col(aes(x = op, y = txs_heads / txs_prefix - 1, fill = op)) +
   geom_hline(yintercept = 0)
+
+d|>filter(op=='ycsb_c',config_name=='heads',data_name=='ints')|>summarize(c=mean(nodeCount_Leaf))
 
 config_pivot|>
   filter(op == 'ycsb_c')|>
@@ -628,18 +634,18 @@ config_pivot|>
   mutate(
     ref_txs_best = pmax(txs_hash, txs_hints, txs_dense3),
     ref_txs_worst = pmin(txs_hash, txs_hints, txs_dense3),
-    # ref_txs_hash = txs_hash,
-    # ref_txs_dense = txs_dense3,
+    ref_txs_hash = txs_hash,
+    ref_txs_dense3 = txs_dense3,
     # ref_txs_hints = txs_hints,
   )|>
   pivot_longer(contains('ref_txs_'), names_to = 'reference_name', values_to = 'reference_value', names_prefix = 'ref_txs_')|>
-  #transmute(op,data_name,r=txs_adapt/reference_value-1,reference_name)|>arrange(reference_name,op,r)|>View()
+  transmute(op,data_name,r=txs_adapt/reference_value-1,reference_name)|>arrange(reference_name,op,r)|>View()
   ggplot() +
   theme_bw() +
   facet_nested(reference_name ~ data_name, scales = 'free', labeller = labeller(
     op = OP_LABELS,
     data_name = DATA_LABELS,
-    reference_name = function(x) paste('vs', x)
+    reference_name = CONFIG_LABELS,
   )) +
   scale_y_continuous(labels = label_percent(style_positive = "plus"), expand = expansion(mult = 0.1)) +
   scale_x_discrete(labels = OP_LABELS, expand = expansion(add = 0.1)) +
@@ -654,7 +660,7 @@ config_pivot|>
     legend.box.margin = margin(0),
     legend.spacing.x = unit(0, "mm"),
     legend.spacing.y = unit(-5, "mm"),
-    #strip.text.y = element_blank(),
+    strip.text.y = element_text(size=6),
   ) +
   scale_fill_brewer(palette = 'Dark2', labels = OP_LABELS) +
   scale_color_brewer(palette = 'Dark2', labels = OP_LABELS) +
