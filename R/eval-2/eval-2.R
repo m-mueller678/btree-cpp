@@ -2,7 +2,6 @@ source('../common.R')
 
 r <- bind_rows(
   # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 50) ::: 3 5 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/*-n3-ycsb | tee R/eval-2/seq-zipf-2.csv
-  # this one has weirdly low node counts for heads, cannot reproduce.
   read_broken_csv('seq-zipf-2.csv')|>
     filter(!(config_name == 'hot' & (data_name %in% c('int', 'rng4'))))|>
     filter(config_name != 'adapt'),
@@ -204,8 +203,6 @@ config_pivot|>
 perf_common() +
   geom_col(aes(x = op, y = txs_heads / txs_prefix - 1, fill = op)) +
   geom_hline(yintercept = 0)
-
-d|>filter(op=='ycsb_c',config_name=='heads',data_name=='ints')|>summarize(c=mean(nodeCount_Leaf))
 
 config_pivot|>
   filter(op == 'ycsb_c')|>
@@ -425,6 +422,8 @@ config_pivot|>
   arrange(r)
 
 # hash head space
+d|>filter(op=='ycsb_c',config_name=='heads',data_name=='ints')|>summarize(c=mean(nodeCount_Leaf))
+
 {
   space_data <- config_pivot|>
     filter(op == 'ycsb_c')|>
