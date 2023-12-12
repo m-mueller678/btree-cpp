@@ -523,66 +523,10 @@ unsigned BTreeNode::commonPrefix(unsigned slotA, unsigned slotB)
 BTreeNode::SeparatorInfo BTreeNode::findSeparator()
 {
    constexpr bool USE_ORIGINAL = false;
-   if (USE_ORIGINAL) {
-      ASSUME(count > 1);
-      ASSUME(enablePrefix || prefixLength == 0);
-      if (isInner()) {
-         // inner nodes are split in the middle
-         unsigned slotId = count / 2;
-         return BTreeNode::SeparatorInfo{static_cast<unsigned>(prefixLength + slot[slotId].keyLen), slotId, false};
-      }
-
-      // find good separator slot
-      unsigned bestPrefixLength, bestSlot;
-      if (count > 16) {
-         unsigned lower = (count / 2) - (count / 16);
-         unsigned upper = (count / 2);
-
-         bestPrefixLength = commonPrefix(lower, 0);
-         bestSlot = lower;
-
-         if (bestPrefixLength != commonPrefix(upper - 1, 0))
-            for (bestSlot = lower + 1; (bestSlot < upper) && (commonPrefix(bestSlot, 0) == bestPrefixLength); bestSlot++)
-               ;
-      } else {
-         bestSlot = (count - 1) / 2;
-         bestPrefixLength = commonPrefix(bestSlot, 0);
-      }
-
-      // try to truncate separator
-      unsigned common = commonPrefix(bestSlot, bestSlot + 1);
-      if ((bestSlot + 1 < count) && (slot[bestSlot].keyLen > common) && (slot[bestSlot + 1].keyLen > (common + 1)))
-         return SeparatorInfo{prefixLength + common + 1, bestSlot, true};
-
-      return SeparatorInfo{static_cast<unsigned>(prefixLength + slot[bestSlot].keyLen), bestSlot, false};
-   } else {
-      ASSUME(count > 1);
-      ASSUME(enablePrefix || prefixLength == 0);
-      if (isInner()) {
-         // inner nodes are split in the middle
-         unsigned slotId = count / 2 - 1;
-         return BTreeNode::SeparatorInfo{static_cast<unsigned>(prefixLength + slot[slotId].keyLen), slotId, false};
-      }
-
-      // find good separator slot
-      unsigned lower = count / 2 - count / 32;
-      unsigned upper = lower + count / 16;
-
-      unsigned rangeCommonPrefix = commonPrefix(lower, upper);
-      if (slot[lower].keyLen == rangeCommonPrefix) {
-         return BTreeNode::SeparatorInfo{prefixLength + rangeCommonPrefix, lower, false};
-      }
-      for (unsigned i = lower + 1;; ++i) {
-         assert(i < upper + 1);
-         if (getKey(i)[rangeCommonPrefix] != getKey(lower)[rangeCommonPrefix]) {
-            if (slot[i].keyLen == rangeCommonPrefix + 1)
-               return BTreeNode::SeparatorInfo{prefixLength + rangeCommonPrefix + 1, i, false};
-            else
-               return BTreeNode::SeparatorInfo{prefixLength + rangeCommonPrefix + 1, i - 1, true};
-         }
-      }
-      ASSUME(false);
-   }
+   ASSUME(count > 1);
+   ASSUME(enablePrefix || prefixLength == 0);
+   unsigned slotId = count / 2 - 1;
+   return BTreeNode::SeparatorInfo{static_cast<unsigned>(prefixLength + slot[slotId].keyLen), slotId, false};
 }
 
 void BTreeNode::restoreKey(uint8_t* sepKeyOut, unsigned len, unsigned index)
