@@ -112,6 +112,7 @@ void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
       keyCount = 0;
       opCount = 0;
    }
+   bool RAND_PAYLOAD=getenv("RAND_PL");
 
    uint8_t* payload = makePayload(payloadSize);
 
@@ -122,7 +123,7 @@ void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
          for (uint64_t i = 0; i < keyCount; i++) {
             uint8_t* key = (uint8_t*)data[i].data();
             unsigned int length = data[i].size();
-            t.insert(key, length, payload, payloadSize);
+            t.insert(key, length, payload, RAND_PAYLOAD?rand()%payloadSize:payloadSize);
             std::cout<<BTreeNode::leaf_count<<"\n";
          }
    }
