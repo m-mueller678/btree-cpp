@@ -327,6 +327,7 @@ bool AnyNode::splitNodeWithParent(AnyNode* parent, uint8_t* key, unsigned keyLen
       case Tag::Dense:
       case Tag::Dense2: {
          if (parent->innerRequestSpaceFor(dense()->fullKeyLen)) {  // is there enough space in the parent for the separator?
+            ++BTreeNode::leaf_count;
             if (_tag == Tag::Dense)
                dense()->splitNode1(parent, key, keyLength);
             else
@@ -344,6 +345,7 @@ bool AnyNode::splitNodeWithParent(AnyNode* parent, uint8_t* key, unsigned keyLen
             uint8_t sepKey[sepInfo.length];
             hash()->getSep(sepKey, sepInfo);
             hash()->splitNode(parent, sepInfo.slot, sepKey, sepInfo.length);
+            ++BTreeNode::leaf_count;
             return true;
          } else {
             return false;
