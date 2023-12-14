@@ -2,9 +2,9 @@ source('../common.R')
 
 r <- bind_rows(
   # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 50) ::: 3 5 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/*-n3-ycsb | tee R/eval-2/seq-zipf-2.csv
-  read_broken_csv('seq-zipf-2.csv')|>
-    filter(!(config_name == 'hot' & (data_name %in% c('int', 'rng4'))))|>
-    filter(config_name != 'adapt'),
+  # read_broken_csv('seq-zipf-2.csv')|>
+  #   filter(!(config_name == 'hot' & (data_name %in% c('int', 'rng4'))))|>
+  #   filter(config_name != 'adapt'),
   # hot build with integer specialization
   # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 50) ::: 3 5 :::  'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/hot-n3-ycsb | tee R/eval-2/seq-zipf-hot.csv
   read_broken_csv('seq-zipf-hot.csv'),
@@ -14,10 +14,11 @@ r <- bind_rows(
   read_broken_csv('sorted-scan-seq.csv')|>filter(op == 'sorted_scan'),
   read_broken_csv('seq-zipf-dense3.csv'),
   # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 20) ::: 3 5 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/adapt-n3-ycsb | tee R/eval-2/seq-adapt-dense3.csv
-  read_broken_csv('seq-adapt-dense3.csv'),
+  # read_broken_csv('seq-adapt-dense3.csv'),
 
   # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 30) ::: 3 5 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/*-n3-ycsb | tee R/eval-2/seq-zipf-3.csv
-
+  read_broken_csv('seq-zipf-3.csv')|>
+    filter(!(config_name == 'hot' & (data_name %in% c('int', 'rng4'))))
 )
 
 COMMON_OPS <- c("ycsb_c", "ycsb_c_init", "ycsb_e")
@@ -422,7 +423,7 @@ config_pivot|>
   arrange(r)
 
 # hash head space
-d|>filter(op=='ycsb_c',config_name=='heads',data_name=='ints')|>summarize(c=mean(nodeCount_Leaf))
+d|>filter(op=='ycsb_c',config_name %in% c('heads','prefix'),data_name=='ints')|>group_by(config_name)|>summarize(c=mean(nodeCount_Leaf))
 
 {
   space_data <- config_pivot|>

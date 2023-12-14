@@ -133,6 +133,37 @@ d|>
     scale_x_log10(
       name = if (has_x) { 'records per range' }else { NULL },
       limits = c(10, 1e5),
+      breaks = c(10, 1e2,1e3, 1e4),
+      labels = label_number(scale_cut = cut_si('')),
+      expand = expansion(add=0)
+    ) +
+    expand_limits(y = 0)+
+    guides(col = guide_legend(override.aes = list(size = 3)))
+
+  tx <- common(FALSE, FALSE) +
+    geom_point(aes(x = data_size / ycsb_range_len, y = txs, col = config_name),size=0.3) +
+    scale_y_continuous(name = NULL, labels = label_number(scale_cut = cut_si('op/s'))) +
+    facet_nested(. ~ 'Throughput')
+  space <- common(FALSE, FALSE) +
+    geom_point(aes(x = data_size / ycsb_range_len, y = node_count * 4096 /1e7, col = config_name),size=0.3) +
+    scale_y_continuous(name = NULL, labels = label_bytes(),breaks = 20*(0:5),position = 'right') +
+    facet_nested(. ~ 'Space Per Record')
+  (tx|plot_spacer()|space) + plot_layout(guides = "collect",widths = c(1,0.05,1)) &
+    theme(legend.position = 'bottom',legend.title = element_blank(),plot.margin = margin(1,0,0,0),legend.margin = margin(-10,0,0,0))
+}
+save_as('dense-partition', 30)
+
+
+{
+  common <- function(dense_only, has_x, name) d|>
+    filter(!dense_only | config_name == 'dense3')|>
+    filter(data_name == 'partitioned_id')|>
+    ggplot() +
+    theme_bw() +
+    scale_color_brewer(palette = 'Dark2', name = "Configuration", labels = CONFIG_LABELS) +
+    scale_x_log10(
+      name = if (has_x) { 'records per range' }else { NULL },
+      limits = c(10, 1e5),
       breaks = c(10, 1e3, 1e5),
       labels = label_number(scale_cut = cut_si('')),
       expand = expansion(add=0)
@@ -146,17 +177,18 @@ d|>
     scale_y_continuous(name = NULL, labels = label_number(scale_cut = cut_si('op/s'))) +
     facet_nested(. ~ 'Throughput')
   space <- common(FALSE, FALSE) +
-    geom_point(aes(x = data_size / ycsb_range_len, y = node_count * 4096, col = config_name),size=0.3) +
-    scale_y_continuous(name = NULL, labels = label_bytes(),breaks = 1e8*c(0,2,4)) +
-    facet_nested(. ~ 'Space Use')
+    geom_point(aes(x = data_size / ycsb_range_len, y = node_count * 4096 /1e7, col = config_name),size=0.3) +
+    scale_y_continuous(name = NULL, labels = label_bytes(),breaks = 10*c(0:5)) +
+    facet_nested(. ~ 'Space Per Record')
+    #theme(strip.text = element_text(size = 8))
   dense <- common(TRUE, TRUE) +
     geom_point(aes(x = data_size / ycsb_range_len, y = nodeCount_Dense / leaf_count), col = "#D95F02",size=0.3) +
     scale_y_continuous(name = NULL, labels = label_percent()) +
     facet_nested(. ~ 'Dense Leaf Share')+
     theme(strip.text = element_text(size = 7))
-  (tx + space + dense + guide_area()) + plot_layout(guides = "collect")
+  (tx | space) + plot_layout(guides = "collect")&theme(legend.position = 'bottom')
 }
-save_as('dense-partition', 60)
+save_as('dense-partition', 40)
 
 # tx ratio
 config_pivot|>

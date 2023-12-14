@@ -4,9 +4,11 @@ source("../common.R")
 # r <- read_broken_csv('vary1.csv.gz')
 r <- bind_rows(
   # python3 R/size3/vary2.py |parallel -j1 --joblog joblog -- {1}| tee R/size3/vary2.csv
-  read_broken_csv('vary2.csv.gz'),
+  # read_broken_csv('vary2.csv.gz'),
   # python3 R/size3/vary3.py |parallel -j1 --joblog joblog -- {1}| tee R/size3/vary3.csv
   read_broken_csv('vary3.csv.gz'),
+  # python3 R/size3/vary4.py |parallel -j1 --joblog joblog -- {1}| tee R/size3/vary4.csv
+  read_broken_csv('vary4.csv.gz'),
 )
 
 d <- r|>
