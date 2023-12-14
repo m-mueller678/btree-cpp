@@ -4,7 +4,7 @@
 #include <cstring>
 #include <functional>
 
-BTreeNodeHeader::BTreeNodeHeader(bool isLeaf) : _tag(isLeaf ? Tag::Leaf : Tag::Inner), dataOffset(isLeaf ? pageSizeLeaf : pageSizeInner) {}
+BTreeNodeHeader::BTreeNodeHeader(bool isLeaf,RangeOpCounter roc) : _tag(isLeaf ? Tag::Leaf : Tag::Inner), rangeOpCounter(roc), dataOffset(isLeaf ? pageSizeLeaf : pageSizeInner) {}
 
 uint8_t* BTreeNode::ptr()
 {
@@ -68,8 +68,7 @@ bool BTreeNode::requestSpaceFor(unsigned spaceNeeded)
 void BTreeNode::init(bool isLeaf,RangeOpCounter roc)
 {
    auto * header=static_cast<BTreeNodeHeader*>(this);
-   *header= BTreeNodeHeader(isLeaf);
-   header->rangeOpCounter=roc;
+   *header= BTreeNodeHeader(isLeaf,roc);
 }
 
 AnyNode* BTreeNode::makeLeaf()
@@ -459,7 +458,8 @@ void BTreeNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, un
          if(badHeads && rangeOpCounter.isLowRange())
             return splitToHash(parent, sepSlot, sepKey, sepLength);
       }
-      nodeLeft = makeLeaf()->basic();
+      nodeLeft = &AnyNode::allocLeaf()->_basic_node;
+      nodeLeft->init(true,rangeOpCounter);
    } else {
       AnyNode* r = AnyNode::allocInner();
       r->_basic_node.init(false,rangeOpCounter);

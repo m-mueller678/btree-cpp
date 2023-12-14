@@ -155,17 +155,6 @@ struct RangeOpCounter{
       }
    }
 
-   RangeOpCounter (bool headsGood,uint8_t previous){
-      if(!enableAdaptOp){return;}
-      if(headsGood){
-         count=255;
-      }else if(previous == 255){
-         count =MAX_COUNT/2;
-      }else{
-         count=previous;
-      }
-   }
-
    bool range_op(){
       if(!enableAdaptOp){return false;}
       if(count<MAX_COUNT){
@@ -189,6 +178,11 @@ struct RangeOpCounter{
    bool isLowRange(){
       if(!enableAdaptOp) return true;
       return count<MAX_COUNT/2;
+   }
+
+   bool isHighRange(){
+      if(!enableAdaptOp) return true;
+      return count>MAX_COUNT/2;
    }
 };
 
@@ -223,7 +217,7 @@ struct BTreeNodeHeader {
    uint32_t hint[hintCount];
 
    BTreeNodeHeader() {}
-   BTreeNodeHeader(bool isLeaf);
+   BTreeNodeHeader(bool isLeaf,RangeOpCounter roc);
 };
 
 struct HashNode;

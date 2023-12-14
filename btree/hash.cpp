@@ -432,7 +432,7 @@ void HashNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, uns
       if(goodHeads){
          rangeOpCounter.setGoodHeads();
          return splitToBasic(parent, sepSlot, sepKey, sepLength);
-      }else if (!rangeOpCounter.isLowRange()){
+      }else if (rangeOpCounter.isHighRange()){
          return splitToBasic(parent, sepSlot, sepKey, sepLength);
       }
    }
