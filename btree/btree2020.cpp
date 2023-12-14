@@ -65,15 +65,17 @@ bool BTreeNode::requestSpaceFor(unsigned spaceNeeded)
    return false;
 }
 
-void BTreeNode::init(bool isLeaf)
+void BTreeNode::init(bool isLeaf,RangeOpCounter roc)
 {
-   *static_cast<BTreeNodeHeader*>(this) = BTreeNodeHeader(isLeaf);
+   auto * header=static_cast<BTreeNodeHeader*>(this);
+   *header= BTreeNodeHeader(isLeaf);
+   header->rangeOpCounter=roc;
 }
 
 AnyNode* BTreeNode::makeLeaf()
 {
    AnyNode* r = AnyNode::allocLeaf();
-   r->_basic_node.init(true);
+   r->_basic_node.init(true,RangeOpCounter{});
    return r;
 }
 
@@ -243,7 +245,7 @@ void BTreeNode::compactify()
    unsigned should = freeSpaceAfterCompaction();
    static_cast<void>(should);
    TmpBTreeNode tmp;
-   tmp.node.init(isLeaf());
+   tmp.node.init(isLeaf(),rangeOpCounter);
    tmp.node.setFences(getLowerFence(), lowerFence.length, getUpperFence(), upperFence.length);
    copyKeyValueRange(&tmp.node, 0, 0, count);
    tmp.node.upper = upper;
@@ -256,7 +258,7 @@ void BTreeNode::compactify()
 bool BTreeNode::mergeNodes(unsigned slotId, AnyNode* parent, BTreeNode* right)
 {
    TmpBTreeNode tmp;
-   tmp.node.init(isLeaf());
+   tmp.node.init(isLeaf(),rangeOpCounter);
    tmp.node.setFences(getLowerFence(), lowerFence.length, right->getUpperFence(), right->upperFence.length);
    assert(right->isLeaf() == isLeaf());
    ASSUME(enablePrefix || prefixLength == 0);
@@ -402,9 +404,9 @@ void BTreeNode::splitToHash(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, 
 {
    HashNode* nodeLeft = &(AnyNode::allocLeaf())->_hash;
    unsigned capacity = count;
-   nodeLeft->init(getLowerFence(), lowerFence.length, sepKey, sepLength, capacity);
+   nodeLeft->init(getLowerFence(), lowerFence.length, sepKey, sepLength, capacity,rangeOpCounter);
    HashNode right;
-   right.init(sepKey, sepLength, getUpperFence(), upperFence.length, capacity);
+   right.init(sepKey, sepLength, getUpperFence(), upperFence.length, capacity,rangeOpCounter);
    bool succ = parent->insertChild(sepKey, sepLength, nodeLeft->any());
    assert(succ);
    copyKeyValueRangeToHash(nodeLeft, 0, 0, sepSlot + 1);
@@ -416,6 +418,30 @@ void BTreeNode::splitToHash(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, 
    memcpy(this, &right, pageSizeLeaf);
 }
 
+bool BTreeNode::tryConvertToHash(){
+   if(spaceUsed + count*(1+sizeof(HashSlot))+sizeof(HashNodeHeader) > pageSizeLeaf){
+      return false;
+   }
+   unsigned capacity;
+   {
+      unsigned available = pageSizeLeaf - sizeof(HashNodeHeader) - upperFence.length - lowerFence.length;
+      unsigned entrySpaceUse = spaceUsed - upperFence.length - lowerFence.length+ count * sizeof(HashSlot);
+      // equivalent to `available / (entrySpaceUse/count +1)`
+      capacity = count == 0 ? pageSizeLeaf / 64 : available * count / (entrySpaceUse + count);
+      ASSUME(capacity >= count);
+   }
+   HashNode tmp;
+   tmp.init(getLowerFence(), lowerFence.length, getUpperFence(), upperFence.length, capacity,rangeOpCounter);
+   copyKeyValueRangeToHash(&tmp, 0, 0, count);
+   tmp.sortedCount = tmp.count;
+//   printf("### toHash");
+//   print();
+//   tmp.print();
+   tmp.validate();
+   memcpy(this, &tmp, pageSizeLeaf);
+   return true;
+}
+
 void BTreeNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, unsigned sepLength)
 {
    // split this node into nodeLeft and nodeRight
@@ -423,18 +449,26 @@ void BTreeNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, un
    assert(sepSlot < ((isLeaf() ? pageSizeLeaf : pageSizeInner) / sizeof(BTreeNode*)));
    BTreeNode* nodeLeft;
    if (isLeaf()) {
-      if (enableHashAdapt && hasBadHeads())
-         return splitToHash(parent, sepSlot, sepKey, sepLength);
+      if (enableHashAdapt){
+         bool badHeads = hasBadHeads();
+         if(badHeads){
+            rangeOpCounter.setBadHeads(rangeOpCounter.count);
+         }else{
+            rangeOpCounter.setGoodHeads();
+         }
+         if(badHeads && rangeOpCounter.isLowRange())
+            return splitToHash(parent, sepSlot, sepKey, sepLength);
+      }
       nodeLeft = makeLeaf()->basic();
    } else {
       AnyNode* r = AnyNode::allocInner();
-      r->_basic_node.init(false);
+      r->_basic_node.init(false,rangeOpCounter);
       nodeLeft = r->basic();
    }
    nodeLeft->setFences(getLowerFence(), lowerFence.length, sepKey, sepLength);
 
    TmpBTreeNode tmp;
-   tmp.node.init(isLeaf());
+   tmp.node.init(isLeaf(),rangeOpCounter);
    BTreeNode* nodeRight = &tmp.node;
    nodeRight->setFences(sepKey, sepLength, getUpperFence(), upperFence.length);
    bool succ = parent->insertChild(sepKey, sepLength, nodeLeft->any());
@@ -638,6 +672,10 @@ uint8_t* BTree::lookupImpl(uint8_t* key, unsigned keyLength, unsigned& payloadSi
    switch (node->tag()) {
       case Tag::Leaf: {
          BTreeNode* basicNode = node->basic();
+         if(basicNode->rangeOpCounter.point_op() && basicNode->tryConvertToHash()){
+            return node->hash()->lookup(key,keyLength,payloadSizeOut);
+         }
+
          bool found;
          unsigned pos = basicNode->lowerBound(key, keyLength, found);
          if (!found)
@@ -731,8 +769,12 @@ void BTree::insertImpl(uint8_t* key, unsigned int keyLength, uint8_t* payload, u
    // COUNTER(is_basic_insert,node->tag == Tag::Leaf,1<<20)
    switch (node->tag()) {
       case Tag::Leaf: {
-         if (node->basic()->insert(key, keyLength, payload, payloadLength)) {
-            return;
+         if(node->basic()->rangeOpCounter.point_op() && node->basic()->tryConvertToHash()){
+            if(node->hash()->insert(key,keyLength,payload,payloadLength))
+               return;
+         }else{
+            if (node->basic()->insert(key, keyLength, payload, payloadLength))
+               return;
          }
          break;
       }
@@ -862,6 +904,7 @@ bool BTreeNode::range_lookup(uint8_t* key,
                              // scan continues if callback returns true
                              const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
+   rangeOpCounter.range_op();
    ASSUME(enablePrefix || prefixLength == 0);
    for (unsigned i = (key == nullptr) ? 0 : lowerBound(key, keyLen); i < count; ++i) {
       memcpy(keyOut + prefixLength, getKey(i), slot[i].keyLen);
@@ -921,12 +964,14 @@ void BTree::range_lookupImpl(uint8_t* startKey,
          case Tag::Leaf: {
             if (!node->basic()->range_lookup(leafKey, keyLen, keyOut, found_record_cb))
                return;
-            keyLen = node->basic()->upperFence.length;
-            leafKey = nullptr;
-            memcpy(keyOut + node->basic()->prefixLength, node->basic()->getUpperFence() + node->basic()->prefixLength,
-                   keyLen - node->basic()->prefixLength);
-            keyOut[keyLen] = 0;
-            keyLen += 1;
+            if(!enableAdaptOp){
+               keyLen = node->basic()->upperFence.length;
+               leafKey = nullptr;
+               memcpy(keyOut + node->basic()->prefixLength, node->basic()->getUpperFence() + node->basic()->prefixLength,
+                      keyLen - node->basic()->prefixLength);
+               keyOut[keyLen] = 0;
+               keyLen += 1;
+            }
             break;
          }
          case Tag::Dense: {
@@ -954,18 +999,44 @@ void BTree::range_lookupImpl(uint8_t* startKey,
          case Tag::Hash: {
             if (!node->hash()->range_lookup(leafKey, keyLen, keyOut, found_record_cb))
                return;
-            keyLen = node->hash()->upperFenceLen;
-            leafKey = nullptr;
-            memcpy(keyOut + node->hash()->prefixLength, node->hash()->getUpperFence() + node->hash()->prefixLength,
-                   keyLen - node->hash()->prefixLength);
-            keyOut[keyLen] = 0;
-            keyLen += 1;
+            if(!enableAdaptOp) {
+               keyLen = node->hash()->upperFenceLen;
+               leafKey = nullptr;
+               memcpy(keyOut + node->hash()->prefixLength, node->hash()->getUpperFence() + node->hash()->prefixLength,
+                      keyLen - node->hash()->prefixLength);
+               keyOut[keyLen] = 0;
+               keyLen += 1;
+            }
             break;
          }
          case Tag::Inner:
          case Tag::Head4:
          case Tag::Head8:
             ASSUME(false)
+      }
+      if(enableAdaptOp){
+         switch(node->tag()){
+            case Tag::Leaf: {
+               keyLen = node->basic()->upperFence.length;
+               leafKey = nullptr;
+               memcpy(keyOut + node->basic()->prefixLength, node->basic()->getUpperFence() + node->basic()->prefixLength,
+                      keyLen - node->basic()->prefixLength);
+               keyOut[keyLen] = 0;
+               keyLen += 1;
+               break;
+            }
+            case Tag::Hash: {
+               keyLen = node->hash()->upperFenceLen;
+               leafKey = nullptr;
+               memcpy(keyOut + node->hash()->prefixLength, node->hash()->getUpperFence() + node->hash()->prefixLength,
+                      keyLen - node->hash()->prefixLength);
+               keyOut[keyLen] = 0;
+               keyLen += 1;
+               break;
+            }
+            default:
+               break;
+         }
       }
       if (keyLen == 1) {
          // encountered empty upper fence
@@ -1117,3 +1188,7 @@ void printKey(uint8_t* key, unsigned length)
       }
    }
 }
+
+std::bernoulli_distribution RangeOpCounter::range_dist{0.15};
+std::bernoulli_distribution RangeOpCounter::point_dist{0.05};
+std::minstd_rand RangeOpCounter::rng{42};

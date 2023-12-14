@@ -17,6 +17,7 @@
 #include "../tlx_wrapper/TlxWrapper.h"
 #include "config.hpp"
 #include "hot_adapter.hpp"
+#include <random>
 
 #ifndef NDEBUG
 #define CHECK_TREE_OPS
@@ -130,6 +131,68 @@ enum class Tag : uint8_t {
    _last = 6,
 };
 
+struct RangeOpCounter{
+   uint8_t count;
+   static constexpr uint8_t MAX_COUNT=4;
+
+   static std::bernoulli_distribution range_dist;
+   static std::bernoulli_distribution point_dist;
+   static std::minstd_rand rng;
+
+   RangeOpCounter(uint8_t c=MAX_COUNT/2):count(c){};
+
+   void setGoodHeads(){
+      if(!enableAdaptOp)return;
+      count=255;
+   }
+
+   void setBadHeads(uint8_t previous=MAX_COUNT/2){
+      if(!enableAdaptOp)return;
+      if(previous==255){
+         count=MAX_COUNT/2;
+      }else{
+         count=previous;
+      }
+   }
+
+   RangeOpCounter (bool headsGood,uint8_t previous){
+      if(!enableAdaptOp){return;}
+      if(headsGood){
+         count=255;
+      }else if(previous == 255){
+         count =MAX_COUNT/2;
+      }else{
+         count=previous;
+      }
+   }
+
+   bool range_op(){
+      if(!enableAdaptOp){return false;}
+      if(count<MAX_COUNT){
+         count+=range_dist(rng);
+         return count==MAX_COUNT;
+      }else{
+         return false;
+      }
+   }
+
+   bool point_op(){
+      if(!enableAdaptOp){return false;}
+      if(int8_t (count) > 0 ){
+         count-=point_dist(rng);
+         return count==0;
+      }else{
+         return false;
+      }
+   }
+
+   bool isLowRange(){
+      if(!enableAdaptOp) return true;
+      return count<MAX_COUNT/2;
+   }
+};
+
+
 constexpr unsigned TAG_END = unsigned(Tag::_last) + 1;
 const char* tag_name(Tag tag);
 
@@ -139,6 +202,8 @@ struct BTreeNodeHeader {
    static constexpr unsigned underFullSizeInner = pageSizeInner / 4;  // merge nodes below this size
 
    Tag _tag;
+   RangeOpCounter rangeOpCounter;
+
    uint16_t count = 0;
    uint16_t spaceUsed = 0;
    uint16_t dataOffset;
@@ -183,7 +248,7 @@ struct BTreeNode : public BTreeNodeHeader {
    BTreeNode() = delete;
    static constexpr unsigned maxKVSize = (((pageSizeLeaf<pageSizeInner?pageSizeLeaf:pageSizeInner) - sizeof(BTreeNodeHeader) - (2 * sizeof(Slot)))) / 3;
 
-   void init(bool isLeaf);
+   void init(bool isLeaf,RangeOpCounter roc);
    uint8_t* ptr();
    bool isInner();
    bool isLeaf();
@@ -276,6 +341,7 @@ struct BTreeNode : public BTreeNodeHeader {
    bool hasBadHeads();
    void splitToHash(AnyNode* parent, unsigned int sepSlot, uint8_t* sepKey, unsigned int sepLength);
    void copyKeyValueRangeToHash(HashNode* dst, unsigned int dstSlot, unsigned int srcSlot, unsigned int srcCount);
+   bool tryConvertToHash();
 };
 
 union TmpBTreeNode {
@@ -410,6 +476,7 @@ struct DenseNode {
 
 struct HashNodeHeader {
    Tag _tag;
+   RangeOpCounter rangeOpCounter;
    uint16_t count;
    uint16_t sortedCount;
    // includes keys, payloads, and fences
@@ -442,7 +509,7 @@ struct HashNode : public HashNodeHeader {
    uint8_t* hashes();
    uint8_t* getPayload(unsigned int slotId);
    uint8_t* getKey(unsigned int slotId);
-   void init(uint8_t* lowerFence, unsigned int lowerFenceLen, uint8_t* upperFence, unsigned int upperFenceLen, unsigned hashCapacity);
+   void init(uint8_t* lowerFence, unsigned int lowerFenceLen, uint8_t* upperFence, unsigned int upperFenceLen, unsigned hashCapacity,RangeOpCounter roc);
    static AnyNode* makeRootLeaf();
    uint8_t* getLowerFence();
    uint8_t* getUpperFence();
@@ -484,6 +551,7 @@ struct HashNode : public HashNodeHeader {
    void copyKeyValueRangeToBasic(BTreeNode* dst, unsigned int dstSlot, unsigned int srcSlot, unsigned int srcCount);
    void copyKeyValueToBasic(unsigned int srcSlot, BTreeNode* dst, unsigned int dstSlot);
    void splitToBasic(AnyNode* parent, unsigned int sepSlot, uint8_t* sepKey, unsigned int sepLength);
+   bool tryConvertToBasic();
    bool hasGoodHeads();
 } __attribute__((aligned(hashUseSimd ? hashSimdWidth : 2)));
 

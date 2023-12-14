@@ -313,6 +313,7 @@ void runYcsbE(BTreeCppPerfEvent e,
       if (!dryRun)
          for (uint64_t completedOps = 0; completedOps < opCount; ++completedOps, ++sampleIndex) {
             if (op_next(e)) {
+               //printf("insert :%lu\n",completedOps);
                if (insertedCount == reasonableMaxKeys) {
                   std::cerr << "exhausted keys for insertion" << std::endl;
                   abort();
@@ -322,6 +323,7 @@ void runYcsbE(BTreeCppPerfEvent e,
                t.insert(key, length, payload, payloadSize);
                ++insertedCount;
             } else {
+               //printf("range :%lu\n",completedOps);
                unsigned scanLength = scanLengthDistribution(generator);
                while (true) {
                   // num_keys for zipf distribution must remain constant to not mess with shuffling permutation.

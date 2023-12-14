@@ -8,3 +8,4 @@ constexpr unsigned basicHintCount = 0;
 constexpr bool enableDense2 = false;
 constexpr bool enableHashAdapt = false;
 constexpr bool enableDensifySplit=false;
+constexpr bool enableAdaptOp=false;

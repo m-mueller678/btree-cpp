@@ -12,6 +12,7 @@ constexpr unsigned basicHintCount = 16;
 constexpr bool enableDense2 = false;
 constexpr bool enableHashAdapt = false;
 constexpr bool enableDensifySplit = false;
+constexpr bool enableAdaptOp = false;
 #else
 constexpr const char* configName = NAMED_CONFIG;
 #endif

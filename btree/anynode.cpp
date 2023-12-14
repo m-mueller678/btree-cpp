@@ -164,7 +164,7 @@ AnyNode* AnyNode::makeRoot(AnyNode* child)
       storeUnaligned(ptr->head4()->children(), child);
       return ptr;
    } else {
-      ptr->_basic_node.init(false);
+      ptr->_basic_node.init(false,RangeOpCounter{});
       ptr->basic()->upper = child;
       return ptr;
    }

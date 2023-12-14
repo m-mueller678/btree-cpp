@@ -197,7 +197,7 @@ bool HeadNode<T>::convertToBasicWithSpace(unsigned truncatedKeyLen)
          return false;
       }
       TmpBTreeNode tmp;
-      tmp.node.init(false);
+      tmp.node.init(false,RangeOpCounter{});
       tmp.node.setFences(getLowerFence(), lowerFenceLen, getUpperFence(), upperFenceLen);
       copyKeyValueRangeToBasic(&tmp.node, 0, count);
       tmp.node.upper = loadUnaligned<AnyNode*>(children() + count);

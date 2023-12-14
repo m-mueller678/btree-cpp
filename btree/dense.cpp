@@ -173,7 +173,7 @@ bool DenseNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsig
 BTreeNode* DenseNode::convertToBasic()
 {
    TmpBTreeNode tmp;
-   tmp.node.init(true);
+   tmp.node.init(true,RangeOpCounter{});
    tmp.node.setFences(getLowerFence(), lowerFenceLen, getUpperFence(), upperFenceLen);
    copyKeyValueRangeToBasic(&tmp.node, 0, slotCount);
    tmp.node.makeHint();
@@ -216,7 +216,7 @@ void DenseNode::splitNode1(AnyNode* parent, uint8_t* key, unsigned keyLen)
       this->changeLowerFence(full_boundary, denseLeft->fullKeyLen, denseLeft->getUpperFence(), denseLeft->upperFenceLen);
    } else {
       BTreeNode* right = &this->any()->_basic_node;
-      right->init(true);
+      right->init(true,RangeOpCounter{});
       right->setFences(full_boundary, denseLeft->fullKeyLen, denseLeft->getUpperFence(), denseLeft->upperFenceLen);
    }
    denseLeft->changeUpperFence(full_boundary, denseLeft->fullKeyLen);

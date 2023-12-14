@@ -28,6 +28,7 @@ unsigned HashNode::estimateCapacity()
 
 uint8_t* HashNode::lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut)
 {
+   rangeOpCounter.point_op();
    int index = findIndex(key, keyLength, compute_hash(key + prefixLength, keyLength - prefixLength));
    if (index >= 0) {
       payloadSizeOut = slot[index].payloadLen;
@@ -50,9 +51,7 @@ void HashNode::print()
    printf("\n");
    for (unsigned i = 0; i < count; ++i) {
       printf("%4d: [%3d] ", i, hashes()[i]);
-      for (unsigned j = 0; j < slot[i].keyLen; ++j) {
-         printf("%3d, ", getKey(i)[j]);
-      }
+      printKey(getKey(i),slot[i].keyLen);
       printf("\n");
    }
 }
@@ -129,7 +128,7 @@ int HashNode::findIndexSimd(uint8_t* key, unsigned keyLength, uint8_t hash)
 AnyNode* HashNode::makeRootLeaf()
 {
    AnyNode* ptr = AnyNode::allocLeaf();
-   ptr->_hash.init(nullptr, 0, nullptr, 0, pageSizeLeaf / 64);
+   ptr->_hash.init(nullptr, 0, nullptr, 0, pageSizeLeaf / 64,RangeOpCounter{});
    return ptr;
 }
 
@@ -153,10 +152,11 @@ void HashNode::updatePrefixLength()
    }
 }
 
-void HashNode::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen, unsigned hashCapacity)
+void HashNode::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen, unsigned hashCapacity,RangeOpCounter roc)
 {
    assert(sizeof(HashNode) == pageSizeLeaf);
    _tag = Tag::Hash;
+   rangeOpCounter=roc;
    count = 0;
    sortedCount = 0;
    spaceUsed = upperFenceLen + lowerFenceLen;
@@ -231,7 +231,7 @@ void HashNode::compactify(unsigned newHashCapacity)
 {
    unsigned should = freeSpaceAfterCompaction() - newHashCapacity;
    HashNode tmp;
-   tmp.init(getLowerFence(), lowerFenceLen, getUpperFence(), upperFenceLen, newHashCapacity);
+   tmp.init(getLowerFence(), lowerFenceLen, getUpperFence(), upperFenceLen, newHashCapacity,rangeOpCounter);
    memcpy(tmp.hashes(), hashes(), count);
    memcpy(tmp.slot, slot, sizeof(HashSlot) * count);
    copyKeyValueRange(&tmp, 0, 0, count);
@@ -242,6 +242,7 @@ void HashNode::compactify(unsigned newHashCapacity)
 
 bool HashNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
 {
+   rangeOpCounter.point_op();
    assert(freeSpace() < pageSizeLeaf);
    ASSUME(keyLength >= prefixLength);
    validate();
@@ -380,17 +381,34 @@ void HashNode::splitToBasic(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, 
    // split this node into nodeLeft and nodeRight
    assert(sepSlot > 0);
    BTreeNode* nodeLeft = &(AnyNode::allocLeaf())->_basic_node;
-   nodeLeft->init(true);
+   nodeLeft->init(true,rangeOpCounter);
    nodeLeft->setFences(getLowerFence(), lowerFenceLen, sepKey, sepLength);
    TmpBTreeNode right_tmp;
    BTreeNode& right = right_tmp.node;
-   right.init(true);
+   right.init(true,rangeOpCounter);
    right.setFences(sepKey, sepLength, getUpperFence(), upperFenceLen);
    bool succ = parent->insertChild(sepKey, sepLength, nodeLeft->any());
    assert(succ);
    copyKeyValueRangeToBasic(nodeLeft, 0, 0, sepSlot + 1);
    copyKeyValueRangeToBasic(&right, 0, nodeLeft->count, count - nodeLeft->count);
    memcpy(this, &right, pageSizeLeaf);
+}
+
+bool HashNode::tryConvertToBasic(){
+   if(spaceUsed + count*sizeof(BTreeNode::Slot)+sizeof(BTreeNodeHeader) > pageSizeLeaf){
+      return false;
+   }
+   sort();
+   TmpBTreeNode tmp_space;
+   BTreeNode& tmp = tmp_space.node;
+   tmp.init(true,rangeOpCounter);
+   tmp.setFences(getLowerFence(), lowerFenceLen, getUpperFence(), upperFenceLen);
+   copyKeyValueRangeToBasic(&tmp, 0, 0, count);
+//   printf("### toBasic");
+//   print();
+//   tmp.print();
+   memcpy(this, &tmp, pageSizeLeaf);
+   return true;
 }
 
 bool HashNode::hasGoodHeads()
@@ -409,16 +427,22 @@ bool HashNode::hasGoodHeads()
 
 void HashNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, unsigned sepLength)
 {
-   if (enableHashAdapt && hasGoodHeads()) {
-      return splitToBasic(parent, sepSlot, sepKey, sepLength);
+   if (enableHashAdapt ) {
+      bool goodHeads=hasGoodHeads();
+      if(goodHeads){
+         rangeOpCounter.setGoodHeads();
+         return splitToBasic(parent, sepSlot, sepKey, sepLength);
+      }else if (!rangeOpCounter.isLowRange()){
+         return splitToBasic(parent, sepSlot, sepKey, sepLength);
+      }
    }
    // split this node into nodeLeft and nodeRight
    assert(sepSlot > 0);
    HashNode* nodeLeft = &(AnyNode::allocLeaf())->_hash;
    unsigned capacity = estimateCapacity();
-   nodeLeft->init(getLowerFence(), lowerFenceLen, sepKey, sepLength, capacity);
+   nodeLeft->init(getLowerFence(), lowerFenceLen, sepKey, sepLength, capacity,rangeOpCounter);
    HashNode right;
-   right.init(sepKey, sepLength, getUpperFence(), upperFenceLen, capacity);
+   right.init(sepKey, sepLength, getUpperFence(), upperFenceLen, capacity,rangeOpCounter);
    bool succ = parent->insertChild(sepKey, sepLength, nodeLeft->any());
    assert(succ);
    copyKeyValueRange(nodeLeft, 0, 0, sepSlot + 1);
@@ -527,7 +551,7 @@ bool HashNode::mergeNodes(unsigned slotId, AnyNode* parent, HashNode* right)
 {
    HashNode tmp;
    unsigned newHashCapacity = max(min(estimateCapacity(), right->estimateCapacity()), count + right->count);
-   tmp.init(getLowerFence(), lowerFenceLen, right->getUpperFence(), right->upperFenceLen, newHashCapacity);
+   tmp.init(getLowerFence(), lowerFenceLen, right->getUpperFence(), right->upperFenceLen, newHashCapacity,rangeOpCounter);
    unsigned leftGrow = (prefixLength - tmp.prefixLength) * count;
    unsigned rightGrow = (right->prefixLength - tmp.prefixLength) * right->count;
    unsigned spaceUpperBound =
@@ -549,6 +573,9 @@ bool HashNode::range_lookup(uint8_t* key,
                             // scan continues if callback returns true
                             const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
+   if(rangeOpCounter.range_op() && tryConvertToBasic()){
+      return reinterpret_cast<BTreeNode*>(this)->range_lookup(key,keyLen,keyOut,found_record_cb);
+   }
    sort();
    bool found;
    for (unsigned i = (key == nullptr) ? 0 : lowerBound(key, keyLen, found); i < count; ++i) {
@@ -611,7 +638,6 @@ unsigned HashNode::lowerBound(uint8_t* key, unsigned keyLength, bool& found)
 
 void HashNode::validate()
 {
-   return;
 #ifdef NDEBUG
    return;
 #endif
