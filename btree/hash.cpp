@@ -413,7 +413,7 @@ bool HashNode::tryConvertToBasic(){
 
 bool HashNode::hasGoodHeads()
 {
-   unsigned threshold = count / 16;
+   unsigned threshold = uint32_t(count) * adapt_threshold / 64;
    unsigned collisionCount = 0;
    for (unsigned i = 1; i < count; ++i) {
       if (slot[i - 1].keyLen > 4 && slot[i].keyLen > 4 && memcmp(getKey(i - 1), getKey(i), 4) == 0) {

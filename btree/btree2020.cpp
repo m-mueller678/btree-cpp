@@ -373,7 +373,7 @@ void BTreeNode::setFences(uint8_t* lowerKey, unsigned lowerLen, uint8_t* upperKe
 
 bool BTreeNode::hasBadHeads()
 {
-   unsigned threshold = count / 16;
+   unsigned threshold = uint32_t(count) * adapt_threshold / 64;
    unsigned collisionCount = 0;
    for (unsigned i = 1; i < count; ++i) {
       if (slot[i - 1].head[0] == slot[i].head[0]) {

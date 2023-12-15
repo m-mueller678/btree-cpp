@@ -14,7 +14,18 @@ constexpr bool enableHashAdapt = false;
 constexpr bool enableDensifySplit = false;
 constexpr bool enableAdaptOp = false;
 #else
+#define USE_STRUCTURE_BTREE
 constexpr const char* configName = NAMED_CONFIG;
+constexpr bool enablePrefix = true;
+constexpr bool enableBasicHead = true;
+constexpr bool enableDense = true;
+constexpr bool enableHash = true;
+constexpr bool enableHeadNode = false;
+constexpr unsigned basicHintCount = 16;
+constexpr bool enableDense2 = false;
+constexpr bool enableHashAdapt = true;
+constexpr bool enableDensifySplit=true;
+constexpr bool enableAdaptOp=true;
 #endif
 
 typedef uint32_t HashSimdBitMask;  // maximum page size (in bytes) is 65536
@@ -38,8 +49,5 @@ constexpr unsigned hashSimdWidth = sizeof(HashSimdBitMask) * 8;
 constexpr unsigned hashSortUseStdMerge = true;
 
 #define S(x) {"const_" #x, x},
-static const std::vector<std::pair<const char*, unsigned>> btree_constexpr_settings{
-    S(pageSizeInner) S(pageSizeLeaf) S(enablePrefix) S(enableBasicHead) S(enableDense) S(enableHash) S(enableHashAdapt) S(enableDense2)
-        S(enableHeadNode) S(basicHintCount) S(headNode4HintCount) S(headNode8HintCount) S(hashUseSimd) S(hashUseCrc32) S(hashSimdWidth)
-            S(hashSortUseStdMerge) S(enableDensifySplit)};
+static const std::vector<std::pair<const char*, unsigned>> btree_constexpr_settings{S(adapt_threshold)};
 #undef S
