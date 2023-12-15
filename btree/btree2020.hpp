@@ -194,13 +194,6 @@ struct RangeOpCounter {
          return true;
       return count < MAX_COUNT / 2;
    }
-
-   bool isHighRange()
-   {
-      if (!enableAdaptOp)
-         return true;
-      return count > MAX_COUNT / 2;
-   }
 };
 
 constexpr unsigned TAG_END = unsigned(Tag::_last) + 1;
