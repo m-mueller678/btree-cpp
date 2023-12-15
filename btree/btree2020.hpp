@@ -192,7 +192,7 @@ struct RangeOpCounter {
    {
       if (!enableAdaptOp)
          return true;
-      return count < MAX_COUNT / 2;
+      return count <= MAX_COUNT / 2;
    }
 };
 
