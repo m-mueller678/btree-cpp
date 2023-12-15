@@ -133,7 +133,7 @@ enum class Tag : uint8_t {
 
 struct RangeOpCounter {
    uint8_t count;
-   static constexpr uint8_t MAX_COUNT = 4;
+   static constexpr uint8_t MAX_COUNT = 3;
 
    static std::bernoulli_distribution range_dist;
    static std::bernoulli_distribution point_dist;
@@ -159,8 +159,8 @@ struct RangeOpCounter {
       }
    }
 
-   static constexpr uint32_t RANGE_THRESHOLD = (rng.max() + 1) * 0.075;
-   static constexpr uint32_t POINT_THRESHOLD = (rng.max() + 1) * 0.025;
+   static constexpr uint32_t RANGE_THRESHOLD = (rng.max() + 1) * 0.15;
+   static constexpr uint32_t POINT_THRESHOLD = (rng.max() + 1) * 0.05;
 
    bool range_op()
    {
