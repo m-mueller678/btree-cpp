@@ -14,10 +14,10 @@
 #include <cstring>
 #include <functional>
 #include <map>
+#include <random>
 #include "../tlx_wrapper/TlxWrapper.h"
 #include "config.hpp"
 #include "hot_adapter.hpp"
-#include <random>
 
 #ifndef NDEBUG
 #define CHECK_TREE_OPS
@@ -131,61 +131,77 @@ enum class Tag : uint8_t {
    _last = 6,
 };
 
-struct RangeOpCounter{
+struct RangeOpCounter {
    uint8_t count;
-   static constexpr uint8_t MAX_COUNT=4;
+   static constexpr uint8_t MAX_COUNT = 4;
 
    static std::bernoulli_distribution range_dist;
    static std::bernoulli_distribution point_dist;
    static std::minstd_rand rng;
 
-   RangeOpCounter(uint8_t c=MAX_COUNT/2):count(c){};
+   RangeOpCounter(uint8_t c = MAX_COUNT / 2) : count(c){};
 
-   void setGoodHeads(){
-      if(!enableAdaptOp)return;
-      count=255;
+   void setGoodHeads()
+   {
+      if (!enableAdaptOp)
+         return;
+      count = 255;
    }
 
-   void setBadHeads(uint8_t previous=MAX_COUNT/2){
-      if(!enableAdaptOp)return;
-      if(previous==255){
-         count=MAX_COUNT/2;
-      }else{
-         count=previous;
+   void setBadHeads(uint8_t previous = MAX_COUNT / 2)
+   {
+      if (!enableAdaptOp)
+         return;
+      if (previous == 255) {
+         count = MAX_COUNT / 2;
+      } else {
+         count = previous;
       }
    }
 
-   bool range_op(){
-      if(!enableAdaptOp){return false;}
-      if(count<MAX_COUNT){
-         count+=range_dist(rng);
-         return count==MAX_COUNT;
-      }else{
+   static constexpr uint32_t RANGE_THRESHOLD = (rng.max() + 1) * 0.075;
+   static constexpr uint32_t POINT_THRESHOLD = (rng.max() + 1) * 0.025;
+
+   bool range_op()
+   {
+      if (!enableAdaptOp) {
+         return false;
+      }
+      if (count < MAX_COUNT) {
+         count += (rng() < RANGE_THRESHOLD);
+         return count == MAX_COUNT;
+      } else {
          return false;
       }
    }
 
-   bool point_op(){
-      if(!enableAdaptOp){return false;}
-      if(int8_t (count) > 0 ){
-         count-=point_dist(rng);
-         return count==0;
-      }else{
+   bool point_op()
+   {
+      if (!enableAdaptOp) {
+         return false;
+      }
+      if (int8_t(count) > 0) {
+         count -= (rng() < POINT_THRESHOLD);
+         return count == 0;
+      } else {
          return false;
       }
    }
 
-   bool isLowRange(){
-      if(!enableAdaptOp) return true;
-      return count<MAX_COUNT/2;
+   bool isLowRange()
+   {
+      if (!enableAdaptOp)
+         return true;
+      return count < MAX_COUNT / 2;
    }
 
-   bool isHighRange(){
-      if(!enableAdaptOp) return true;
-      return count>MAX_COUNT/2;
+   bool isHighRange()
+   {
+      if (!enableAdaptOp)
+         return true;
+      return count > MAX_COUNT / 2;
    }
 };
-
 
 constexpr unsigned TAG_END = unsigned(Tag::_last) + 1;
 const char* tag_name(Tag tag);
@@ -217,7 +233,7 @@ struct BTreeNodeHeader {
    uint32_t hint[hintCount];
 
    BTreeNodeHeader() {}
-   BTreeNodeHeader(bool isLeaf,RangeOpCounter roc);
+   BTreeNodeHeader(bool isLeaf, RangeOpCounter roc);
 };
 
 struct HashNode;
@@ -240,9 +256,10 @@ struct BTreeNode : public BTreeNodeHeader {
    // this struct does not have appropriate size.
    // Get Some storage location and call init.
    BTreeNode() = delete;
-   static constexpr unsigned maxKVSize = (((pageSizeLeaf<pageSizeInner?pageSizeLeaf:pageSizeInner) - sizeof(BTreeNodeHeader) - (2 * sizeof(Slot)))) / 3;
+   static constexpr unsigned maxKVSize =
+       (((pageSizeLeaf < pageSizeInner ? pageSizeLeaf : pageSizeInner) - sizeof(BTreeNodeHeader) - (2 * sizeof(Slot)))) / 3;
 
-   void init(bool isLeaf,RangeOpCounter roc);
+   void init(bool isLeaf, RangeOpCounter roc);
    uint8_t* ptr();
    bool isInner();
    bool isLeaf();
@@ -503,7 +520,12 @@ struct HashNode : public HashNodeHeader {
    uint8_t* hashes();
    uint8_t* getPayload(unsigned int slotId);
    uint8_t* getKey(unsigned int slotId);
-   void init(uint8_t* lowerFence, unsigned int lowerFenceLen, uint8_t* upperFence, unsigned int upperFenceLen, unsigned hashCapacity,RangeOpCounter roc);
+   void init(uint8_t* lowerFence,
+             unsigned int lowerFenceLen,
+             uint8_t* upperFence,
+             unsigned int upperFenceLen,
+             unsigned hashCapacity,
+             RangeOpCounter roc);
    static AnyNode* makeRootLeaf();
    uint8_t* getLowerFence();
    uint8_t* getUpperFence();
