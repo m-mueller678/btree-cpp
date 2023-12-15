@@ -247,7 +247,8 @@ struct BTreeCppPerfEventBlock {
    void pushNodeCounts(){
       unsigned counts[TAG_END+2]={};
 #if defined(USE_STRUCTURE_BTREE)
-      data_strcuture_wrapper->impl.root->nodeCount(counts);
+      data_strcuture_wrapper->impl.root->nodeCount();
+      exit(0);
 #endif
       push("inner_pairs_total",std::to_string(counts[0]));
       push("inner_pairs_distinct",std::to_string(counts[1]));

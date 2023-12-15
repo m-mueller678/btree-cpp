@@ -578,7 +578,7 @@ union AnyNode {
    void innerRemoveSlot(unsigned int slotId);
    unsigned innerKeyLen(unsigned index);
    bool splitNodeWithParent(AnyNode* parent, uint8_t* key, unsigned keyLength);
-   void nodeCount(unsigned counts[TAG_END]);
+   void nodeCount();
 };
 
 struct BTree {

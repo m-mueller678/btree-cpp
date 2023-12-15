@@ -362,38 +362,24 @@ bool AnyNode::splitNodeWithParent(AnyNode* parent, uint8_t* key, unsigned keyLen
    }
 }
 
-void AnyNode::nodeCount(unsigned counts[int(Tag::_last) + 2])
+void AnyNode::nodeCount()
 {
    switch (tag()) {
-      case Tag::Inner: {
-         for (int i = 1; i < basic()->count; ++i) {
-            counts[0] += 1;
-            counts[1] += basic()->slot[i - 1].head[0] != basic()->slot[i].head[0];
-         }
+      case Tag::Inner:
          for (int i = 0; i < basic()->count; ++i) {
-            basic()->getChild(i)->nodeCount(counts);
-            basic()->upper->nodeCount(counts);
+            basic()->getChild(i)->nodeCount();
+            basic()->upper->nodeCount();
          }
-      } break;
-      case Tag::Head4:
-         abort();
-         break;
-      case Tag::Head8:
-         abort();
-         break;
+         // continue
       case Tag::Leaf:
+       {
+         unsigned distinct = 0;
          for (int i = 1; i < basic()->count; ++i) {
-            counts[2] += 1;
-            counts[3] += basic()->slot[i - 1].head[0] != basic()->slot[i].head[0];
+            distinct += basic()->slot[i - 1].head[0] != basic()->slot[i].head[0];
          }
-         break;
-      case Tag::Dense:
-         abort();
-         break;
-      case Tag::Dense2:
-         abort();
-         break;
-      case Tag::Hash:
+         printf("%d,%u,%hu\n",tag()==Tag::Inner,distinct,basic()->count);
+      } break;
+      default:
          abort();
          break;
    }
