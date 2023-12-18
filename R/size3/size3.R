@@ -1,16 +1,24 @@
 source("../common.R")
 
-# python3 R/size3/vary1.py |parallel -j1 --joblog joblog -- {1}| tee R/size3/vary1.csv
+
 # r <- read_broken_csv('vary1.csv.gz')
 r <- bind_rows(
+  # not enough runs
+  # python3 R/size3/vary1.py |parallel -j1 --joblog joblog -- {1}| tee R/size3/vary1.csv
+  #read_broken_csv('vary1.csv.gz'),
+
+  # broken, only varies inner size
   # python3 R/size3/vary2.py |parallel -j1 --joblog joblog -- {1}| tee R/size3/vary2.csv
-  # read_broken_csv('vary2.csv.gz'),
+  #read_broken_csv('vary2.csv.gz'),
+
+  # large payloads, incomplete
   # python3 R/size3/vary3.py |parallel -j1 --joblog joblog -- {1}| tee R/size3/vary3.csv
-  read_broken_csv('vary3.csv.gz'),
+  #read_broken_csv('vary3.csv.gz'),
+
+  # incomplete
   # python3 R/size3/vary4.py |parallel -j1 --joblog joblog -- {1}| tee R/size3/vary4.csv
   read_broken_csv('vary4.csv.gz'),
 )
-
 d <- r|>
   filter(op!='ycsb_e_init')|>
   augment()|>
@@ -31,7 +39,7 @@ v1|>
   ggplot() +
   theme_bw() +
   facet_nested(inner+op~data_name,scales='free_y',independent = 'y')+
-  geom_line(aes(psv, txs, col = config_name),stat='summary',fun=length)+
+  geom_line(aes(psv, txs, col = config_name),stat='summary',fun=mean)+
   scale_color_brewer(palette = 'Dark2')+
   scale_y_continuous(name = NULL, labels = label_number(scale_cut = cut_si('op/s')))
 
@@ -114,3 +122,17 @@ v1|>
 v1|>
   group_by(data_name,inner,config_name)|>
   summarize(min_size=min(psv))|>View()
+
+v1|>
+  filter(ifelse(config_name %in% c('dense2','dense3','hints') & !inner,case_when(data_name == 'ints'~'dense3',TRUE~'hints')==config_name,TRUE))|>
+  mutate(config_name = ifelse(config_name!='hash' &!inner,'dense3',as.character(config_name)))|>
+  filter(case_when(inner~config_name=='hints',!inner~config_name %in% c('hash','hints','dense2','dense3')))|>
+  mutate(
+    inner = ifelse(inner,'Inner Size','Leave Size'),
+  )|>
+  ggplot()+theme_bw()+
+  facet_nested(op~inner+config_name,scales='free_y',labeller(
+    config_name = CONFIG_LABELS,
+  ))+
+  geom_line(aes(psv,txs,col=data_name),stat='summary',fun=mean)+
+  scale_color_brewer(palette = 'Dark2')
