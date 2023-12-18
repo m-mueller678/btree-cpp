@@ -12,14 +12,22 @@ r <- bind_rows(
   # init is wrongly labeled as ycsb_c_init
   # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 50) ::: 501 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/hints-n3-ycsb named-build/hash-n3-ycsb | tee R/eval-2/sorted-scan-seq.csv
   read_broken_csv('sorted-scan-seq.csv')|>filter(op == 'sorted_scan'),
-  read_broken_csv('seq-zipf-dense3.csv'),
+
+  # obsoleted by seq-zipf-3
+  #read_broken_csv('seq-zipf-dense3.csv'),
+
   # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 20) ::: 3 5 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/adapt-n3-ycsb | tee R/eval-2/seq-adapt-dense3.csv
   # read_broken_csv('seq-adapt-dense3.csv'),
 
   # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 30) ::: 3 5 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/*-n3-ycsb | tee R/eval-2/seq-zipf-3.csv
   read_broken_csv('seq-zipf-3.csv')|>
-    filter(!(config_name == 'hot' & (data_name %in% c('int', 'rng4'))))
+    filter(!(config_name == 'hot' & (data_name %in% c('int', 'rng4')))),
+  # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 30) ::: 3 5 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/adapt2-n3-ycsb | tee R/eval-2/adapt2-fed65b81398dc6b.csv
+  read_broken_csv('adapt2-fed65b81398dc6b.csv.gz')
 )
+
+r|>group_by(config_name,data_name,op)|>count()|>arrange(n)|>filter(n!=50)
+
 
 COMMON_OPS <- c("ycsb_c", "ycsb_c_init", "ycsb_e")
 
@@ -632,14 +640,14 @@ d|>
 config_pivot|>
   filter(op %in% COMMON_OPS)|>
   mutate(
-    ref_txs_best = pmax(txs_hash, txs_hints, txs_dense3),
-    ref_txs_worst = pmin(txs_hash, txs_hints, txs_dense3),
+    #ref_txs_best = pmax(txs_hash, txs_hints, txs_dense3),
+    #ref_txs_worst = pmin(txs_hash, txs_hints, txs_dense3),
     ref_txs_hash = txs_hash,
     ref_txs_dense3 = txs_dense3,
     # ref_txs_hints = txs_hints,
   )|>
   pivot_longer(contains('ref_txs_'), names_to = 'reference_name', values_to = 'reference_value', names_prefix = 'ref_txs_')|>
-  transmute(op,data_name,r=txs_adapt/reference_value-1,reference_name)|>arrange(reference_name,op,r)|>View()
+  #transmute(op,data_name,r=txs_adapt2/reference_value-1,reference_name)|>arrange(reference_name,op,r)|>View()
   ggplot() +
   theme_bw() +
   facet_nested(reference_name ~ data_name, scales = 'free', labeller = labeller(
@@ -667,13 +675,30 @@ config_pivot|>
   geom_point(aes(fill = op, col = op), x = 0, y = -1, size = 0) +
   labs(x = NULL, y = NULL, fill = 'Worload', col = 'Workload') +
   guides(col = guide_legend(override.aes = list(size = 3)), fill = 'none') +
-  geom_col(aes(x = op, fill = op, y = txs_adapt / reference_value - 1)) +
+  geom_col(aes(x = op, fill = op, y = txs_adapt2 / reference_value - 1)) +
   geom_hline(yintercept = 0)
-save_as('adapt-perf-a', 50)
+save_as('adapt-perf', 50)
 
-in_mem_plot(COMMON_OPS, c('hints' = 1, 'hash' = 1, 'dense3' = 1, 'adapt' = 2))
-save_as('adapt-perf-c', 90)
+d|>
+  filter(config_name=='adapt2')|>
+  filter(op %in% c('ycsb_c','ycsb_e'))|>
+  pivot_longer(contains('nodeCount_'),names_to = 'node_type')|>
+  filter(value>0)|>
+  filter(node_type!='nodeCount_Inner')|>
+  ggplot()+
+  facet_nested(.~op, scales = 'free', labeller = labeller(
+    op = OP_LABELS,
+    data_name = DATA_LABELS,
+    reference_name = CONFIG_LABELS,
+  ))+
+  scale_x_discrete(labels = DATA_LABELS,name='Keys',limits=rev)+
+  scale_y_continuous(name=NULL,labels=NULL)+
+  geom_bar(aes(x=data_name,y=value/leaf_count,fill=node_type),stat='summary',fun=mean)+
+  scale_fill_brewer(palette = 'Dark2',
+                    labels = c('nodeCount_Dense'='Fully Dense','nodeCount_Hash'='Fingerprinting','nodeCount_Leaf'='Comparison'))+
+  coord_flip()+
+  theme(legend.position = 'right',legend.title = element_blank(),legend.margin = margin(-15,0,0,-5),plot.margin = margin(0))
+save_as('adapt_leaf_ratios',20)
 
-
-in_mem_plot(COMMON_OPS, c('hints' = 1, 'hash' = 1, 'dense3' = 1, 'adapt' = 2))
-save_as('adapt-perf', 90)
+config_pivot|>group_by(op,data_name)|>mutate(op,data_name,r = 1-txs_adapt2/pmax(txs_hash,txs_dense3),.keep = 'used')|>arrange(r,.by_group = TRUE)
+d|>filter(op=='ycsb_e',config_name=='adapt2',data_name=='wiki')|>mutate(l=mean(leaf_count),keys=mean(counted_final_key_count),.keep = 'none')
