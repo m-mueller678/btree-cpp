@@ -62,8 +62,6 @@ extremesBy <- function(r, d) {
   d[c(which.min(d[, r]), which.max(d[, r])),]
 }
 
-CONFIG_NAMES <- c('baseline', 'prefix', 'heads', 'hints', 'inner', 'hash', 'dense', 'dense1', 'dense2', 'dense3', 'adapt','adapt2', 'art', 'hot', 'tlx')
-
 VAL_COLS = c("time", "cycle", "instr", "L1_miss", "LLC_miss", "br_miss", "IPC", "CPU", "GHz", "task")
 frame_id_cols <- function(c) setdiff(colnames(c), VAL_COLS)
 
@@ -72,7 +70,22 @@ DATA_LABELS <- c('urls-full' = 'urls-full', 'urls' = 'urls', 'wiki' = 'wiki', 'i
 
 BASIC_OPTS<-c('prefix','heads','hints')
 OP_LABELS <- c('ycsb_c' = 'ycsb-c', 'ycsb_c_init' = 'insert', 'ycsb_e' = 'ycsb-e', 'ycsb_e_init' = 'ycsb_e_init', 'sorted_scan' = 'scan', 'sorted_insert' = 'sorted insert')
-CONFIG_LABELS <- c('prefix' = 'prefix truncation', 'dense2' = 'semi dense','dense3' = 'fully dense', 'dense1' = 'no split','hash' = 'fingerprinting', 'inner' = 'integer separators','adapt2'='adaptive','adapt'='ket-adaptive','art'='ART','hot'='HOT','tlx'='TLX')
+CONFIG_LABELS <- c('baseline'='baseline',
+                   'prefix' = 'prefix truncation',
+                   'heads'='heads',
+                   'hints'='hints',
+                   'inner' = 'integer separators',
+                   'hash' = 'fingerprinting',
+                   'dense1' = 'no split',
+                   'dense2' = 'semi dense',
+                   'dense3' = 'fully dense',
+                   'adapt'='ket-adaptive',
+                   'adapt2'='adaptive',
+                   'art'='ART',
+                   'hot'='HOT',
+                   'tlx'='TLX'
+)
+CONFIG_NAMES <- names(CONFIG_LABELS)
 
 config_reference<-function(d){
   case_when(
