@@ -86,7 +86,7 @@ v1|>
   ),levels=c('no-head','head','dense','inner')))|>
   #filter(config_name %in% c('hints','hash','dense1','dense3'))|>
   #filter(!inner)|>
-  filter(op=='ycsb_c_init')|>
+  filter(op=='ycsb_e')|>
   pivot_longer(any_of(OUTPUT_COLS),names_to = 'metric')|>
   filter(metric %in% c('cycle','L1_miss','LLC_miss','instr','br_miss'))|>
   ggplot() +
