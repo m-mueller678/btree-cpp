@@ -3,6 +3,7 @@ use std::hash::Hasher;
 use rand::distributions::Uniform;
 use rand::prelude::*;
 use zipf::ZipfDistribution;
+use bloomfilter::Bloom;
 
 #[no_mangle]
 pub unsafe extern "C" fn zipf_generate(mut num_elements: u32, zipf_parameter: f64, data_out: *mut u32, count: u32, shuffle: bool) {
@@ -31,5 +32,24 @@ pub unsafe extern "C" fn zipf_generate(mut num_elements: u32, zipf_parameter: f6
             }
             Err(uniform) => uniform.sample(&mut rng),
         });
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn generate_rng4(seed: u64, num_elements: u32, out: *mut u32) {
+    let num_elements = num_elements as usize;
+    let mut rng = SmallRng::seed_from_u64(seed);
+    //let mut hash_seed = [0u8;32];
+    //rng.fill_bytes(&mut has_seed);
+    let mut bloom = Bloom::new_for_fp_rate_with_seed(num_elements, 0.01, &rng.gen());
+    for i in 0..num_elements {
+        let next = loop {
+            let candidate: u32 = rng.gen();
+            if !bloom.check(&candidate) {
+                break candidate;
+            }
+        };
+        bloom.set(&next);
+        out.add(i).write(next);
     }
 }

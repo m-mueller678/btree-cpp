@@ -11,8 +11,8 @@
 using namespace std;
 
 extern "C" {
-struct ZipfGenerator;
 void zipf_generate(uint32_t, double, uint32_t*, uint32_t, bool);
+void generate_rng4(uint64_t seed, uint32_t count, uint32_t* out);
 }
 
 // zipfParameter is assumed to not change between invocations.
@@ -497,6 +497,36 @@ void runSortedScan(BTreeCppPerfEvent e,
    }
 }
 
+unsigned workloadGenCount(unsigned keyCount,unsigned opCount,unsigned ycsbVariant){
+   switch (envu64("YCSB_VARIANT")) {
+      case 3: {
+         return keyCount;
+      }
+      case 4: {
+         return keyCount;
+      }
+      case 401: {
+         return keyCount;
+      }
+      case 402: {
+         return keyCount;
+      }
+      case 5: {
+         return keyCount+opCount;
+      }
+      case 501: {
+         return keyCount;
+      }
+      case 6:{
+         return keyCount;
+      }
+      default: {
+         std::cerr << "bad ycsb variant" << std::endl;
+         abort();
+      }
+   }
+}
+
 int main(int argc, char* argv[])
 {
    bool dryRun = getenv("DRYRUN");
@@ -544,7 +574,7 @@ int main(int argc, char* argv[])
 
       // Generate a random boolean value
       bool result = dist(gen);
-      unsigned genCount = (envu64("YCSB_VARIANT") == 3 ? keyCount : keyCount + opCount) / intDensity;
+      unsigned genCount = workloadGenCount(keyCount,opCount,envu64("YCSB_VARIANT")) / intDensity;
       vector<uint32_t> v;
       if (dryRun) {
          data.resize(genCount);
@@ -559,25 +589,18 @@ int main(int argc, char* argv[])
          }
       }
    } else if (keySet == "rng4") {
-      std::random_device rd;
-      std::mt19937 gen(rd());
-
-      // Create a bernoulli_distribution with the given probability
-      std::uniform_int_distribution dist(uint32_t(0), UINT32_MAX);
-
-      // Generate a random boolean value
-      bool result = dist(gen);
-      unsigned genCount = envu64("YCSB_VARIANT") == 3 ? keyCount : keyCount + opCount;
+      unsigned genCount = workloadGenCount(keyCount,opCount,envu64("YCSB_VARIANT"));
       vector<uint32_t> v;
       if (dryRun) {
          data.resize(genCount);
       } else {
-         std::set<uint32_t> keys;
-         while (keys.size() < genCount)
-            keys.insert(dist(gen));
+         vector<uint32_t> v;
+         v.resize(genCount);
+         generate_rng4(rand(),genCount,v.data());
          string s;
          s.resize(4);
-         for (uint32_t x : keys) {
+         data.reserve(genCount);
+         for (auto x : v) {
             *(uint32_t*)(s.data()) = __builtin_bswap32(x);
             data.push_back(s);
          }
