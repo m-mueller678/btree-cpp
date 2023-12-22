@@ -174,7 +174,6 @@ void runMulti(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
                return foundIndex < scanLength;
             };
             t.range_lookup(key, keyLen, keyBuffer, callback);
-            break;
          }
    }
 
@@ -596,7 +595,7 @@ int main(int argc, char* argv[])
       } else {
          vector<uint32_t> v;
          v.resize(genCount);
-         generate_rng4(rand(),genCount,v.data());
+         generate_rng4(std::rand(),genCount,v.data());
          string s;
          s.resize(4);
          data.reserve(genCount);
