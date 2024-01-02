@@ -2,15 +2,16 @@ source("../common.R")
 
 r <- bind_rows(
   # python3 R/eval-dense/dense-tasks.py |parallel -j1 --joblog joblog -- {1}| tee R/eval-dense/s1.csv
-  read_broken_csv('s1.csv'),
+  #read_broken_csv('s1.csv'),
   # python3 R/eval-dense/task-sorted-insert.py |parallel -j1 --joblog joblog -- {1} > R/eval-dense/sorted.csv
-  read_broken_csv('sorted.csv'),
+  #read_broken_csv('sorted.csv'),
   # python3 R/eval-dense/partition-id-hint.py |parallel -j1 --joblog joblog -- {1} > R/eval-dense/partition-id-hint.csv
-  read_broken_csv('partition-id-hint.csv'),
+  #read_broken_csv('partition-id-hint.csv'),
+  #christmas run
+  read_broken_csv('dense-tasks-op2.csv.gz')
 )
 
-r<-r|>filter(run_id<=20)
-r|>group_by(config_name,data_name,op)|>count()|>arrange(n)|>filter(n!=20)|>View()
+r|>group_by(config_name,data_name,op)|>count()|>arrange(n)|>filter(n!=ifelse(data_name=='int',50,10))
 
 d <- r |>
   filter(op != "ycsb_e_init")|>
@@ -34,7 +35,7 @@ config_pivot|>
   mutate(data_name, op, r2=txs_dense2/txs_hints,r3=txs_dense3/txs_hints,.keep='none')
 
 d|>
-  filter(op %in% c("ycsb_c", "ycsb_c_init", "ycsb_e", "sorted_insert"))|>
+  filter(op %in% c("ycsb_c", "insert90", "scan", "sorted_insert"))|>
   filter(data_name == 'ints')|>
   group_by(op, config_name)|>
   summarise(txs = mean(txs))
@@ -87,7 +88,7 @@ d|>
 dense_joined|>
   filter(config_name.x != "dense1")|>
   filter(data_name == 'ints')|>
-  filter(op %in% c("ycsb_c", "ycsb_c_init", "ycsb_e", "sorted_insert"))|>
+  filter(op %in% c("ycsb_c", "insert90", "scan"))|>
   ggplot() +
   theme_bw() +
   facet_nested(. ~ config_name.x, labeller = labeller('config_name.x' = CONFIG_LABELS)) +
@@ -95,7 +96,7 @@ dense_joined|>
   geom_hline(yintercept = 0) +
   scale_y_continuous(labels = label_percent(), expand = expansion(mult = 0.1), breaks = (0:20) * 0.3) +
   scale_x_discrete(labels = OP_LABELS, expand = expansion(add = 0.1)) +
-  coord_cartesian(xlim = c(0.4, 4.6)) +
+  coord_cartesian(xlim = c(0.4, 3.6)) +
   guides(fill = guide_legend(ncol=1,title = NULL))+
   theme(
     axis.text.x = element_blank(), axis.ticks.x = element_blank(),
@@ -104,7 +105,7 @@ dense_joined|>
   ) +
   scale_fill_brewer(palette = 'Dark2', labels = OP_LABELS) +
   labs(x = NULL, y = NULL, fill = 'Workload')
-save_as('dense-speedup', 25)
+save_as('dense-speedup', 20)
 
 d|>
   ggplot() +
@@ -147,11 +148,11 @@ d|>
     guides(col = guide_legend(override.aes = list(size = 3)))
 
   tx <- common(FALSE, FALSE) +
-    geom_point(aes(x = data_size / ycsb_range_len, y = txs, col = config_name),size=0.3) +
+    geom_line(aes(x = data_size / ycsb_range_len, y = txs, col = config_name),stat='summary',fun=mean) +
     scale_y_continuous(name = NULL, labels = label_number(scale_cut = cut_si('op/s'))) +
     facet_nested(. ~ 'Throughput')
   space <- common(FALSE, FALSE) +
-    geom_point(aes(x = data_size / ycsb_range_len, y = node_count * 4096 /1e7, col = config_name),size=0.3) +
+    geom_line(aes(x = data_size / ycsb_range_len, y = node_count * 4096 /1e7, col = config_name),stat='summary',fun=mean) +
     scale_y_continuous(name = NULL, labels = label_bytes(),breaks = 20*(0:5),position = 'right') +
     facet_nested(. ~ 'Space Per Record')
   (tx|plot_spacer()|space) + plot_layout(guides = "collect",widths = c(1,0.05,1)) &
