@@ -7,11 +7,11 @@ r <- bind_rows(
   #   filter(config_name != 'adapt'),
   # hot build with integer specialization
   # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 50) ::: 3 5 :::  'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/hot-n3-ycsb | tee R/eval-2/seq-zipf-hot.csv
-  read_broken_csv('seq-zipf-hot.csv'),
+  #read_broken_csv('seq-zipf-hot.csv'),
   # sorted scans for hash vs hint
   # init is wrongly labeled as ycsb_c_init
   # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 50) ::: 501 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/hints-n3-ycsb named-build/hash-n3-ycsb | tee R/eval-2/sorted-scan-seq.csv
-  read_broken_csv('sorted-scan-seq.csv')|>filter(op == 'sorted_scan'),
+  #read_broken_csv('sorted-scan-seq.csv')|>filter(op == 'sorted_scan'),
 
   # obsoleted by seq-zipf-3
   #read_broken_csv('seq-zipf-dense3.csv'),
@@ -20,10 +20,13 @@ r <- bind_rows(
   # read_broken_csv('seq-adapt-dense3.csv'),
 
   # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 30) ::: 3 5 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/*-n3-ycsb | tee R/eval-2/seq-zipf-3.csv
-  read_broken_csv('seq-zipf-3.csv')|>
-    filter(!(config_name == 'hot' & (data_name %in% c('int', 'rng4')))),
+  #read_broken_csv('seq-zipf-3.csv')|>
+  #  filter(!(config_name == 'hot' & (data_name %in% c('int', 'rng4')))),
   # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 30) ::: 3 5 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/adapt2-n3-ycsb | tee R/eval-2/adapt2-fed65b81398dc6b.csv
-  read_broken_csv('adapt2-fed65b81398dc6b.csv.gz')
+  #read_broken_csv('adapt2-fed65b81398dc6b.csv.gz')
+
+  #christmas run
+  read_broken_csv('re-eval.csv.gz'),
 )
 
 r <- r|>filter(run_id <= 20)
@@ -35,7 +38,7 @@ r|>
   View()
 
 
-COMMON_OPS <- c("ycsb_c", "ycsb_c_init", "ycsb_e")
+COMMON_OPS <- c("ycsb_c", "insert90", "scan")
 
 d <- r |>
   filter(op != "ycsb_e_init")|>
