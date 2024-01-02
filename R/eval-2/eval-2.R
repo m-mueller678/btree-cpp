@@ -367,7 +367,8 @@ config_pivot|>
 config_pivot|>
   mutate(r = L1_miss_hints / L1_miss_heads - 1)|>
   select(data_name, op, L1_miss_heads, L1_miss_hints, r)|>
-  arrange(op, r)
+  arrange(op, r)|>
+  filter(!is.na(r))
 
 config_pivot|>
   mutate(r = LLC_miss_hints / LLC_miss_heads - 1)|>
@@ -380,7 +381,7 @@ config_pivot|>
   arrange(r)
 
 # hash
-perf_common(config_pivot, geom_col(aes(x = op, y = txs_hash / txs_hints - 1, fill = op))) +
+perf_common(config_pivot|>filter(op %in% c('ycsb_c','insert90','ycsb_e','sorted_scan')), geom_col(aes(x = op, y = txs_hash / txs_hints - 1, fill = op))) +
   coord_cartesian(xlim = c(0.4, 4.6))
 save_as('hash-speedup', 30)
 
@@ -519,7 +520,7 @@ d|>
 
 
 #`integer` separators
-perf_common(config_pivot|>filter(op != 'sorted_scan', data_name %in% c('ints', 'sparse')), geom_col(aes(x = op, y = txs_inner / txs_hints - 1, fill = op))) +
+perf_common(config_pivot|>filter(op %in% COMMON_OPS, data_name %in% c('ints', 'sparse')), geom_col(aes(x = op, y = txs_inner / txs_hints - 1, fill = op))) +
   facet_nested(. ~ data_name, labeller = labeller(
     op = OP_LABELS,
     data_name = DATA_LABELS,

@@ -69,7 +69,7 @@ DATA_MAP <- c('data/urls' = 'urls-full', 'data/urls-short' = 'urls', 'data/wiki'
 DATA_LABELS <- c('urls-full' = 'urls-full', 'urls' = 'urls', 'wiki' = 'wiki', 'ints' = 'dense', 'sparse' = 'sparse', 'partitioned_id' = 'partitioned_id')
 
 BASIC_OPTS<-c('prefix','heads','hints')
-OP_LABELS <- c('ycsb_c' = 'ycsb-c', 'ycsb_c_init' = 'insert0', 'ycsb_e' = 'ycsb-e', 'ycsb_e_init' = 'ycsb_e_init','sorted_scan_init'='sorted_scan_init', 'sorted_scan' = 'sorted-scan', 'sorted_insert' = 'sorted insert','insert90'='insert','scan'='scan')
+OP_LABELS <- c('ycsb_c' = 'lookup', 'ycsb_c_init' = 'insert0', 'ycsb_e_init' = 'ycsb_e_init','sorted_scan_init'='sorted_scan_init',  'sorted_insert' = 'sorted insert','insert90'='insert','sorted_scan' = 'warm scan','scan'='scan', 'ycsb_e' = 'ycsb-e')
 CONFIG_LABELS <- c('baseline'='baseline',
                    'prefix' = 'prefix truncation',
                    'heads'='heads',
