@@ -6,7 +6,7 @@ source('../common.R')
 
 r <- {
   files <- fs::dir_ls(path = 'insert-log/', glob = '*.csv.gz')
-  files<-files[grepl('r(0)',files)]
+  files<-files[grepl('r(1)',files)]
   files <- files[grepl('pl(8)', files)]
   #files <- files[grepl('int-', files)]
   vroom::vroom(files, id = "file", delim = ',', col_names = 'leaves')|>
@@ -205,31 +205,27 @@ do|>
 # final plot
 df <- vroom::vroom(
   c(
-  'insert-log-median/heads-10e6.csv.gz',
-  'insert-log-rand-pl/heads-10e6.csv.gz',
-  'insert-log-median/prefix-10e6.csv.gz',
-  'insert-log-rand-pl/prefix-10e6.csv.gz'
+  'ours-fixed-pl/heads-25e6.csv.gz',
+  'ours-fixed-pl/prefix-25e6.csv.gz'
   ), id = "file", delim = ',', col_names = 'leaves')|>
   group_by(file)|>
   mutate(count = row_number())|>
   filter(count %% 100 == 0)|>
-  extract(file, c('kind','config', 'max_count'), 'insert-log-([a-z\\-]+)/([[:alnum:]]+)-([0-9e]+).csv.gz')|>
+  extract(file, c('config', 'max_count'), '.*/([[:alnum:]]+)-([0-9e]+).csv.gz')|>
   mutate(max_count = as.numeric(max_count))|>
   mutate()
 
 
 df|>sample_n(1e5,replace=TRUE)|>mutate(
-  separator_selection=ifelse(kind=='median','median','ours'),
   records_per_leaf=count / leaves,
 )|>
   pivot_longer(c('records_per_leaf','leaves'),names_to = 'metric')|>
   filter(metric=='records_per_leaf')|>
-  filter(separator_selection=='ours')|>
 ggplot()+theme_bw()+
   geom_line(aes(count,value,col=config))+
   labs(x='inserted records',y=NULL)+
-  scale_x_continuous(limits = c(0,1e7),labels = label_number(scale_cut = cut_si("")),expand = expansion(mult=c(0,0.1)),
-                     breaks=(0:5)*4e6)+
+  scale_x_continuous(limits = c(0,25e6),labels = label_number(scale_cut = cut_si("")),expand = expansion(mult=c(0,0.1)),
+                     breaks=(0:5)*1e7)+
   scale_y_continuous(limit=c(130,190),expand = expansion(0))+
   #scale_linetype_manual(values=c('solid','solid'))+
   scale_color_brewer(name='Configuration',palette = 'Dark2',labels = CONFIG_LABELS)+
@@ -240,12 +236,10 @@ save_as('separator_misery',30)
 
 # x scaled
 df|>sample_n(1e5,replace=TRUE)|>mutate(
-  separator_selection=ifelse(kind=='median','median','ours'),
   records_per_leaf=count / leaves,
 )|>
   pivot_longer(c('records_per_leaf','leaves'),names_to = 'metric')|>
   filter(metric=='records_per_leaf')|>
-  filter(separator_selection=='ours')|>
   ggplot()+theme_bw()+
   geom_line(aes(count* ifelse(config=='prefix',0.8,1),ifelse(config=='prefix',value*0.9-18,value),col=config))+
   labs(x='inserted records',y=NULL)+
