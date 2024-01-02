@@ -2,9 +2,11 @@ source('../common.R')
 
 # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID=1 OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF={1} DENSITY=1 {4} ::: $(seq -w 50 1 150 | xargs -I{} echo "scale=2;{}/100" | bc) ::: 3 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/*-n3-ycsb | tee R/in-memory-skew/seq.csv
 # r<-read_broken_csv('seq.csv')
-r <- read_broken_csv('skew.csv')
 
 # python3 R/in-memory-skew/skew.py |parallel -j1 --joblog joblog --retries 3 -- {1}| tee R/in-memory-skew/skew.csv
+r <- read_broken_csv('skew.csv')
+# python3 R/in-memory-skew/skew.py |parallel -j1 --joblog joblog --retries 3 -- {1}| tee R/in-memory-skew/skew2.csv
+
 
 d <- r |>
   filter(op == 'ycsb_c')|>
@@ -12,6 +14,8 @@ d <- r |>
   mutate(
     round_size = cut(total_size, breaks = c(37e6, 38e6, 74e6, 76e6, 149e6, 151e6, 299e6, 301e6, 599e6, 601e6, 1199e6, 1201e6), labels = c(37.5, NA, 75, NA, 150, NA, 300, NA, 600, NA, 1200))
   )
+
+d|>group_by(round_size,data_name,config_name)|>filter(run_id<2)|>count()|>filter(n!=26*2)
 
 cp <- {
   cp <- d|>

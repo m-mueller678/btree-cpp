@@ -26,7 +26,13 @@ r <- bind_rows(
   read_broken_csv('adapt2-fed65b81398dc6b.csv.gz')
 )
 
-r|>group_by(config_name,data_name,op)|>count()|>arrange(n)|>filter(n!=50)
+r <- r|>filter(run_id <= 20)
+r|>
+  group_by(config_name, data_name, op)|>
+  count()|>
+  arrange(n)|>
+  filter(n != 20)|>
+  View()
 
 
 COMMON_OPS <- c("ycsb_c", "ycsb_c_init", "ycsb_e")
@@ -70,10 +76,11 @@ perf_common <- function(x = config_pivot, geom)
       legend.position = 'bottom',
       legend.text = element_text(margin = margin(t = 0)),
       legend.title = element_blank(),
-      legend.margin = margin(0),
+      legend.margin = margin(-10, 0, 0, 0),
       legend.box.margin = margin(0),
       legend.spacing.x = unit(0, "mm"),
       legend.spacing.y = unit(-5, "mm"),
+      plot.margin = margin(0),
     ) +
     scale_fill_brewer(palette = 'Dark2', labels = OP_LABELS) +
     scale_color_brewer(palette = 'Dark2', labels = OP_LABELS) +
@@ -82,6 +89,7 @@ perf_common <- function(x = config_pivot, geom)
     guides(col = guide_legend(override.aes = list(size = 3)), fill = 'none') +
     geom +
     geom_hline(yintercept = 0)
+
 
 d|>
   filter(!(config_name %in% c('adapt', 'hot', 'art', 'tlx')))|>
@@ -124,7 +132,7 @@ d|>
 config_pivot|>
   mutate(r = txs_hints / txs_baseline)|>
   select(data_name, op, txs_baseline, txs_hints, r)|>
-  arrange(r)
+  arrange(op, r)
 
 config_pivot|>
   select(data_name, op, txs_baseline, txs_best, txs_best_speedup)|>
@@ -142,10 +150,13 @@ config_pivot|>
   select(data_name, op, keys_per_leaf_prefix, keys_per_leaf_baseline, r)|>
   arrange(r)
 
+options(pillar.sigfig = 7)
 config_pivot|>
+  filter(op == 'ycsb_c')|>
   mutate(r = 1 - node_count_prefix / node_count_baseline)|>
   select(data_name, op, node_count_prefix, node_count_baseline, r)|>
-  arrange(r)
+  arrange(r)|>
+  print()
 
 # absolute
 config_pivot|>
@@ -186,8 +197,8 @@ config_pivot|>
   select(data_name, op, br_miss_baseline, br_miss_prefix, r)|>
   arrange(r)
 
-perf_common(geom = geom_col(aes(x = op, fill = op, y = txs_prefix / txs_baseline - 1)))
-save_as('prefix-speedup', h = 40)
+perf_common(config_pivot|>filter(op %in% COMMON_OPS),geom = geom_col(aes(x = op, fill = op, y = txs_prefix / txs_baseline - 1)))
+save_as('prefix-speedup', h = 30)
 
 config_pivot|>
   filter(op == 'ycsb_c')|>
@@ -203,15 +214,26 @@ config_pivot|>
 config_pivot|>
   filter(op == 'ycsb_c')|>
   ggplot() +
-  geom_col(aes(x = data_name, y = 1 - node_count_prefix / node_count_baseline)) +
+  theme_bw() +
+  geom_col(aes(x = data_name, y = 1 - node_count_prefix / node_count_baseline, fill = data_name)) +
+  scale_fill_brewer(palette = 'Dark2', labels = DATA_LABELS, name = 'key set') +
+  guides(fill = 'none') +
   scale_y_continuous(labels = label_percent(), expand = expansion(mult = c(0, .1)),) +
-  labs(x = 'key set', y = "Space Savings") +
-  coord_flip()
+  scale_x_discrete(limits = {
+    l <- rev(levels(config_pivot$data_name))
+    l[l %in% unique((config_pivot|>filter(!is.na(txs_prefix)))$data_name)]
+  }) +
+  labs(x = 'key set', y = NULL) +
+  coord_flip() +
+  theme(
+    plot.margin = margin(0, 0, 0, 0),
+    axis.title.y = element_text(size = 8),
+  )
+save_as('prefix-space', 15)
 
 # heads
-perf_common() +
-  geom_col(aes(x = op, y = txs_heads / txs_prefix - 1, fill = op)) +
-  geom_hline(yintercept = 0)
+perf_common(config_pivot|>filter(op %in% COMMON_OPS), geom_col(aes(x = op, y = txs_heads / txs_prefix - 1, fill = op)))
+save_as('heads-speedup', 30)
 
 config_pivot|>
   filter(op == 'ycsb_c')|>
@@ -300,14 +322,15 @@ config_pivot|>
   mutate(
     space_per_key_heads = leaf_count_heads * (4096 - 32) / final_key_count_heads,
     space_per_key_prefix = leaf_count_prefix * (4096 - 32) / final_key_count_prefix,
-  )|>
-  select(avg_key_size_baseline, data_name, space_per_key_prefix, space_per_key_heads)
+    d = space_per_key_heads - space_per_key_prefix,
+    data_name,
+    .keep = 'none',
+  )
 
 # hints
 
-perf_common() +
-  geom_col(aes(x = op, fill = op, y = txs_hints / txs_heads - 1)) +
-  geom_hline(yintercept = 0)
+perf_common(config_pivot|>filter(op %in% COMMON_OPS), geom_col(aes(x = op, fill = op, y = txs_hints / txs_heads - 1)))
+save_as('hints-speedup', 30)
 
 config_pivot|>
   filter(op == 'ycsb_c')|>
@@ -316,6 +339,12 @@ config_pivot|>
   scale_y_continuous(labels = label_percent(), expand = expansion(mult = c(0, .1)),) +
   labs(x = 'key set', y = "Space Overhead") +
   coord_flip()
+
+config_pivot|>
+  mutate(r = node_count_hints / node_count_heads - 1)|>
+  select(data_name, op, r)|>
+  arrange(op, r)
+
 
 config_pivot|>
   mutate(r = txs_hints / txs_heads - 1)|>
@@ -348,9 +377,9 @@ config_pivot|>
   arrange(r)
 
 # hash
-perf_common(geom = geom_col(aes(x = op, y = txs_hash / txs_hints - 1, fill = op))) +
+perf_common(config_pivot, geom_col(aes(x = op, y = txs_hash / txs_hints - 1, fill = op))) +
   coord_cartesian(xlim = c(0.4, 4.6))
-save_as('hash-speedup', 40)
+save_as('hash-speedup', 30)
 
 { (
   config_pivot|>
@@ -386,7 +415,7 @@ save_as('hash-speedup', 40)
 config_pivot|>
   mutate(r = txs_hash / txs_hints - 1)|>
   select(data_name, op, txs_hints, txs_hash, r)|>
-  arrange(r)
+  arrange(op, r)
 
 config_pivot|>
   mutate(r = txs_hash / txs_prefix - 1)|>
@@ -431,7 +460,10 @@ config_pivot|>
   arrange(r)
 
 # hash head space
-d|>filter(op=='ycsb_c',config_name %in% c('heads','prefix'),data_name=='ints')|>group_by(config_name)|>summarize(c=mean(nodeCount_Leaf))
+d|>
+  filter(op == 'ycsb_c', config_name %in% c('heads', 'prefix'), data_name == 'ints')|>
+  group_by(config_name)|>
+  summarize(c = mean(nodeCount_Leaf))
 
 {
   space_data <- config_pivot|>
@@ -444,7 +476,7 @@ d|>filter(op=='ycsb_c',config_name %in% c('heads','prefix'),data_name=='ints')|>
       rel_hash = node_count_hash / node_count_prefix - 1,
     )|>
     pivot_longer(!any_of('data_name'), names_sep = '_', names_to = c('ref', 'config'))|>
-    mutate(config = factor(config,levels = CONFIG_NAMES))
+    mutate(config = factor(config, levels = CONFIG_NAMES))
 
   plot <- function(ref_filter) {
     space_data|>
@@ -452,15 +484,16 @@ d|>filter(op=='ycsb_c',config_name %in% c('heads','prefix'),data_name=='ints')|>
       ggplot() +
       theme_bw() +
       geom_col(aes(x = data_name, y = value, fill = config), position = position_dodge2(reverse = TRUE)) +
-      scale_fill_brewer(palette = 'Dark2',labels = CONFIG_LABELS,name=NULL)+
+      scale_fill_brewer(palette = 'Dark2', labels = CONFIG_LABELS, name = NULL) +
       scale_x_discrete(labels = DATA_LABELS, name = 'key set') +
-      theme(legend.position = 'bottom')+
+      theme(legend.position = 'bottom') +
       coord_flip()
   }
-  hide_y<-theme(
-    axis.title.y=element_blank(),
-    axis.ticks.y=element_blank(),
-    axis.text.y=element_blank(),
+
+  hide_y <- theme(
+    axis.title.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.y = element_blank(),
   )
   pr <- plot('rel') +
     scale_y_continuous(
@@ -477,12 +510,12 @@ d|>filter(op=='ycsb_c',config_name %in% c('heads','prefix'),data_name=='ints')|>
       breaks = c(0, 2, 4, 6)
     )
 
-  (pr + (pa+hide_y)) + plot_layout(guides = 'collect')&theme(legend.position = 'bottom',legend.margin = margin(0,0,0,0),plot.margin = margin(0,0,0,0),legend.key.size = unit(4,'mm'))
-  save_as('hash-head-space-overhead',30)
+  (pr + (pa + hide_y)) + plot_layout(guides = 'collect') & theme(legend.position = 'bottom', legend.margin = margin(0, 0, 0, 0), plot.margin = margin(0, 0, 0, 0), legend.key.size = unit(4, 'mm'))
+  save_as('hash-head-space-overhead', 30)
 }
 
 
-#integer separators
+#`integer` separators
 perf_common(config_pivot|>filter(op != 'sorted_scan', data_name %in% c('ints', 'sparse')), geom_col(aes(x = op, y = txs_inner / txs_hints - 1, fill = op))) +
   facet_nested(. ~ data_name, labeller = labeller(
     op = OP_LABELS,
@@ -497,15 +530,17 @@ d|>
 
 d|>
   filter(config_name == 'inner', op == 'ycsb_c')|>
-  mutate(
-    head_count = nodeCount_Head4 + nodeCount_Head8,
-    head_share = head_count / inner_count,
-    head4_share = nodeCount_Head4 / inner_count,
-  )|>
-  select(op, data_name, head_count, head_share, head4_share)|>
-  ggplot() +
-  geom_violin(aes(x = data_name, y = head4_share)) +
-  coord_cartesian(ylim = c(0.9, 1))
+  group_by(data_name)|>
+  summarize(
+    share = mean((nodeCount_Head8 + nodeCount_Head4) / inner_count),
+    share4 = mean((nodeCount_Head4) / inner_count),
+    n = n()
+  )
+
+config_pivot|>
+  mutate(r = txs_inner / txs_hints - 1)|>
+  select(data_name, op, r)|>
+  arrange(r)
 
 config_pivot|>
   mutate(r = instr_inner / instr_hints - 1)|>
@@ -668,7 +703,7 @@ config_pivot|>
     legend.box.margin = margin(0),
     legend.spacing.x = unit(0, "mm"),
     legend.spacing.y = unit(-5, "mm"),
-    strip.text.y = element_text(size=6),
+    strip.text.y = element_text(size = 6),
   ) +
   scale_fill_brewer(palette = 'Dark2', labels = OP_LABELS) +
   scale_color_brewer(palette = 'Dark2', labels = OP_LABELS) +
@@ -680,25 +715,30 @@ config_pivot|>
 save_as('adapt-perf', 50)
 
 d|>
-  filter(config_name=='adapt2')|>
-  filter(op %in% c('ycsb_c','ycsb_e'))|>
-  pivot_longer(contains('nodeCount_'),names_to = 'node_type')|>
-  filter(value>0)|>
-  filter(node_type!='nodeCount_Inner')|>
-  ggplot()+
-  facet_nested(.~op, scales = 'free', labeller = labeller(
+  filter(config_name == 'adapt2')|>
+  filter(op %in% c('ycsb_c', 'ycsb_e'))|>
+  pivot_longer(contains('nodeCount_'), names_to = 'node_type')|>
+  filter(value > 0)|>
+  filter(node_type != 'nodeCount_Inner')|>
+  ggplot() +
+  facet_nested(. ~ op, scales = 'free', labeller = labeller(
     op = OP_LABELS,
     data_name = DATA_LABELS,
     reference_name = CONFIG_LABELS,
-  ))+
-  scale_x_discrete(labels = DATA_LABELS,name='Keys',limits=rev)+
-  scale_y_continuous(name=NULL,labels=NULL)+
-  geom_bar(aes(x=data_name,y=value/leaf_count,fill=node_type),stat='summary',fun=mean)+
+  )) +
+  scale_x_discrete(labels = DATA_LABELS, name = 'Keys', limits = rev) +
+  scale_y_continuous(name = NULL, labels = NULL) +
+  geom_bar(aes(x = data_name, y = value / leaf_count, fill = node_type), stat = 'summary', fun = mean) +
   scale_fill_brewer(palette = 'Dark2',
-                    labels = c('nodeCount_Dense'='Fully Dense','nodeCount_Hash'='Fingerprinting','nodeCount_Leaf'='Comparison'))+
-  coord_flip()+
-  theme(legend.position = 'right',legend.title = element_blank(),legend.margin = margin(-15,0,0,-5),plot.margin = margin(0))
-save_as('adapt_leaf_ratios',20)
+                    labels = c('nodeCount_Dense' = 'Fully Dense', 'nodeCount_Hash' = 'Fingerprinting', 'nodeCount_Leaf' = 'Comparison')) +
+  coord_flip() +
+  theme(legend.position = 'right', legend.title = element_blank(), legend.margin = margin(-15, 0, 0, -5), plot.margin = margin(0))
+save_as('adapt_leaf_ratios', 20)
 
-config_pivot|>group_by(op,data_name)|>mutate(op,data_name,r = 1-txs_adapt2/pmax(txs_hash,txs_dense3),.keep = 'used')|>arrange(r,.by_group = TRUE)
-d|>filter(op=='ycsb_e',config_name=='adapt2',data_name=='wiki')|>mutate(l=mean(leaf_count),keys=mean(counted_final_key_count),.keep = 'none')
+config_pivot|>
+  group_by(op, data_name)|>
+  mutate(op, data_name, r = 1 - txs_adapt2 / pmax(txs_hash, txs_dense3), .keep = 'used')|>
+  arrange(r, .by_group = TRUE)
+d|>
+  filter(op == 'ycsb_e', config_name == 'adapt2', data_name == 'wiki')|>
+  mutate(l = mean(leaf_count), keys = mean(counted_final_key_count), .keep = 'none')

@@ -9,6 +9,8 @@ r <- bind_rows(
   read_broken_csv('partition-id-hint.csv'),
 )
 
+r<-r|>filter(run_id<=20)
+r|>group_by(config_name,data_name,op)|>count()|>arrange(n)|>filter(n!=20)|>View()
 
 d <- r |>
   filter(op != "ycsb_e_init")|>
@@ -26,6 +28,10 @@ dense_joined <- d|>
 config_pivot|>
   filter(data_name == 'ints')|>
   select(data_name, op, br_miss_hints, br_miss_dense1, br_miss_dense2)
+
+config_pivot|>
+  filter(data_name == 'ints')|>
+  mutate(data_name, op, r2=txs_dense2/txs_hints,r3=txs_dense3/txs_hints,.keep='none')
 
 d|>
   filter(op %in% c("ycsb_c", "ycsb_c_init", "ycsb_e", "sorted_insert"))|>

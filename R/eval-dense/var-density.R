@@ -125,6 +125,6 @@ dense_joined|>filter(density==0.99)|>group_by(density,op,config_name.x)|>summari
 d_config_pivot|>
   filter(txs_dense3>txs_dense2 & density>0.25)|>
   group_by(op)|>
-  slice_min(density)
+  slice_min(density)|>select(op,density)
 d_var_density|>filter(density==0.99)|>group_by(density,op,config_name)|>summarize(br_miss=mean(br_miss))
 d_config_pivot|>group_by(op)|>slice_max(br_miss_hints)|>select(density,op,contains('br_miss'))
