@@ -223,15 +223,16 @@ df|>sample_n(1e5,replace=TRUE)|>mutate(
   filter(metric=='records_per_leaf')|>
 ggplot()+theme_bw()+
   geom_line(aes(count,value,col=config))+
+  geom_text(aes(x=count,y=ifelse(config=='heads',150,165),col=config,label=CONFIG_LABELS[config]),data=df|>filter(count==1.2e7),size=3)+
   labs(x='inserted records',y=NULL)+
   scale_x_continuous(limits = c(0,25e6),labels = label_number(scale_cut = cut_si("")),expand = expansion(mult=c(0,0.1)),
                      breaks=(0:5)*1e7)+
-  scale_y_continuous(limit=c(130,190),expand = expansion(0))+
+  scale_y_continuous(limit=c(130,190),breaks=(13:18)*10,expand = expansion(0),name='records/leaf')+
   #scale_linetype_manual(values=c('solid','solid'))+
   scale_color_brewer(name='Configuration',palette = 'Dark2',labels = CONFIG_LABELS)+
-  theme(legend.position = 'right')+
-  guides(linetype='none')
-save_as('separator_misery',30)
+  guides(linetype='none',colour='none')+
+  theme(plot.margin = margin(0,0,0,0))
+save_as('separator_misery',30,w=40)
 
 
 # x scaled

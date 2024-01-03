@@ -33,7 +33,7 @@ r|>
   group_by(config_name, data_name, op)|>
   count()|>
   arrange(n)|>
-  filter(n != 20)|>
+  filter(n != 50)|>
   View()
 
 COMMON_OPS <- c("ycsb_c", "insert90", "scan")
@@ -279,7 +279,7 @@ config_pivot|>
 config_pivot|>
   mutate(r = txs_heads / txs_prefix - 1)|>
   select(data_name, op, txs_prefix, txs_heads, r)|>
-  arrange(r)
+  arrange(r)|>print(n=50)
 
 config_pivot|>
   mutate(r = instr_heads / instr_prefix - 1)|>
@@ -355,7 +355,8 @@ config_pivot|>
 config_pivot|>
   mutate(r = instr_hints / instr_heads - 1)|>
   select(data_name, op, instr_heads, instr_hints, r)|>
-  arrange(r)
+  arrange(r)|>
+  print(n=13)
 
 config_pivot|>
   mutate(r = instr_hints - instr_heads)|>
@@ -542,7 +543,7 @@ d|>
 config_pivot|>
   mutate(r = txs_inner / txs_hints - 1)|>
   select(data_name, op, r)|>
-  arrange(r)
+  arrange(r)|>print(n=13)
 
 config_pivot|>
   mutate(r = instr_inner / instr_hints - 1)|>
@@ -741,9 +742,16 @@ config_pivot|>
   group_by(op, data_name)|>
   mutate(op, data_name, r = 1 - txs_adapt2 / pmax(txs_hash, txs_dense3), .keep = 'used')|>
   arrange(r, .by_group = TRUE)
+
 d|>
   filter(op == 'ycsb_e', config_name == 'adapt2', data_name == 'wiki')|>
   mutate(l = mean(leaf_count), keys = mean(counted_final_key_count), .keep = 'none')
+
+config_pivot|>
+  filter(op %in% COMMON_OPS)|>
+  group_by(op, data_name)|>
+  mutate(op, data_name, r = txs_adapt2/txs_baseline, .keep = 'used')|>
+  arrange(r, .by_group = TRUE)
 
 # title
 {
