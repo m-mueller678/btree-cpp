@@ -29,14 +29,12 @@ r <- bind_rows(
   read_broken_csv('re-eval.csv.gz'),
 )
 
-r <- r|>filter(run_id <= 20)
 r|>
   group_by(config_name, data_name, op)|>
   count()|>
   arrange(n)|>
   filter(n != 20)|>
   View()
-
 
 COMMON_OPS <- c("ycsb_c", "insert90", "scan")
 
@@ -200,7 +198,7 @@ config_pivot|>
   select(data_name, op, br_miss_baseline, br_miss_prefix, r)|>
   arrange(r)
 
-perf_common(config_pivot|>filter(op %in% COMMON_OPS),geom = geom_col(aes(x = op, fill = op, y = txs_prefix / txs_baseline - 1)))
+perf_common(config_pivot|>filter(op %in% COMMON_OPS), geom = geom_col(aes(x = op, fill = op, y = txs_prefix / txs_baseline - 1)))
 save_as('prefix-speedup', h = 30)
 
 config_pivot|>
@@ -381,7 +379,7 @@ config_pivot|>
   arrange(r)
 
 # hash
-perf_common(config_pivot|>filter(op %in% c('ycsb_c','insert90','ycsb_e','sorted_scan')), geom_col(aes(x = op, y = txs_hash / txs_hints - 1, fill = op))) +
+perf_common(config_pivot|>filter(op %in% c('ycsb_c', 'insert90', 'ycsb_e', 'sorted_scan')), geom_col(aes(x = op, y = txs_hash / txs_hints - 1, fill = op))) +
   coord_cartesian(xlim = c(0.4, 4.6))
 save_as('hash-speedup', 30)
 
@@ -746,3 +744,57 @@ config_pivot|>
 d|>
   filter(op == 'ycsb_e', config_name == 'adapt2', data_name == 'wiki')|>
   mutate(l = mean(leaf_count), keys = mean(counted_final_key_count), .keep = 'none')
+
+# title
+{
+  title_plot<-function(data_filter,art)
+    d|>
+      filter(config_name %in% c('baseline', 'adapt2','art','hot'), op == 'ycsb_c')|>
+      filter(data_name %in% data_filter)|>
+      mutate(
+        config_name = config_name|>
+          fct_relevel('baseline', 'adapt2', 'hot', 'art')|>
+          fct_recode(
+            'baseline B-Tree' = 'baseline',
+            'ART' = 'art',
+            'HOT' = 'hot',
+            'improved B-Tree' = 'adapt2'
+          ),
+        op = fct_recode(op,
+                        'lookup' = 'ycsb_c',
+                        'scan' = 'scan',
+                        'insert' = 'insert90'
+        ),
+        data_name = fct_recode(data_name,
+                               'urls' = 'urls',
+                               'Wiki titles' = 'wiki',
+                               'dense ints' = 'ints',
+                               'sparse ints' = 'sparse'
+        ),
+      )|>
+      ggplot() +
+      theme_bw() +
+      facet_nested(. ~ data_name, scales = 'free_x') +
+      theme(
+        axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+        strip.text = element_text(size = 9),
+        legend.text = element_text(margin = margin(t = 0)),
+        legend.title = element_blank(),
+        legend.box.margin = margin(0),
+        legend.spacing.x = unit(1, "mm"),
+      ) +
+      scale_fill_brewer(palette = 'Dark2', labels = OP_LABELS) +
+      scale_color_brewer(palette = 'Dark2', labels = OP_LABELS) +
+      geom_point(aes(fill = config_name, col = config_name), x = 0, y = -1, size = 0) +
+      labs(x = NULL, y = NULL, fill = 'Worload', col = 'Workload') +
+      guides(col = guide_legend(override.aes = list(size = 3),drop=FALSE), fill = 'none') +
+      geom_bar(aes(config_name, txs / 1e6, fill = config_name), stat = 'summary', fun = mean) +
+      scale_y_continuous(expand = expansion(c(0, 0)),breaks=(0:10)*if(art){3}else{1},limits = c(0,if(art){12}else{4})) +
+      scale_x_manual(values=c(0.5,1.5,if(!art){2.5}else{10},if(art){2.5}else{10}))+
+      coord_cartesian(xlim = c(0.4, 2.6))
+
+  (title_plot(c('urls','wiki'),FALSE)|title_plot(c('ints','sparse'),TRUE)) + plot_layout(guides = 'collect')&
+    theme(legend.position = 'bottom',
+          legend.margin = margin(-10, 0, 0, -20), plot.margin = margin(0,2,0,2), legend.key.size = unit(4, 'mm'))
+  save_as('title', 30)
+}

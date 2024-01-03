@@ -4,8 +4,10 @@ source('../common.R')
 # r<-read_broken_csv('seq.csv')
 
 # python3 R/in-memory-skew/skew.py |parallel -j1 --joblog joblog --retries 3 -- {1}| tee R/in-memory-skew/skew.csv
-r <- read_broken_csv('skew.csv')
+#r <- read_broken_csv('skew.csv')
 # python3 R/in-memory-skew/skew.py |parallel -j1 --joblog joblog --retries 3 -- {1}| tee R/in-memory-skew/skew2.csv
+# christmas run
+r <- read_broken_csv('skew-op2.csv.gz')
 
 
 d <- r |>
@@ -93,10 +95,12 @@ cp|>
       (if(y_axis){
         theme()
       }else{
-        theme(axis.ticks = element_blank())
+        theme(axis.ticks.y = element_blank())
       })+
-      geom_line(size = 0.2) +
-      geom_smooth(size = 0.4, se = FALSE)
+      #geom_line(size = 0.2) +
+      geom_smooth(size = 0.4,se=FALSE)+
+      geom_point(size=0.15,alpha=0.5)+
+      theme()
   }
 
   p1 <- cp|>
@@ -266,3 +270,6 @@ d|>
   labs(y = NULL, x = 'Zipf Parameter') +
   theme_bw()
 
+cp|>filter(metric=='txs',op=='ycsb_c',reference=='r')|>group_by(config_name,data_name)|>summarize(vi=min(value),va=max(value))|>print(n=50)
+cp|>filter(metric=='txs',op=='ycsb_c',reference=='r',config_name=='heads',ycsb_zipf==1)|>select(config_name,data_name,value)
+cp|>filter(metric=='txs',op=='ycsb_c',reference=='r',config_name=='heads',ycsb_zipf==1.5)|>select(config_name,data_name,value)

@@ -13,14 +13,17 @@ r <- bind_rows(
 
   # large payloads, incomplete
   # python3 R/size3/vary3.py |parallel -j1 --joblog joblog -- {1}| tee R/size3/vary3.csv
-  read_broken_csv('vary3.csv.gz')|>mutate(file=3),
+  # read_broken_csv('vary3.csv.gz')|>mutate(file=3),
 
   # incomplete
   # python3 R/size3/vary4.py |parallel -j1 --joblog joblog -- {1}| tee R/size3/vary4.csv
   #read_broken_csv('vary4.csv.gz'),
 
   # python3 R/size3/vary5.py |parallel -j1 --joblog joblog -- {1}| tee R/size3/vary5.csv
-  read_broken_csv('vary5.csv.gz')|>mutate(file=5),
+  # read_broken_csv('vary5.csv.gz')|>mutate(file=5),
+
+  # christmas run
+  read_broken_csv('vary6.csv.gz')|>mutate(file=5),
 )
 
 d <- r|>
@@ -115,15 +118,23 @@ v1|>
   )|>
   arrange(worstbest)
 
+# abs
+v1|>filter(op=='scan',config_name=='hash',!inner)|>
+  ggplot()+
+  facet_wrap(~payload_size)+
+  geom_line(aes(psv,L1_miss,col=data_name),stat='summary',fun=mean)+
+  coord_cartesian(ylim=c(0,100))
+
+# normalized txs / psv
 
 v1|>
-  filter(psv>=10)|> #smaller than 1KiB is always worse
+  filter(psv>=10,payload_size==16)|> #smaller than 1KiB is always worse
   group_by(config_name,op,data_name,inner,psv)|>
-  summarize(mean_txs = mean(nodeCount_Dense/leaf_count),.groups = 'drop_last')|>
+  summarize(mean_txs = mean(txs),.groups = 'drop_last')|>
   mutate(
     max_txs = max(mean_txs),.groups='drop',
     normalized_txs = mean_txs/max_txs,
-    variation = paste0(CONFIG_NAMES[config_name],ifelse(inner,' (inner)',''))
+    variation = paste0(CONFIG_LABELS[config_name],ifelse(inner,' (inner)',''))
   )|>
   #pivot_wider(values_from = 'normalized_txs', names_from = 'config_name',id_cols = any_of(c('config_name','op','data_name','inner','psv')))|>
   filter(config_name %in% ifelse(inner,c('dense3'),c('hash','dense3')))|>
@@ -154,3 +165,28 @@ v1|>
   )+
   coord_cartesian(ylim=c(0.8,1))
 save_as('node-size',70)
+
+
+
+# keys per leaf
+v1|>
+  filter(psv>=10,!inner)|> #smaller than 1KiB is always worse
+  filter(config_name %in% ifelse(inner,c('dense3'),c('hash','dense3')))|>
+  group_by(config_name,inner,op,psv,data_name)|>
+  summarize(txs=mean(txs),keys_per_leaf=mean(keys_per_leaf))|>
+  group_by(config_name,inner,op,data_name)|>
+  mutate(normalized_tx=txs/max(txs))|>
+  ggplot()+theme_bw()+
+  facet_nested(op~inner+config_name,scales='free',
+               labeller = labeller(
+                 config_name = CONFIG_LABELS,
+                 op=OP_LABELS,
+               ),
+  )+
+  scale_y_continuous(labels = label_percent(),name=NULL,breaks = (0:100)*0.1)+
+  geom_line(aes(keys_per_leaf,normalized_tx,col=data_name))+
+  scale_color_brewer(palette = 'Dark2')+
+  theme(legend.position =  'bottom',
+        legend.title = element_blank(),
+  )
+
