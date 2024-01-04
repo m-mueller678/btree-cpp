@@ -201,7 +201,7 @@ config_pivot|>
   select(data_name, op, br_miss_baseline, br_miss_prefix, r)|>
   arrange(r)
 
-perf_common(config_pivot|>filter(op %in% COMMON_OPS), geom = geom_col(aes(x = op, fill = op, y = txs_prefix / txs_baseline - 1)))
+perf_common(config_pivot|>filter(op %in% COMMON_OPS), geom = geom_col(aes(x = op, fill = op, y = txs_prefix / txs_baseline - 1)))+ expand_limits(y=0.06)
 save_as('prefix-speedup', h = 30)
 
 config_pivot|>
@@ -333,7 +333,7 @@ config_pivot|>
 
 # hints
 
-perf_common(config_pivot|>filter(op %in% COMMON_OPS), geom_col(aes(x = op, fill = op, y = txs_hints / txs_heads - 1)))
+perf_common(config_pivot|>filter(op %in% COMMON_OPS), geom_col(aes(x = op, fill = op, y = txs_hints / txs_heads - 1)))+ expand_limits(y=0.06)
 save_as('hints-speedup', 30)
 
 config_pivot|>
@@ -491,9 +491,10 @@ d|>
       theme_bw() +
       geom_col(aes(x = data_name, y = value, fill = config), position = position_dodge2(reverse = TRUE)) +
       scale_fill_brewer(palette = 'Dark2', labels = CONFIG_LABELS, name = NULL) +
-      scale_x_discrete(labels = DATA_LABELS, name = 'key set') +
+      scale_x_discrete(labels = DATA_LABELS, name = NULL) +
       theme(legend.position = 'bottom') +
-      coord_flip()
+      coord_flip()+
+      theme(strip.text = element_text(size=8,margin = margin(2,2,2,2)))
   }
 
   hide_y <- theme(
@@ -502,22 +503,24 @@ d|>
     axis.text.y = element_blank(),
   )
   pr <- plot('rel') +
+    facet_wrap(~'Relative')+
     scale_y_continuous(
       labels = label_percent(),
-      name = 'Relative',
+      name = NULL,
       expand = expansion(mult = c(0, .1)),
       breaks = (0:2) * 0.1
     )
   pa <- plot('abs') +
+    facet_wrap(~'Per Record')+
     scale_y_continuous(
       labels = label_bytes(),
-      name = 'Per Record',
+      name = NULL,
       expand = expansion(mult = c(0, .1)),
       breaks = c(0, 2, 4, 6)
     )
 
-  (pr + (pa + hide_y)) + plot_layout(guides = 'collect') & theme(legend.position = 'bottom', legend.margin = margin(0, 0, 0, 0), plot.margin = margin(0, 0, 0, 0), legend.key.size = unit(4, 'mm'))
-  save_as('hash-head-space-overhead', 30)
+  (pr + (pa + hide_y)) + plot_layout(guides = 'collect') & theme(legend.position = 'right', legend.margin = margin(0, 0, 0, 0), plot.margin = margin(0, 0, 0, 0), legend.key.size = unit(4, 'mm'))
+  save_as('hash-head-space-overhead', 20)
 }
 
 
@@ -770,13 +773,13 @@ d|>
   pivot_longer(contains('nodeCount_'), names_to = 'node_type')|>
   filter(value > 0)|>
   filter(node_type != 'nodeCount_Inner')|>
-  ggplot() +
+  ggplot() + theme_bw()+
   facet_nested(. ~ op, scales = 'free', labeller = labeller(
     op = OP_LABELS,
     data_name = DATA_LABELS,
     reference_name = CONFIG_LABELS,
   )) +
-  scale_x_discrete(labels = DATA_LABELS, name = 'Keys', limits = rev) +
+  scale_x_discrete(labels = DATA_LABELS, name = NULL, limits = rev) +
   scale_y_continuous(name = NULL, labels = NULL) +
   geom_bar(aes(x = data_name, y = value / leaf_count, fill = node_type), stat = 'summary', fun = mean) +
   scale_fill_brewer(palette = 'Dark2',
