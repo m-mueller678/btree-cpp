@@ -17,7 +17,11 @@ d <- r |>
     round_size = cut(total_size, breaks = c(37e6, 38e6, 74e6, 76e6, 149e6, 151e6, 299e6, 301e6, 599e6, 601e6, 1199e6, 1201e6), labels = c(37.5, NA, 75, NA, 150, NA, 300, NA, 600, NA, 1200))
   )
 
-d|>group_by(round_size,data_name,config_name)|>filter(run_id<2)|>count()|>filter(n!=26*2)
+d|>
+  group_by(round_size, data_name, config_name)|>
+  filter(run_id < 2)|>
+  count()|>
+  filter(n != 26 * 2)
 
 cp <- {
   cp <- d|>
@@ -29,6 +33,7 @@ cp <- {
     cb <- paste0('x-', c)
     cp[paste0('r-', c)] <- ifelse(cr != 'x-NA', cp[cb] / cp[cr], NA)
     cp[paste0('a-', c)] <- ifelse(cr != 'x-NA', cp[cb] - cp[cr], NA)
+    cp[paste0('rhh-', c)] <- ifelse(cr != 'x-NA', cp[cb] / pmax(pull(cp['x-dense3']), pull(cp['x-hash'])), NA)
   }
   cp|>
     pivot_longer(contains("-"), names_sep = '-', names_to = c('reference', 'config_name'))|>
@@ -44,11 +49,11 @@ d|>
 
 cp|>
   #filter(reference=='x')|>
-  filter(metric == 'txs')|>
+  filter(metric == 'L1_miss')|>
   #filter(round_size %in% c(37.5,300,1200))|>
   #filter(data_name=='ints')|>
   #filter(config_name!='art')|>
-  #filter(config_name %in% c(BASIC_OPTS,'hash','dense3'))|>
+  filter(config_name %in% c('art','hot'))|>
   ggplot() +
   facet_nested(reference ~ round_size + data_name, scales = 'free_y') +
   #geom_point(aes(ycsb_zipf,value,col=config_name))+
@@ -57,10 +62,11 @@ cp|>
 
 # with urls
 {
-  zipf_plot <- function(d,legend,y_axis,y_scale) {
-    configs<-c('prefix', 'heads', 'hints', 'hash','dense2','dense3')
-    palette<-brewer_pal(palette = 'Dark2')(length(configs))
-    names(palette)<-configs
+
+  zipf_plot <- function(d, legend, y_axis, y_scale) {
+    configs <- c('prefix', 'heads', 'hints', 'hash', 'dense2', 'dense3')
+    palette <- brewer_pal(palette = 'Dark2')(length(configs))
+    names(palette) <- configs
     d|>
       filter(metric == 'txs', reference == 'r')|>
       filter(round_size == 300)|>
@@ -74,9 +80,9 @@ cp|>
         labels = CONFIG_LABELS,
       ) +
       scale_y_continuous(
-        labels = if(y_axis){label_percent(style_positive = "plus")}else{NULL},
+        labels = if (y_axis) { label_percent(style_positive = "plus") }else { NULL },
         breaks = (-1:2) * y_scale,
-        limits = c(-y_scale, y_scale*3),
+        limits = c(-y_scale, y_scale * 3),
         expand = expansion(0),
         name = NULL) +
       scale_x_continuous(
@@ -85,35 +91,35 @@ cp|>
         expand = expansion(0),
       ) +
       guides(
-        col = if (legend){guide_legend(nrow = 2, title = element_blank())}else{FALSE},
+        col = if (legend) { guide_legend(nrow = 2, title = element_blank()) }else { FALSE },
       ) +
       theme(
         legend.position = 'bottom',
         legend.margin = margin(0, 0, 0, -30),
-        plot.margin = margin(0,if (y_axis){5}else{0},0,0),
+        plot.margin = margin(0, if (y_axis) { 5 }else { 0 }, 0, 0),
       ) +
-      (if(y_axis){
+      (if (y_axis) {
         theme()
-      }else{
+      }else {
         theme(axis.ticks.y = element_blank())
-      })+
+      }) +
       #geom_line(size = 0.2) +
-      geom_smooth(size = 0.4,se=FALSE)+
-      geom_point(size=0.15,alpha=0.5)+
+      geom_smooth(size = 0.4, se = FALSE) +
+      geom_point(size = 0.15, alpha = 0.5) +
       theme()
   }
 
   p1 <- cp|>
     filter(data_name == 'urls' & config_name %in% c('prefix', 'heads', 'hints', 'hash'))|>
-    zipf_plot(TRUE,TRUE,0.1)
+    zipf_plot(TRUE, TRUE, 0.1)
   p2 <- cp|>
-    filter(data_name == 'wiki' & config_name %in% c('prefix','heads', 'hints', 'hash'))|>
-    zipf_plot(FALSE,TRUE,0.3)
+    filter(data_name == 'wiki' & config_name %in% c('prefix', 'heads', 'hints', 'hash'))|>
+    zipf_plot(FALSE, TRUE, 0.3)
   p3 <- cp|>
     filter(data_name == 'ints' & config_name %in% c('heads', 'hints', 'hash', 'dense3', 'dense2'))|>
-    zipf_plot(FALSE,FALSE,0.3)
+    zipf_plot(FALSE, FALSE, 0.3)
 
-  (p1 + p2+p3) + plot_layout(guides = 'collect') & theme(
+  (p1 + p2 + p3) + plot_layout(guides = 'collect') & theme(
     legend.position = 'bottom',
   )
   save_as('zipf-speedup', 50)
@@ -165,7 +171,7 @@ cp|>
   facet_nested(
     data_name ~ config_name,
     scales = 'free_y',
-        independent = 'y',
+    independent = 'y',
   ) +
   #geom_point(aes(ycsb_zipf,value,col=config_name))+
   geom_smooth(aes(ycsb_zipf, value, col = round_size), se = FALSE) +
@@ -270,6 +276,59 @@ d|>
   labs(y = NULL, x = 'Zipf Parameter') +
   theme_bw()
 
-cp|>filter(metric=='txs',op=='ycsb_c',reference=='r')|>group_by(config_name,data_name)|>summarize(vi=min(value),va=max(value))|>print(n=50)
-cp|>filter(metric=='txs',op=='ycsb_c',reference=='r',config_name=='heads',ycsb_zipf==1)|>select(config_name,data_name,value)
-cp|>filter(metric=='txs',op=='ycsb_c',reference=='r',config_name=='heads',ycsb_zipf==1.5)|>select(config_name,data_name,value)
+cp|>
+  filter(metric == 'txs', op == 'ycsb_c', reference == 'r')|>
+  group_by(config_name, data_name)|>
+  summarize(vi = min(value), va = max(value))|>
+  print(n = 50)
+cp|>
+  filter(metric == 'L1_miss', op == 'ycsb_c', reference == 'x', ycsb_zipf %in% c(0.5,1.5),config_name %in% c('art','hints','hot','tlx'))|>
+  select(config_name, data_name, value,ycsb_zipf)|>
+  pivot_wider(names_from = ycsb_zipf,values_from = 'value',names_prefix = 'z')|>
+  arrange(config_name,data_name)|>
+  mutate(r=1-z1.5/z0.5)|>
+  group_by(config_name)|>
+  summarize(ri=min(r),ra=max(r))
+
+# in-mem
+{
+  f <- function(datas)
+    cp|>
+      filter(data_name %in% datas)|>
+      filter(reference == 'rhh', metric == 'txs', config_name %in% c('art', 'hot', 'tlx'))|>
+      #filter(reference == 'rhh',metric=='txs',config_name %in% c('hash','dense3'))|>
+      ggplot(aes(x = ycsb_zipf, y = value, col = config_name)) +
+      theme_bw() +
+      facet_nested(. ~ data_name, scales = 'free',labeller = labeller(
+        op = OP_LABELS,
+        data_name = DATA_LABELS,
+      )) +
+      #geom_smooth(aes(x = ycsb_zipf, y = value, col = config_name),size=0.3) +
+      geom_point(aes(x = ycsb_zipf, y = value, col = config_name,fill=config_name),size=0.1) +
+      scale_color_brewer(palette = 'Dark2') +
+      scale_fill_brewer(palette = 'Dark2',labels = CONFIG_LABELS) +
+      scale_y_continuous(
+        # labels = label_percent(style_positive = "plus"),
+        #breaks = (0:100) * 0.5,
+        #limits = c(-0.3, 0.9),
+        expand = expansion(mult = c(0, 0.05)),
+        name = NULL) +
+      scale_x_continuous(
+        breaks = (1:2) * 0.5,
+        name = NULL,
+        expand = expansion(0),
+      ) +
+      expand_limits(y = c(0, 1.1))+
+      guides(fill = guide_legend(override.aes = list(shape = 21,size=5,stroke=0) ),col='none' )
+
+  (f(c('urls', 'wiki')) |plot_spacer()| f(c('ints', 'sparse'))|guide_area()) +
+    plot_layout(guides = 'collect',widths = c(1, 0.1,1,1))&
+    theme(
+    legend.margin = margin(0, 0, 0, -20),
+    legend.key = element_blank(),
+    strip.text = element_text(size=9,margin = margin(2,2,2,2)),
+    plot.margin = margin(0, 0, 0, 0),
+    legend.title=element_blank(),
+  )
+}
+save_as('zipf-in-mem', 20)

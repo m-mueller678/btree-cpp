@@ -227,13 +227,13 @@ config_pivot|>
     l <- rev(levels(config_pivot$data_name))
     l[l %in% unique((config_pivot|>filter(!is.na(txs_prefix)))$data_name)]
   }, labels = DATA_LABELS) +
-  labs(x = 'key set', y = NULL) +
+  labs(x = NULL, y = 'Space Savings') +
   coord_flip() +
   theme(
     plot.margin = margin(0, 0, 0, 0),
     axis.title.y = element_text(size = 8),
   )
-save_as('prefix-space', 15)
+save_as('prefix-space', 20,w=40)
 
 # heads
 perf_common(config_pivot|>filter(op %in% COMMON_OPS), geom_col(aes(x = op, y = txs_heads / txs_prefix - 1, fill = op)))
