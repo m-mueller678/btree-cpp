@@ -27,6 +27,9 @@ r <- bind_rows(
 
   #christmas run
   read_broken_csv('re-eval.csv.gz'),
+
+  #dense
+  read_broken_csv('re-eval-dense.csv.gz')|>filter(config_name!='dense1'),
 )
 
 r|>
@@ -223,7 +226,7 @@ config_pivot|>
   scale_x_discrete(limits = {
     l <- rev(levels(config_pivot$data_name))
     l[l %in% unique((config_pivot|>filter(!is.na(txs_prefix)))$data_name)]
-  }) +
+  },labels = DATA_LABELS) +
   labs(x = 'key set', y = NULL) +
   coord_flip() +
   theme(
@@ -634,13 +637,19 @@ in_mem_plot('ycsb_e')
 
 config_pivot|>
   transmute(r = txs_art / txs_dense3, op, data_name)|>
-  arrange(op, data_name)
+  arrange(op, data_name)|>print(n=25)
 config_pivot|>
   transmute(r = txs_hash / txs_art, op, data_name)|>
   arrange(op, data_name)
 config_pivot|>
+  transmute(r = txs_hash / txs_baseline, op, data_name)|>
+  arrange(op, data_name)|>print(n=50)
+config_pivot|>
   transmute(r = txs_dense3 / pmax(txs_hot, txs_art) - 1, op, data_name)|>
   arrange(op, data_name)
+config_pivot|>
+  transmute(r = txs_baseline / pmax(txs_hot, txs_art) - 1, op, data_name)|>
+  arrange(op, data_name)|>print(n=50)
 config_pivot|>
   transmute(r1 = txs_baseline / txs_tlx, r2 = pmax(txs_baseline, txs_dense3, txs_hash) / txs_tlx, r3 = txs_baseline / txs_tlx - 1, op, data_name)|>
   arrange(data_name, op)
@@ -674,6 +683,43 @@ d|>
   labs(x = NULL, y = "Count", fill = 'Configuration') +
   theme(axis.text.x = element_blank())
 
+
+{
+  f<-function(data_filter,art)
+    d|>
+      filter(config_name %in% c('baseline','hash','dense3','art','hot','tlx'), op %in% c('ycsb_c','insert90'))|>
+      filter(data_name %in% data_filter)|>
+      ggplot() +
+      theme_bw() +
+      facet_nested(op ~ data_name, scales = 'free',labeller = labeller(
+        op = OP_LABELS,
+        data_name = DATA_LABELS,
+      ) ) +
+      theme(
+        axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+        strip.text = element_text(size = 9),
+        legend.text = element_text(margin = margin(t = 0)),
+        legend.title = element_blank(),
+        legend.box.margin = margin(0),
+        legend.spacing.x = unit(1, "mm"),
+      ) +
+      (if (art){theme()}else{theme(strip.background.y = element_blank(),strip.text.y = element_blank())})+
+      scale_fill_brewer(palette = 'Dark2', labels = CONFIG_LABELS) +
+      scale_color_brewer(palette = 'Dark2', labels = CONFIG_LABELS) +
+      geom_point(aes(fill = config_name, col = config_name), x = 0, y = -1, size = 0) +
+      labs(x = NULL, y = NULL, fill = 'Worload', col = 'Workload') +
+      guides(col = guide_legend(override.aes = list(size = 3),drop=FALSE), fill = 'none') +
+      geom_bar(aes(config_name, txs / 1e6, fill = config_name), stat = 'summary', fun = mean,position='dodge') +
+      scale_y_continuous(breaks=(0:3)*if(art){3}else{1},expand = expansion(mult=c(0,0.05))) +
+      scale_x_manual(values=c(0,0,0,1,1,1))+
+      coord_cartesian(xlim = c(0,1))
+
+  (f(c('urls','wiki'),FALSE)|f(c('ints','sparse'),TRUE)) + plot_layout(guides = 'collect')&
+    theme(legend.position = 'bottom',
+          legend.margin = margin(-10, 0, 0, -20), plot.margin = margin(0,2,0,2), legend.key.size = unit(4, 'mm'))
+}
+save_as('mem-txs', 40)
+
 # adapt
 config_pivot|>
   filter(op %in% COMMON_OPS)|>
@@ -688,12 +734,12 @@ config_pivot|>
   #transmute(op,data_name,r=txs_adapt2/reference_value-1,reference_name)|>arrange(reference_name,op,r)|>View()
   ggplot() +
   theme_bw() +
-  facet_nested(reference_name ~ data_name, scales = 'free', labeller = labeller(
+  facet_nested(reference_name ~ data_name, scales = 'free',independent = 'y', labeller = labeller(
     op = OP_LABELS,
     data_name = DATA_LABELS,
     reference_name = CONFIG_LABELS,
   )) +
-  scale_y_continuous(labels = label_percent(style_positive = "plus"), expand = expansion(mult = 0.1)) +
+  scale_y_continuous(labels = label_percent(), expand = expansion(mult = 0.1)) +
   scale_x_discrete(labels = OP_LABELS, expand = expansion(add = 0.1)) +
   coord_cartesian(xlim = c(0.4, 3.6)) +
   theme(
@@ -706,7 +752,7 @@ config_pivot|>
     legend.box.margin = margin(0),
     legend.spacing.x = unit(0, "mm"),
     legend.spacing.y = unit(-5, "mm"),
-    strip.text.y = element_text(size = 6),
+    strip.text = element_text(size = 6),
   ) +
   scale_fill_brewer(palette = 'Dark2', labels = OP_LABELS) +
   scale_color_brewer(palette = 'Dark2', labels = OP_LABELS) +
@@ -714,12 +760,13 @@ config_pivot|>
   labs(x = NULL, y = NULL, fill = 'Worload', col = 'Workload') +
   guides(col = guide_legend(override.aes = list(size = 3)), fill = 'none') +
   geom_col(aes(x = op, fill = op, y = txs_adapt2 / reference_value - 1)) +
-  geom_hline(yintercept = 0)
+  geom_hline(yintercept = 0)+
+  expand_limits(y=0.06)
 save_as('adapt-perf', 50)
 
 d|>
   filter(config_name == 'adapt2')|>
-  filter(op %in% c('ycsb_c', 'ycsb_e'))|>
+  filter(op %in% c('ycsb_c', 'scan'))|>
   pivot_longer(contains('nodeCount_'), names_to = 'node_type')|>
   filter(value > 0)|>
   filter(node_type != 'nodeCount_Inner')|>
@@ -739,6 +786,7 @@ d|>
 save_as('adapt_leaf_ratios', 20)
 
 config_pivot|>
+  filter(op %in% COMMON_OPS)|>
   group_by(op, data_name)|>
   mutate(op, data_name, r = 1 - txs_adapt2 / pmax(txs_hash, txs_dense3), .keep = 'used')|>
   arrange(r, .by_group = TRUE)
