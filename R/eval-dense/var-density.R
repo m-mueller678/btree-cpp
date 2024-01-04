@@ -93,6 +93,8 @@ save_as('var-density', 20)
 
 # speedup, op facet
 
+
+
 dense_joined|>
   filter(config_name.x!='dense1')|>
   filter(op!='ycsb_e_init')|>
@@ -102,19 +104,28 @@ dense_joined|>
   scale_x_continuous(
     name=NULL,
     limits = c(0, 1),
-    breaks = (0:1)*1,
+    breaks = (0:2)*0.5,
     labels = label_percent(),
     expand = expansion(add = 0)
   ) +
   scale_y_continuous(labels = label_percent(), expand = expansion(mult = c(.05, .05)),name=NULL) +
-  guides(col = guide_legend(override.aes = list(size = 1)))+
+  guides(col = 'none')+
   expand_limits(y=0)+
   facet_nested(~op,scales = 'free_y',independent = 'y', labeller = labeller(
     op = OP_LABELS,
   ))+
   geom_line(aes(density,txs.x/txs.y-1,col=config_name.x),stat='summary',fun=mean)+
-  theme(legend.position = 'right',legend.margin = margin(-10,0,0,-10),plot.margin = margin(0))
-save_as('var-density-txs', 25)
+  geom_text(aes(x,y,col=config_name,label=c('dense2'='semi d.','dense3'='fully d.')[as.character(config_name)]),stat='summary',fun=mean,
+            data = data.frame(
+              op=factor(c('ycsb_c','insert90','scan'),levels=names(OP_LABELS)),
+              config_name=factor(c(rep('dense3',3),rep('dense2',3)),levels=names(CONFIG_LABELS)),
+              x=c(0.75,0.85,0.8,0.6,0.65,1),
+              y=c(0.55,1.7,0.8,0.35,0.9,0.18)
+            ),
+            vjust='bottom',hjust='right',size=3
+  )+
+  theme(plot.margin = margin(0,15,0,0),strip.text = element_text(size=8,margin = margin(2,2,2,2)))
+save_as('var-density-txs', 20)
 
 # space
 {
@@ -147,6 +158,7 @@ save_as('dense-space', 25)
 # space short
 d_var_density|>
   filter(op=='ycsb_c',config_name!='dense1')|>
+  mutate(config_name=fct_relevel(config_name,'dense2','dense3','hints'))|>
   ggplot() +
   theme_bw() +
   scale_color_brewer(palette = 'Dark2', name = "Configuration", labels = CONFIG_LABELS) +

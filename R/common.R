@@ -8,6 +8,7 @@ library(tidyr)
 library(patchwork)
 library(forcats)
 library(readr)
+library(RColorBrewer)
 
 format_si <- function(...) {
   # https://stackoverflow.com/a/21089837
