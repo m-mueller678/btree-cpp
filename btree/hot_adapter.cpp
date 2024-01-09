@@ -83,7 +83,7 @@ constexpr inline size_t getMaxKeyLength<TupleKeyRef>()
 }  // namespace contenthelpers
 }  // namespace idx
 
-static uint8_t fake_payload=42;
+std::array<uint8_t, 256> fake_payload{42};
 
 uint8_t* HotBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut)
 {
@@ -92,7 +92,7 @@ uint8_t* HotBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsig
       if (it == HotSSI::END_ITERATOR)
          return nullptr;
       payloadSizeOut = 8;
-      return &fake_payload;
+      return fake_payload.data();
    } else {
       auto it = hot->string_hot.find(TupleKeyRef{key, keyLength});
       if (it == HotSS::END_ITERATOR)

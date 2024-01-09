@@ -91,7 +91,7 @@ uint8_t* makePayload(unsigned len)
 bool isDataInt(BTreeCppPerfEvent& e)
 {
    auto name = e.params["data_name"];
-   return name == "int" || name == "rng4";
+   return name == "rng8";
 }
 
 bool keySizeAcceptable(unsigned maxPayload,vector<string>& data){
