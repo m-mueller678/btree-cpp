@@ -678,17 +678,17 @@ d|>
   theme(axis.text.x = element_blank(), legend.position = "bottom", legend.justification = "center")
 
 d|>
-  filter(config_name %in% c('baseline', 'art', 'hot', 'dense1', 'hash'), op %in% COMMON_OPS)|>
+  filter(config_name %in% c('baseline', 'art', 'hot', 'dense3', 'hash'), op %in% COMMON_OPS)|>
   ggplot() +
   facet_wrap(~op + data_name, scales = 'free') +
-  geom_bar(aes(x = config_name, y = LLC_miss, fill = config_name), stat = 'summary', fun = mean) +
+  geom_bar(aes(x = config_name, y = L1_miss, fill = config_name), stat = 'summary', fun = mean) +
   scale_x_discrete(labels = CONFIG_LABELS) +
   scale_y_continuous(
     expand = expansion(mult = c(0, .1)),
     labels = label_number(scale_cut = cut_si('tx/s'))
   ) +
   scale_fill_brewer(palette = "Dark2") +
-  labs(x = NULL, y = "Count", fill = 'Configuration') +
+  labs(x = NULL, fill = 'Configuration') +
   theme(axis.text.x = element_blank())
 
 
@@ -862,5 +862,63 @@ config_pivot|>
   (title_plot(c('urls', 'wiki'), FALSE) | title_plot(c('ints', 'sparse'), TRUE)) + plot_layout(guides = 'collect') &
     theme(legend.position = 'bottom',
           legend.margin = margin(-10, 0, 0, -20), plot.margin = margin(0, 2, 0, 2), legend.key.size = unit(4, 'mm'))
-  save_as('title', 30)
 }
+save_as('title', 30)
+
+
+{
+
+  title_plot <- function(data_filter, art)
+    d|>
+      filter(config_name %in% c('baseline', 'adapt2', 'art', 'hot'), op == 'ycsb_c')|>
+      filter(data_name %in% data_filter)|>
+      mutate(
+        config_name = config_name|>
+          fct_relevel('baseline', 'adapt2', 'hot', 'art')|>
+          fct_recode(
+            'baseline B - Tree' = 'baseline',
+            'ART' = 'art',
+            'HOT' = 'hot',
+            'improved B - Tree' = 'adapt2'
+          ),
+        op = fct_recode(op,
+                        'lookup' = 'ycsb_c',
+                        'scan' = 'scan',
+                        'insert' = 'insert90'
+        ),
+        data_name = fct_recode(data_name,
+                               'urls' = 'urls',
+                               'Wiki titles' = 'wiki',
+                               'dense ints' = 'ints',
+                               'sparse ints' = 'sparse'
+        ),
+      )|>
+      ggplot() +
+      theme_bw() +
+      facet_nested(. ~ data_name, scales = 'free_x') +
+      theme(
+        axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+        strip.text = element_text(size = 9),
+        legend.text = element_text(margin = margin(t = 0)),
+        legend.title = element_blank(),
+        legend.box.margin = margin(0),
+        legend.spacing.x = unit(1, "mm"),
+      ) +
+      scale_fill_brewer(palette = 'Dark2', labels = OP_LABELS) +
+      scale_color_brewer(palette = 'Dark2', labels = OP_LABELS) +
+      geom_point(aes(fill = config_name, col = config_name), x = 0, y = -1, size = 0) +
+      labs(x = NULL, y = NULL, fill = 'Worload', col = 'Workload') +
+      guides(col = guide_legend(override.aes = list(size = 3), drop = FALSE), fill = 'none') +
+      geom_bar(aes(config_name, txs / 1e6, fill = config_name), stat = 'summary', fun = mean) +
+      scale_y_continuous(expand = expansion(c(0, 0)), breaks = (0:10) * if (art) { 3 }else { 1 }, limits = c(0, if (art) { 12 }else { 4 })) +
+      scale_x_manual(values = c(0.5, 1.5, 2.5,3.5)) +
+      coord_cartesian(xlim = c(0.4, 3.6))
+
+  (title_plot(c('urls', 'wiki'), FALSE) | title_plot(c('ints', 'sparse'), TRUE)) + plot_layout(guides = 'collect') &
+    theme(legend.position = 'bottom',
+          legend.margin = margin(-10, 0, 0, -20), plot.margin = margin(0, 2, 0, 2), legend.key.size = unit(4, 'mm'))
+}
+save_as('title', 30)
+
+config_pivot|>mutate(r=txs_baseline/txs_hot,data_name,op,.keep='none')|>arrange(r)|>print(n=50)
+config_pivot|>mutate(r=txs_adapt2/txs_hot,data_name,op,.keep='none')|>arrange(r)|>print(n=50)
