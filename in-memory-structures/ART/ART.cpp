@@ -119,8 +119,8 @@ void loadKey(uintptr_t tid, uint8_t key[])
 {
    // Store the key of the tuple into the key vector
    // Implementation is database specific
-   Tuple* tuple = reinterpret_cast<Tuple*>(tid);
-   memcpy(key, tuple->data, tuple->keyLen);
+   uint64_t s=__bswap_constant_64(tid);
+   memcpy(key, &s, 8);
 }
 
 // This address is used to communicate that search failed
@@ -929,15 +929,26 @@ bool scan(Node* n,
 
 ArtBTreeAdapter::ArtBTreeAdapter(bool isInt) : root(nullptr) {}
 
+std::array<uint8_t, 256> fake_payload_art{42, 42, 42, 42, 42, 42, 42, 42};
+
 uint8_t* ArtBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut)
 {
    uint64_t value = getLeafValue(art::lookup(root, key, keyLength, 0, BTreeNode::maxKVSize));
-   payloadSizeOut = Tuple::tuplePayloadLen(value);
-   return Tuple::tuplePayloadPtr(value);
+   if (value == 0) {
+      return nullptr;
+   } else{
+      payloadSizeOut=8;
+      return fake_payload_art.data();
+   }
 }
 void ArtBTreeAdapter::insertImpl(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength)
 {
-   art::insert(root, &root, key, 0, Tuple::makeTuple(key, keyLength, payload, payloadLength), BTreeNode::maxKVSize);
+   union{
+      uint8_t  b[8];
+      uint64_t x;
+   };
+   memcpy(b,key,8);
+   art::insert(root, &root, key, 0, __builtin_bswap64(x), BTreeNode::maxKVSize);
 }
 bool ArtBTreeAdapter::removeImpl(uint8_t*, unsigned int) const
 {
@@ -948,7 +959,7 @@ void ArtBTreeAdapter::range_lookupImpl(uint8_t* key,
                                        uint8_t* keyOut,
                                        const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
-   art::scan(root, key, keyLen, 0, BTreeNode::maxKVSize, keyOut, found_record_cb);
+   abort();
 }
 void ArtBTreeAdapter::range_lookup_descImpl(uint8_t*, unsigned int, uint8_t*, const std::function<bool(unsigned int, uint8_t*, unsigned int)>&)
 {
