@@ -83,7 +83,7 @@ constexpr inline size_t getMaxKeyLength<TupleKeyRef>()
 }  // namespace contenthelpers
 }  // namespace idx
 
-std::array<uint8_t, 256> fake_payload{42};
+std::array<uint8_t, 256> fake_payload{42,42,42,42,42,42,42,42};
 
 uint8_t* HotBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut)
 {
@@ -106,7 +106,6 @@ uint8_t* HotBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsig
 void HotBTreeAdapter::insertImpl(uint8_t* key, unsigned int keyLength, uint8_t* payload, unsigned int payloadLength)
 {
    if (hot->isInt) {
-      uintptr_t tuple = Tuple::makeTuple(key, keyLength, payload, payloadLength);
       bool success = hot->int_hot.insert(*reinterpret_cast<std::array<uint8_t, 8>*>(key));
       assert(success);
    } else {
