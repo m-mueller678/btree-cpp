@@ -13,6 +13,7 @@ using namespace std;
 extern "C" {
 void zipf_generate(uint32_t, double, uint32_t*, uint32_t, bool);
 void generate_rng4(uint64_t seed, uint32_t count, uint32_t* out);
+void generate_rng8(uint64_t seed, uint32_t count, uint64_t* out);
 }
 
 // zipfParameter is assumed to not change between invocations.
@@ -589,7 +590,6 @@ int main(int argc, char* argv[])
       }
    } else if (keySet == "rng4") {
       unsigned genCount = workloadGenCount(keyCount,opCount,envu64("YCSB_VARIANT"));
-      vector<uint32_t> v;
       if (dryRun) {
          data.resize(genCount);
       } else {
@@ -601,6 +601,22 @@ int main(int argc, char* argv[])
          data.reserve(genCount);
          for (auto x : v) {
             *(uint32_t*)(s.data()) = __builtin_bswap32(x);
+            data.push_back(s);
+         }
+      }
+   } else if (keySet == "rng8") {
+      unsigned genCount = workloadGenCount(keyCount,opCount,envu64("YCSB_VARIANT"));
+      if (dryRun) {
+         data.resize(genCount);
+      } else {
+         vector<uint64_t> v;
+         v.resize(genCount);
+         generate_rng8(std::rand(),genCount,v.data());
+         string s;
+         s.resize(8);
+         data.reserve(genCount);
+         for (auto x : v) {
+            *(uint64_t*)(s.data()) = __builtin_bswap64(x);
             data.push_back(s);
          }
       }
