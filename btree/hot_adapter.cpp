@@ -41,28 +41,18 @@ TupleKeyRef HotTupleKeyExtractor<Tuple*>::operator()(TupleKeyRef k)
 template <typename T>
 struct HotTupleIntKeyExtractor {
    template <typename K>
-   std::array<uint8_t, 4> operator()(K);
+   std::array<uint8_t ,8> operator()(K);
 };
 
 template <>
 template <>
-std::array<uint8_t, 4> HotTupleIntKeyExtractor<Tuple*>::operator()(Tuple* t)
+std::array<uint8_t ,8> HotTupleIntKeyExtractor<std::array<uint8_t ,8>>::operator()(std::array<uint8_t ,8> t)
 {
-   assert(t->keyLen == 4);
-   std::array<uint8_t, 4> x;
-   memcpy(&x, t->data, 4);
-   return x;
-};
-
-template <>
-template <>
-std::array<uint8_t, 4> HotTupleIntKeyExtractor<Tuple*>::operator()(std::array<uint8_t, 4> x)
-{
-   return x;
+   return t;
 };
 
 typedef hot::singlethreaded::HOTSingleThreaded<Tuple*, HotTupleKeyExtractor> HotSS;
-typedef hot::singlethreaded::HOTSingleThreaded<Tuple*, HotTupleIntKeyExtractor> HotSSI;
+typedef hot::singlethreaded::HOTSingleThreaded<std::array<uint8_t ,8> , HotTupleIntKeyExtractor> HotSSI;
 
 struct Hot {
    HotSS string_hot;
@@ -93,15 +83,16 @@ constexpr inline size_t getMaxKeyLength<TupleKeyRef>()
 }  // namespace contenthelpers
 }  // namespace idx
 
+static uint8_t fake_payload=42;
+
 uint8_t* HotBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut)
 {
    if (hot->isInt) {
-      auto it = hot->int_hot.find(*reinterpret_cast<std::array<uint8_t, 4>*>(key));
+      auto it = hot->int_hot.find(*reinterpret_cast<std::array<uint8_t, 8>*>(key));
       if (it == HotSSI::END_ITERATOR)
          return nullptr;
-      Tuple* tuple = *it;
-      payloadSizeOut = tuple->payloadLen;
-      return tuple->payload();
+      payloadSizeOut = 8;
+      return &fake_payload;
    } else {
       auto it = hot->string_hot.find(TupleKeyRef{key, keyLength});
       if (it == HotSS::END_ITERATOR)
@@ -116,7 +107,7 @@ void HotBTreeAdapter::insertImpl(uint8_t* key, unsigned int keyLength, uint8_t* 
 {
    if (hot->isInt) {
       uintptr_t tuple = Tuple::makeTuple(key, keyLength, payload, payloadLength);
-      bool success = hot->int_hot.insert(reinterpret_cast<Tuple*>(tuple));
+      bool success = hot->int_hot.insert(*reinterpret_cast<std::array<uint8_t, 8>*>(key));
       assert(success);
    } else {
       uintptr_t tuple = Tuple::makeTuple(key, keyLength, payload, payloadLength);
@@ -134,17 +125,7 @@ void HotBTreeAdapter::range_lookupImpl(uint8_t* key,
                                        const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb)
 {
    if (hot->isInt) {
-      auto it = hot->int_hot.lower_bound(*reinterpret_cast<std::array<uint8_t, 4>*>(key));
-      while (true) {
-         if (it == HotSSI::END_ITERATOR)
-            break;
-         Tuple* tuple = *it;
-         memcpy(keyOut, tuple->data, tuple->keyLen);
-         if (!found_record_cb(tuple->keyLen, tuple->payload(), tuple->payloadLen)) {
-            break;
-         }
-         ++it;
-      }
+      abort();
    } else {
       auto it = hot->string_hot.lower_bound(TupleKeyRef{key, keyLen});
       while (true) {

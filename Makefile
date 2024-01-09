@@ -9,7 +9,8 @@ hot_sources=$(shell find in-memory-structures/hot/ -type f) btree/hot_adapter.*
 ycsb_cpps=ycsb2.cpp $(core_cpps)
 cxx_base=/usr/bin/clang++-15
 cc_base=/usr/bin/clang-15
-cxx=$(cxx_base) $(PAGE_SIZE_OVERRIDE_FLAG) -std=c++17 -o $@ -march=native -g
+machine_flags= -march=skylake
+cxx=$(cxx_base) $(PAGE_SIZE_OVERRIDE_FLAG) -std=c++17 -o $@ $(machine_flags) -g
 
 zipfc_link_arg = -Lzipfc/target/release/ -lzipfc
 named_config_headers = $(shell ls named-configs)
@@ -97,10 +98,10 @@ named-build/%-d3-ycsb: $(sources) hot-d0.o tlx_build_d0/libTlxWrapper.a zipfc/ta
 	$(cxx) $(ycsb_cpps) -O3 $(named_args) $(zipfc_link_arg) -Ltlx_build_d0/ -lTlxWrapper hot-d0.o
 
 hot-d0.o: $(hot_sources)
-	g++-11 -c btree/hot_adapter.cpp -std=c++17 -o $@ -march=native -g $(hot_includes)
+	g++-11 -c btree/hot_adapter.cpp -std=c++17 -o $@ $(machine_flags) -g $(hot_includes)
 
 hot-n3.o: $(hot_sources)
-	g++-11 -c  -DNDEBUG -O3 btree/hot_adapter.cpp -std=c++17 -o $@ -march=native -g $(hot_includes)
+	g++-11 -c  -DNDEBUG -O3 btree/hot_adapter.cpp -std=c++17 -o $@ $(machine_flags) -g $(hot_includes)
 
 tlx_build_d0/libTlxWrapper.a: .FORCE
 	mkdir -p tlx_build_d0
