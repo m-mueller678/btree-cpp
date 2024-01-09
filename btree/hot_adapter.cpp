@@ -3,6 +3,16 @@
 #include "../in-memory-structures/hot/libs/hot/single-threaded/include/hot/singlethreaded/HOTSingleThreadedInterface.hpp"
 #include "tuple.hpp"
 
+uint64_t tou64(std::array<uint8_t,8> b){
+   union{
+      uint64_t x;
+      uint8_t t[8];
+   };
+   memcpy(t,b.data(),8);
+   return __builtin_bswap64(x);
+}
+
+
 struct TupleKeyRef {
    uint8_t* data;
    unsigned length;
@@ -41,18 +51,18 @@ TupleKeyRef HotTupleKeyExtractor<Tuple*>::operator()(TupleKeyRef k)
 template <typename T>
 struct HotTupleIntKeyExtractor {
    template <typename K>
-   std::array<uint8_t ,8> operator()(K);
+   uint64_t  operator()(K);
 };
 
 template <>
 template <>
-std::array<uint8_t ,8> HotTupleIntKeyExtractor<std::array<uint8_t ,8>>::operator()(std::array<uint8_t ,8> t)
+uint64_t  HotTupleIntKeyExtractor<uint64_t >::operator()(uint64_t  t)
 {
    return t;
 };
 
 typedef hot::singlethreaded::HOTSingleThreaded<Tuple*, HotTupleKeyExtractor> HotSS;
-typedef hot::singlethreaded::HOTSingleThreaded<std::array<uint8_t ,8> , HotTupleIntKeyExtractor> HotSSI;
+typedef hot::singlethreaded::HOTSingleThreaded<uint64_t , HotTupleIntKeyExtractor> HotSSI;
 
 struct Hot {
    HotSS string_hot;
@@ -88,7 +98,7 @@ std::array<uint8_t, 256> fake_payload{42,42,42,42,42,42,42,42};
 uint8_t* HotBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut)
 {
    if (hot->isInt) {
-      auto it = hot->int_hot.find(*reinterpret_cast<std::array<uint8_t, 8>*>(key));
+      auto it = hot->int_hot.find(tou64(*reinterpret_cast<std::array<uint8_t, 8>*>(key)));
       if (it == HotSSI::END_ITERATOR)
          return nullptr;
       payloadSizeOut = 8;
@@ -106,7 +116,7 @@ uint8_t* HotBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsig
 void HotBTreeAdapter::insertImpl(uint8_t* key, unsigned int keyLength, uint8_t* payload, unsigned int payloadLength)
 {
    if (hot->isInt) {
-      bool success = hot->int_hot.insert(*reinterpret_cast<std::array<uint8_t, 8>*>(key));
+      bool success = hot->int_hot.insert(tou64(*reinterpret_cast<std::array<uint8_t, 8>*>(key)));
       assert(success);
    } else {
       uintptr_t tuple = Tuple::makeTuple(key, keyLength, payload, payloadLength);
