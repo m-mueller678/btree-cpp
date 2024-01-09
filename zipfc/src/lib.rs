@@ -64,7 +64,7 @@ pub unsafe extern "C" fn generate_rng8(seed: u64, num_elements: u32, out: *mut u
     let mut bloom = Bloom::new_for_fp_rate_with_seed(num_elements, 0.01, &rng.gen());
     for i in 0..num_elements {
         let next = loop {
-            let candidate: u64 = rng.gen::<u64>()*2;
+            let candidate: u64 = rng.gen::<u64>()/4*2;
             if !bloom.check(&candidate) {
                 break candidate;
             }
