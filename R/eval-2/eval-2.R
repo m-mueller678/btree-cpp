@@ -645,6 +645,10 @@ config_pivot|>
   arrange(op, data_name)|>
   print(n = 25)
 config_pivot|>
+  transmute(r = txs_art / txs_hot, op, data_name)|>
+  arrange(op, data_name)|>
+  print(n = 25)
+config_pivot|>
   transmute(r = txs_hash / txs_art, op, data_name)|>
   arrange(op, data_name)
 config_pivot|>

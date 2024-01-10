@@ -66,8 +66,8 @@ extremesBy <- function(r, d) {
 VAL_COLS = c("time", "cycle", "instr", "L1_miss", "LLC_miss", "br_miss", "IPC", "CPU", "GHz", "task")
 frame_id_cols <- function(c) setdiff(colnames(c), VAL_COLS)
 
-DATA_MAP <- c('data/urls' = 'urls-full', 'data/urls-short' = 'urls', 'data/wiki' = 'wiki', 'int' = 'ints', 'rng4' = 'sparse', 'partitioned_id' = 'partitioned_id')
-DATA_LABELS <- c('urls-full' = 'urls-full', 'urls' = 'urls', 'wiki' = 'wiki', 'ints' = 'dense', 'sparse' = 'sparse', 'partitioned_id' = 'partitioned_id')
+DATA_MAP <- c('data/urls' = 'urls-full', 'data/urls-short' = 'urls', 'data/wiki' = 'wiki', 'int' = 'ints', 'rng4' = 'sparse','rng8'='sparse64', 'partitioned_id' = 'partitioned_id')
+DATA_LABELS <- c('urls-full' = 'urls-full', 'urls' = 'urls', 'wiki' = 'wiki', 'ints' = 'dense', 'sparse' = 'sparse','sparse64'='sparse64', 'partitioned_id' = 'partitioned_id')
 
 BASIC_OPTS<-c('prefix','heads','hints')
 OP_LABELS <- c('ycsb_c' = 'lookup', 'ycsb_c_init' = 'insert0', 'ycsb_e_init' = 'ycsb_e_init','sorted_scan_init'='sorted_scan_init',  'sorted_insert' = 'sorted insert','insert90'='insert','sorted_scan' = 'warm scan','scan'='scan', 'ycsb_e' = 'ycsb-e')
@@ -113,6 +113,7 @@ augment <- function(d) {
         data_name == 'data/genome' ~ 9,
         data_name == 'int' ~ 4,
         data_name == 'rng4' ~ 4,
+        data_name == 'rng8' ~ 8,
         TRUE ~ NA
       ),
       data_name = factor(data_name, levels = names(DATA_MAP), labels = DATA_MAP),
