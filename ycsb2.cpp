@@ -135,7 +135,6 @@ void runMulti(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
          t.insert(key, length, payload, payloadSize);
       }
    }
-
    {
       e.setParam("op", "ycsb_c");
       BTreeCppPerfEventBlock b(e, t, opCount);
@@ -151,6 +150,7 @@ void runMulti(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
                throw;
          }
    }
+   return;
 
    std::minstd_rand generator(std::rand());
    std::uniform_int_distribution<unsigned> scanLengthDistribution{1, maxScanLength};
