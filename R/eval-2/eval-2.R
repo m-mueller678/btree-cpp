@@ -216,25 +216,28 @@ config_pivot|>
   coord_flip()
 
 {
-  space_plot<-function (left){
-    data_filter<-if(left){c('urls','wiki')}else{c('ints','sparse')}
-      config_pivot|>
-      filter(op == 'ycsb_c',data_name %in% data_filter)|>
+  space_plot <- function(left) {
+    data_filter <- if (left) { c('urls', 'wiki') }else { c('ints', 'sparse') }
+    config_pivot|>
+      filter(op == 'ycsb_c', data_name %in% data_filter)|>
       ggplot() +
       theme_bw() +
       geom_col(aes(x = data_name, y = 1 - node_count_prefix / node_count_baseline, fill = data_name)) +
-      scale_fill_manual(palette = function(x) brewer_pal(palette = 'Dark2')(4)[(3:4)-left*2]) +
+      scale_fill_manual(palette = function(x) brewer_pal(palette = 'Dark2')(4)[(3:4) - left * 2]) +
       guides(fill = 'none') +
       scale_y_continuous(labels = label_percent(), expand = expansion(mult = c(0, .1)),) +
       scale_x_discrete(limits = {
         l <- rev(levels(config_pivot$data_name))
-        l[l %in% unique((config_pivot|>filter(!is.na(txs_prefix)))$data_name) & l%in% data_filter]
+        l[l %in% unique((config_pivot|>filter(!is.na(txs_prefix)))$data_name) & l %in% data_filter]
       }, labels = DATA_LABELS) +
       labs(x = NULL, y = NULL) +
       coord_flip()
   }
-  space_plot(TRUE) + space_plot(FALSE) + plot_annotation(caption = 'Space Savings') &
-    theme(plot.caption  = element_text(size=8,hjust = 0.5,margin = margin(0,0,1,0)),
+
+  space_plot(TRUE) +
+    space_plot(FALSE) +
+    plot_annotation(caption = 'Space Savings') &
+    theme(plot.caption = element_text(size = 8, hjust = 0.5, margin = margin(0, 0, 1, 0)),
           plot.margin = margin(1, 5, 1, 5),
           axis.title.x = element_text(size = 8),
           strip.text = element_blank(),
@@ -246,7 +249,70 @@ save_as('prefix-space', 14)
 perf_common(config_pivot|>filter(op %in% COMMON_OPS), geom_col(aes(x = op, y = txs_heads / txs_prefix - 1, fill = op)))
 save_as('heads-speedup', 30)
 
+{
+
+  space_plot <- function(left) {
+    data_filter <- if (left) { c('urls', 'wiki') }else { c('ints', 'sparse') }
+    config_pivot|>
+      filter(op == 'ycsb_c', data_name %in% data_filter)|>
+      ggplot() +
+      theme_bw() +
+      geom_col(aes(x = data_name, y = node_count_heads / node_count_prefix - 1, fill = data_name)) +
+      scale_fill_manual(palette = function(x) brewer_pal(palette = 'Dark2')(4)[(3:4) - left * 2]) +
+      guides(fill = 'none') +
+      scale_y_continuous(labels = label_percent(), expand = expansion(mult = c(0, .1)), breaks = if (left) { (0:10) * 0.05 }else { (0:10) * 0.1 }) +
+      scale_x_discrete(limits = {
+        l <- rev(levels(config_pivot$data_name))
+        l[l %in% unique((config_pivot|>filter(!is.na(txs_prefix)))$data_name) & l %in% data_filter]
+      }, labels = DATA_LABELS) +
+      labs(x = NULL, y = NULL) +
+      coord_flip()
+  }
+
+  space_plot(TRUE) +
+    space_plot(FALSE) +
+    plot_annotation(caption = 'Space Overhead') &
+    theme(plot.caption = element_text(size = 8, hjust = 0.5, margin = margin(0, 0, 1, 0)),
+          plot.margin = margin(1, 5, 1, 5),
+          axis.title.x = element_text(size = 8),
+          strip.text = element_blank(),
+          strip.background = element_blank())
+}
+save_as('heads-space', 14)
+
+
+{
+  # generate plots, then generate heads-int-size-plot (insert-log), then create patchwork
+
+  space_base <- config_pivot|>
+    filter(op == 'ycsb_c')|>
+    ggplot() +
+    theme_bw() +
+    scale_fill_brewer(palette = 'Dark2') +
+    guides(fill = 'none') +
+    theme(
+      axis.text.x = element_text(angle = 25, hjust = 1),
+      axis.title.y = element_text(size = 8, hjust = 1),
+      axis.title.x = element_text(size = 8),
+    )
+  relative <- space_base +
+    scale_y_continuous(labels = label_percent(), expand = expansion(mult = c(0, .1)), breaks = (0:10) * 0.1) +
+    labs(x = 'Key Set', y = 'Space Overhead') +
+    geom_col(aes(x = data_name, y = node_count_heads / node_count_prefix - 1, fill = data_name))
+  # absolute<-space_base+
+  #   scale_y_continuous(labels = label_bytes(), expand = expansion(mult = c(0, .1)),position = 'right') +
+  #   labs(x = NULL, y = NULL)+
+  #   geom_col(aes(x = data_name, y = (node_count_heads-node_count_prefix)*4096/data_size, fill = data_name))
+
+  (separator_misery + relative) & theme(plot.margin = margin(3, 5, 0, 5))
+
+  save_as('heads-space', 25)
+}
+
+
 config_pivot|>
+
+  config_pivot|>
   filter(op == 'ycsb_c')|>
   mutate(d = node_count_heads * 4096 / final_key_count_heads - node_count_prefix * 4096 / final_key_count_prefix)|>
   select(d, data_name)
@@ -407,15 +473,15 @@ config_pivot|>
     data_name = DATA_LABELS,
     config = CONFIG_LABELS,
   )) +
-  scale_y_continuous(expand = expansion(mult = 0.1),breaks = function (x){
-    m<-max(x)/100
+  scale_y_continuous(expand = expansion(mult = 0.1), breaks = function(x) {
+    m <- max(x) / 100
     case_when(
-      m>0.5~(-10:10)*0.2,
-      m>0.2 ~ (-10:10)*0.1,
-      m>0.1 ~ (-10:10)*0.05,
-      m>0.07 ~ (-10:10)*0.03,
-      TRUE ~ (-10:10)*0.02,
-    )*100
+      m > 0.5 ~ (-10:10) * 0.2,
+      m > 0.2 ~ (-10:10) * 0.1,
+      m > 0.1 ~ (-10:10) * 0.05,
+      m > 0.07 ~ (-10:10) * 0.03,
+      TRUE ~ (-10:10) * 0.02,
+    ) * 100
   }) +
   scale_x_discrete(labels = OP_LABELS, expand = expansion(add = 0.1)) +
   coord_cartesian(xlim = c(0.4, 3.6)) +
@@ -423,8 +489,8 @@ config_pivot|>
     strip.text = element_text(size = 8, margin = margin(2, 1, 2, 1)),
     axis.text.x = element_blank(),
     #axis.text.x = element_text(angle = 90,hjust=1,vjust=0.5),
-    axis.text.y = element_text(size=8),
-    axis.title.y = element_text(size=8),
+    axis.text.y = element_text(size = 8),
+    axis.title.y = element_text(size = 8),
     panel.spacing.x = unit(0.5, "mm"),
     axis.ticks.x = element_blank(),
     legend.position = 'bottom',
@@ -442,14 +508,45 @@ config_pivot|>
   labs(x = NULL, y = 'Increase (%)', fill = 'Workload', col = 'Workload') +
   guides(col = guide_legend(override.aes = list(size = 3)),
          fill = 'none') +
-  geom_col(aes(x = op, fill = op, y = (value - 1)*100)) +
+  geom_col(aes(x = op, fill = op, y = (value - 1) * 100)) +
   expand_limits(y = 6) +
   geom_hline(yintercept = 0)
 save_as('phh-speedup', 30, w = 200)
 
 # hash
-perf_common(config_pivot|>filter(op %in% c('ycsb_c', 'insert90', 'ycsb_e', 'sorted_scan')), geom_col(aes(x = op, y = txs_hash / txs_hints - 1, fill = op))) +
+
+config_pivot|>
+  filter(op %in% c('ycsb_c', 'insert90', 'ycsb_e', 'sorted_scan'))|>
+  ggplot() +
+  theme_bw() +
+  facet_nested(. ~ data_name, independent = 'y', scales = 'free', labeller = labeller(
+    op = OP_LABELS,
+    data_name = DATA_LABELS,
+  )) +
+  scale_y_continuous(labels = label_percent(), expand = expansion(mult = 0.1)) +
+  scale_x_discrete(labels = OP_LABELS, expand = expansion(add = 0.1)) +
+  coord_cartesian(xlim = c(0.4, 3.6)) +
+  theme(
+    axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+    axis.title.y = element_text(size = 8),
+    legend.position = 'bottom',
+    legend.text = element_text(margin = margin(t = 0)),
+    legend.title = element_blank(),
+    legend.margin = margin(-10, 0, 0, 0),
+    legend.box.margin = margin(0),
+    legend.spacing.x = unit(0, "mm"),
+    legend.spacing.y = unit(-5, "mm"),
+    plot.margin = margin(0, 1, 0, 1),
+  ) +
+  scale_fill_brewer(palette = 'Dark2', labels = OP_LABELS) +
+  scale_color_brewer(palette = 'Dark2', labels = OP_LABELS) +
+  geom_point(aes(fill = op, col = op), x = 0, y = -1, size = 0) +
+  labs(x = NULL, y = 'Throughput Increase', fill = 'Worload', col = 'Workload') +
+  guides(col = guide_legend(override.aes = list(size = 3)), fill = 'none') +
+  geom_col(aes(x = op, y = txs_hash / txs_hints - 1, fill = op)) +
+  geom_hline(yintercept = 0) +
   coord_cartesian(xlim = c(0.4, 4.6))
+
 save_as('hash-speedup', 30)
 
 { (
