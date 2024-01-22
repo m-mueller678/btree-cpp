@@ -215,25 +215,32 @@ config_pivot|>
   theme(text = element_text(size = 24)) +
   coord_flip()
 
-config_pivot|>
-  filter(op == 'ycsb_c')|>
-  ggplot() +
-  theme_bw() +
-  geom_col(aes(x = data_name, y = 1 - node_count_prefix / node_count_baseline, fill = data_name)) +
-  scale_fill_brewer(palette = 'Dark2', labels = DATA_LABELS, name = 'key set') +
-  guides(fill = 'none') +
-  scale_y_continuous(labels = label_percent(), expand = expansion(mult = c(0, .1)),) +
-  scale_x_discrete(limits = {
-    l <- rev(levels(config_pivot$data_name))
-    l[l %in% unique((config_pivot|>filter(!is.na(txs_prefix)))$data_name)]
-  }, labels = DATA_LABELS) +
-  labs(x = NULL, y = 'Space Savings') +
-  coord_flip() +
-  theme(
-    plot.margin = margin(0, 0, 0, 0),
-    axis.title.y = element_text(size = 8),
-  )
-save_as('prefix-space', 20, w = 40)
+{
+  space_plot<-function (left){
+    data_filter<-if(left){c('urls','wiki')}else{c('ints','sparse')}
+      config_pivot|>
+      filter(op == 'ycsb_c',data_name %in% data_filter)|>
+      ggplot() +
+      theme_bw() +
+      geom_col(aes(x = data_name, y = 1 - node_count_prefix / node_count_baseline, fill = data_name)) +
+      scale_fill_manual(palette = function(x) brewer_pal(palette = 'Dark2')(4)[(3:4)-left*2]) +
+      guides(fill = 'none') +
+      scale_y_continuous(labels = label_percent(), expand = expansion(mult = c(0, .1)),) +
+      scale_x_discrete(limits = {
+        l <- rev(levels(config_pivot$data_name))
+        l[l %in% unique((config_pivot|>filter(!is.na(txs_prefix)))$data_name) & l%in% data_filter]
+      }, labels = DATA_LABELS) +
+      labs(x = NULL, y = NULL) +
+      coord_flip()
+  }
+  space_plot(TRUE) + space_plot(FALSE) + plot_annotation(caption = 'Space Savings') &
+    theme(plot.caption  = element_text(size=8,hjust = 0.5,margin = margin(0,0,1,0)),
+          plot.margin = margin(1, 5, 1, 5),
+          axis.title.x = element_text(size = 8),
+          strip.text = element_blank(),
+          strip.background = element_blank())
+}
+save_as('prefix-space', 14)
 
 # heads
 perf_common(config_pivot|>filter(op %in% COMMON_OPS), geom_col(aes(x = op, y = txs_heads / txs_prefix - 1, fill = op)))
