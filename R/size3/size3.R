@@ -128,7 +128,7 @@ v1|>filter(op=='scan',config_name=='hash',!inner)|>
 # normalized txs / psv
 
 v1|>
-  filter(psv>=10,payload_size==16)|> #smaller than 1KiB is always worse
+  filter(psv>=10,payload_size==64)|> #smaller than 1KiB is always worse
   group_by(config_name,op,data_name,inner,psv)|>
   summarize(mean_txs = mean(txs),.groups = 'drop_last')|>
   mutate(
@@ -164,7 +164,7 @@ v1|>
         legend.box.margin = margin(0,0,0,0),
   )+
   coord_cartesian(ylim=c(0.8,1))
-save_as('node-size',70)
+save_as('node-size-64',70)
 
 
 

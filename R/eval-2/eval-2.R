@@ -233,7 +233,7 @@ config_pivot|>
     plot.margin = margin(0, 0, 0, 0),
     axis.title.y = element_text(size = 8),
   )
-save_as('prefix-space', 20,w=40)
+save_as('prefix-space', 20, w = 40)
 
 # heads
 perf_common(config_pivot|>filter(op %in% COMMON_OPS), geom_col(aes(x = op, y = txs_heads / txs_prefix - 1, fill = op)))
@@ -561,7 +561,8 @@ config_pivot|>
 config_pivot|>
   mutate(r = L1_miss_inner / L1_miss_hints - 1)|>
   select(data_name, op, L1_miss_hints, L1_miss_inner, r)|>
-  arrange(r)
+  arrange(r)|>
+  print(n = 50)
 
 config_pivot|>
   mutate(r = LLC_miss_inner / LLC_miss_hints - 1)|>
@@ -793,7 +794,7 @@ d|>
   scale_x_discrete(labels = DATA_LABELS, name = NULL, limits = rev) +
   scale_y_continuous(name = NULL, labels = NULL) +
   geom_bar(aes(x = data_name, y = value / leaf_count, fill = node_type), stat = 'summary', fun = mean) +
-  scale_fill_manual(breaks = c('nodeCount_Hash','nodeCount_Leaf', 'nodeCount_Dense'), labels = c('Fingerprinting', 'Comparison', 'Dense'), values = brewer.pal(3, "Dark2")) +
+  scale_fill_manual(breaks = c('nodeCount_Hash', 'nodeCount_Leaf', 'nodeCount_Dense'), labels = c('Fingerprinting', 'Comparison', 'Dense'), values = brewer.pal(3, "Dark2")) +
   coord_flip() +
   theme(legend.position = 'right', legend.title = element_blank(), legend.margin = margin(-15, 0, 0, -5), plot.margin = margin(0))
 save_as('adapt_leaf_ratios', 20)
@@ -825,10 +826,10 @@ config_pivot|>
         config_name = config_name|>
           fct_relevel('baseline', 'adapt2', 'hot', 'art')|>
           fct_recode(
-            'baseline B - Tree' = 'baseline',
+            'baseline B-Tree' = 'baseline',
             'ART' = 'art',
             'HOT' = 'hot',
-            'improved B - Tree' = 'adapt2'
+            'improved B-Tree' = 'adapt2'
           ),
         op = fct_recode(op,
                         'lookup' = 'ycsb_c',
@@ -915,7 +916,7 @@ save_as('title', 30)
       guides(col = guide_legend(override.aes = list(size = 3), drop = FALSE), fill = 'none') +
       geom_bar(aes(config_name, txs / 1e6, fill = config_name), stat = 'summary', fun = mean) +
       scale_y_continuous(expand = expansion(c(0, 0)), breaks = (0:10) * if (art) { 3 }else { 1 }, limits = c(0, if (art) { 12 }else { 4 })) +
-      scale_x_manual(values = c(0.5, 1.5, 2.5,3.5)) +
+      scale_x_manual(values = c(0.5, 1.5, 2.5, 3.5)) +
       coord_cartesian(xlim = c(0.4, 3.6))
 
   (title_plot(c('urls', 'wiki'), FALSE) | title_plot(c('ints', 'sparse'), TRUE)) + plot_layout(guides = 'collect') &
@@ -924,5 +925,102 @@ save_as('title', 30)
 }
 save_as('title', 30)
 
-config_pivot|>mutate(r=txs_baseline/txs_hot,data_name,op,.keep='none')|>arrange(r)|>print(n=50)
-config_pivot|>mutate(r=txs_adapt2/txs_hot,data_name,op,.keep='none')|>arrange(r)|>print(n=50)
+{
+
+  relabel <- function(d) mutate(
+    d,
+    config_name = config_name|>
+      fct_relevel('baseline', 'adapt2', 'hot', 'art')|>
+      fct_recode(
+        'B-Tree' = 'baseline',
+        'ART' = 'art',
+        'HOT' = 'hot',
+        'opt. B-Tree' = 'adapt2'
+      ),
+    op = fct_recode(op,
+                    'lookup' = 'ycsb_c',
+                    'scan' = 'scan',
+                    'insert' = 'insert90'
+    ),
+    data_name = fct_recode(data_name,
+                           'urls' = 'urls',
+                           'Wiki titles' = 'wiki',
+                           'dense ints' = 'ints',
+                           'sparse ints' = 'sparse'
+    )
+  )
+
+  vs_hot <- config_pivot|>
+    filter(
+      op == 'ycsb_c',
+      data_name %in% c('urls', 'ints', 'sparse')
+    )|>
+    mutate(op, data_name, txs_hot, txs_adapt2, txs_baseline, hot = txs_hot, .keep = 'none')|>
+    pivot_longer(c(txs_adapt2, txs_baseline, txs_hot), names_prefix = 'txs_', values_to = 'txs')|>
+    mutate(config_name = factor(name, levels = names(CONFIG_LABELS)))|>
+    relabel()
+  hot_col <- brewer_pal(palette = 'Dark2')(3)[3]
+  d|>
+    filter(config_name %in% c('baseline', 'adapt2', 'hot'), op == 'ycsb_c', data_name %in% c('urls', 'ints', 'sparse'))|>
+    #filter(data_name %in% c('wiki', 'ints', 'sparse'))|>
+    relabel()|>
+    ggplot() +
+    theme_bw() +
+    facet_wrap(~data_name, nrow = 1) +
+    theme(
+      axis.text.x = element_text(angle = 20, hjust = 1,size=8),
+      axis.title.y = element_text(size=8),
+      #axis.ticks.x = element_blank(),
+      strip.text = element_text(size = 8,margin=margin(2, 2, 2, 2)),
+      legend.text = element_text(margin = margin(t = 0)),
+      legend.title = element_blank(),
+      legend.box.margin = margin(0),
+      legend.spacing.x = unit(1, "mm"),
+      legend.position = 'bottom',
+      legend.margin = margin(-10, 0, 0, -20),
+      plot.margin = margin(0, 0, 0, 1),
+      legend.key.size = unit(4, 'mm'),
+      panel.grid.major.x = element_blank(),
+    ) +
+    scale_fill_brewer(palette = 'Dark2') +
+    scale_color_brewer(palette = 'Dark2') +
+    #geom_point(aes(fill = config_name, col = config_name), x = 0, y = -1, size = 0) +
+    labs(x = NULL, y = 'Throughput (Mop/s)', fill = 'Worload', col = 'Workload') +
+    guides(fill = 'none', #guide_legend(override.aes = list(size = 3),drop = FALSE)
+           col = 'none', alpha = 'none') +
+    geom_bar(aes(config_name, txs / 1e6, fill = config_name), stat = 'summary', fun = mean) +
+    geom_hline(data = vs_hot, aes(yintercept = hot / 1e6), col = hot_col, linetype = 'dashed',size=0.4) +
+    #geom_linerange(data=vs_hot,aes(x=data_name, ymin=pmin(txs,hot)/1e6, ymax=pmax(txs,hot)/1e6, group = config_name),position=position_dodge(width=0.9),col=brewer_pal(palette = 'Dark2')(3)[3],alpha=0.5,linetype='dashed')+
+    geom_segment(
+      data = vs_hot,
+      aes(x = config_name, xend = config_name, y = hot / 1e6, yend = txs / 1e6, group = config_name, alpha = config_name),
+      col = hot_col,
+      arrow = arrow(angle = 30, ends = "last", type = "closed", length = unit(2, 'mm'))
+    ) +
+    geom_text(
+      data = vs_hot,
+      aes(
+        config_name,
+        pmax(txs, hot) / 1e6,
+        label = label_percent(suffix = "%", accuracy = 1, style_positive = "plus")(txs / hot - 1),
+        alpha = config_name,
+      ),
+      position = position_dodge(width = 0.9),
+      vjust = -0.5,
+      size = 3) +
+    scale_y_continuous(expand = expansion(c(0, 0)), breaks = (0:6) * 2, limits = c(0, 7.9)) +
+    scale_alpha_manual(values = c(1, 1, 0)) +
+    coord_cartesian(xlim = c(1, 3))
+
+  #scale_x_manual(values = c(0.5, 1.5, 2.5, 3.5))
+}
+save_as('title', 30)
+
+config_pivot|>
+  mutate(r = txs_baseline / txs_hot, data_name, op, .keep = 'none')|>
+  arrange(r)|>
+  print(n = 50)
+config_pivot|>
+  mutate(r = txs_adapt2 / txs_hot, data_name, op, .keep = 'none')|>
+  arrange(r)|>
+  print(n = 50)

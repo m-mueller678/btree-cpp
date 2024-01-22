@@ -49,15 +49,15 @@ d|>
 
 cp|>
   #filter(reference=='x')|>
-  filter(metric == 'L1_miss')|>
+  filter(metric %in% c('txs','L1_miss','node_count'))|>
   #filter(round_size %in% c(37.5,300,1200))|>
   #filter(data_name=='ints')|>
   #filter(config_name!='art')|>
-  filter(config_name %in% c('art','hot'))|>
+  filter(config_name %in% c('inner'))|>
   ggplot() +
-  facet_nested(reference ~ round_size + data_name, scales = 'free_y') +
-  #geom_point(aes(ycsb_zipf,value,col=config_name))+
-  geom_smooth(aes(ycsb_zipf, value, col = config_name)) +
+  facet_nested(reference+metric ~ round_size + data_name, scales = 'free_y') +
+  geom_point(aes(ycsb_zipf,value,col=config_name))+
+  geom_smooth(aes(ycsb_zipf, value, col = config_name),method = 'lm') +
   scale_color_brewer(palette = 'Dark2')
 
 # with urls
