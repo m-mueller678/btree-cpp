@@ -383,6 +383,63 @@ config_pivot|>
   select(data_name, op, br_miss_heads, br_miss_hints, r)|>
   arrange(r)
 
+# prefix heads hints combined
+
+config_pivot|>
+  filter(op %in% COMMON_OPS)|>
+  mutate(speedup_prefix = txs_prefix / txs_baseline,
+         speedup_heads = txs_heads / txs_prefix,
+         speedup_hints = txs_hints / txs_heads,
+         data_name, op, .keep = 'none')|>
+  pivot_longer(contains('speedup_'), names_prefix = 'speedup_')|>
+  mutate(config = factor(name, levels = names(CONFIG_LABELS)))|>
+  ggplot() +
+  theme_bw() +
+  facet_nested(~config + data_name, independent = 'y', scales = 'free', labeller = labeller(
+    op = OP_LABELS,
+    data_name = DATA_LABELS,
+    config = CONFIG_LABELS,
+  )) +
+  scale_y_continuous(expand = expansion(mult = 0.1),breaks = function (x){
+    m<-max(x)/100
+    case_when(
+      m>0.5~(-10:10)*0.2,
+      m>0.2 ~ (-10:10)*0.1,
+      m>0.1 ~ (-10:10)*0.05,
+      m>0.07 ~ (-10:10)*0.03,
+      TRUE ~ (-10:10)*0.02,
+    )*100
+  }) +
+  scale_x_discrete(labels = OP_LABELS, expand = expansion(add = 0.1)) +
+  coord_cartesian(xlim = c(0.4, 3.6)) +
+  theme(
+    strip.text = element_text(size = 8, margin = margin(2, 1, 2, 1)),
+    axis.text.x = element_blank(),
+    #axis.text.x = element_text(angle = 90,hjust=1,vjust=0.5),
+    axis.text.y = element_text(size=8),
+    axis.title.y = element_text(size=8),
+    panel.spacing.x = unit(0.5, "mm"),
+    axis.ticks.x = element_blank(),
+    legend.position = 'bottom',
+    legend.text = element_text(margin = margin(t = 0)),
+    legend.title = element_blank(),
+    legend.margin = margin(-10, 0, 0, 0),
+    legend.box.margin = margin(0),
+    legend.spacing.x = unit(0, "mm"),
+    legend.spacing.y = unit(-5, "mm"),
+    plot.margin = margin(0, 0, 0, 1),
+  ) +
+  scale_fill_brewer(palette = 'Dark2', labels = OP_LABELS) +
+  scale_color_brewer(palette = 'Dark2', labels = OP_LABELS) +
+  geom_point(aes(fill = op, col = op), x = 0, y = -1, size = 0) +
+  labs(x = NULL, y = 'Increase (%)', fill = 'Workload', col = 'Workload') +
+  guides(col = guide_legend(override.aes = list(size = 3)),
+         fill = 'none') +
+  geom_col(aes(x = op, fill = op, y = (value - 1)*100)) +
+  expand_limits(y = 6) +
+  geom_hline(yintercept = 0)
+save_as('phh-speedup', 30, w = 200)
+
 # hash
 perf_common(config_pivot|>filter(op %in% c('ycsb_c', 'insert90', 'ycsb_e', 'sorted_scan')), geom_col(aes(x = op, y = txs_hash / txs_hints - 1, fill = op))) +
   coord_cartesian(xlim = c(0.4, 4.6))
@@ -968,10 +1025,10 @@ save_as('title', 30)
     theme_bw() +
     facet_wrap(~data_name, nrow = 1) +
     theme(
-      axis.text.x = element_text(angle = 20, hjust = 1,size=8),
-      axis.title.y = element_text(size=8),
+      axis.text.x = element_text(angle = 20, hjust = 1, size = 8),
+      axis.title.y = element_text(size = 8),
       #axis.ticks.x = element_blank(),
-      strip.text = element_text(size = 8,margin=margin(2, 2, 2, 2)),
+      strip.text = element_text(size = 8, margin = margin(2, 2, 2, 2)),
       legend.text = element_text(margin = margin(t = 0)),
       legend.title = element_blank(),
       legend.box.margin = margin(0),
@@ -989,7 +1046,7 @@ save_as('title', 30)
     guides(fill = 'none', #guide_legend(override.aes = list(size = 3),drop = FALSE)
            col = 'none', alpha = 'none') +
     geom_bar(aes(config_name, txs / 1e6, fill = config_name), stat = 'summary', fun = mean) +
-    geom_hline(data = vs_hot, aes(yintercept = hot / 1e6), col = hot_col, linetype = 'dashed',size=0.4) +
+    geom_hline(data = vs_hot, aes(yintercept = hot / 1e6), col = hot_col, linetype = 'dashed', size = 0.4) +
     #geom_linerange(data=vs_hot,aes(x=data_name, ymin=pmin(txs,hot)/1e6, ymax=pmax(txs,hot)/1e6, group = config_name),position=position_dodge(width=0.9),col=brewer_pal(palette = 'Dark2')(3)[3],alpha=0.5,linetype='dashed')+
     geom_segment(
       data = vs_hot,
