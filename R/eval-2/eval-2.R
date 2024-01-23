@@ -505,13 +505,13 @@ config_pivot|>
   scale_fill_brewer(palette = 'Dark2', labels = OP_LABELS) +
   scale_color_brewer(palette = 'Dark2', labels = OP_LABELS) +
   geom_point(aes(fill = op, col = op), x = 0, y = -1, size = 0) +
-  labs(x = NULL, y = 'Increase (%)', fill = 'Workload', col = 'Workload') +
+  labs(x = NULL, y = 'op/s Increase (%)', fill = 'Workload', col = 'Workload') +
   guides(col = guide_legend(override.aes = list(size = 3)),
          fill = 'none') +
   geom_col(aes(x = op, fill = op, y = (value - 1) * 100)) +
   expand_limits(y = 6) +
   geom_hline(yintercept = 0)
-save_as('phh-speedup', 30, w = 200)
+save_as('phh-speedup', 30, w = 180)
 
 # hash
 
@@ -523,12 +523,17 @@ config_pivot|>
     op = OP_LABELS,
     data_name = DATA_LABELS,
   )) +
-  scale_y_continuous(labels = label_percent(), expand = expansion(mult = 0.1)) +
+  scale_y_continuous(expand = expansion(mult = 0.1)) +
   scale_x_discrete(labels = OP_LABELS, expand = expansion(add = 0.1)) +
   coord_cartesian(xlim = c(0.4, 3.6)) +
   theme(
-    axis.text.x = element_blank(), axis.ticks.x = element_blank(),
-    axis.title.y = element_text(size = 8),
+    strip.text = element_text(size = 8, margin = margin(2, 1, 2, 1)),
+    axis.text.x = element_blank(),
+    #axis.text.x = element_text(angle = 90,hjust=1,vjust=0.5),
+    axis.text.y = element_text(size = 8),
+    axis.title.y = element_text(size = 8,hjust = 0.6),
+    panel.spacing.x = unit(0.5, "mm"),
+    axis.ticks.x = element_blank(),
     legend.position = 'bottom',
     legend.text = element_text(margin = margin(t = 0)),
     legend.title = element_blank(),
@@ -536,18 +541,18 @@ config_pivot|>
     legend.box.margin = margin(0),
     legend.spacing.x = unit(0, "mm"),
     legend.spacing.y = unit(-5, "mm"),
-    plot.margin = margin(0, 1, 0, 1),
-  ) +
+    plot.margin = margin(0, 0, 0, 1),
+  )+
   scale_fill_brewer(palette = 'Dark2', labels = OP_LABELS) +
   scale_color_brewer(palette = 'Dark2', labels = OP_LABELS) +
   geom_point(aes(fill = op, col = op), x = 0, y = -1, size = 0) +
-  labs(x = NULL, y = 'Throughput Increase', fill = 'Worload', col = 'Workload') +
+  labs(x = NULL, y = 'op/s Increase (%)', fill = 'Worload', col = 'Workload') +
   guides(col = guide_legend(override.aes = list(size = 3)), fill = 'none') +
-  geom_col(aes(x = op, y = txs_hash / txs_hints - 1, fill = op)) +
+  geom_col(aes(x = op, y = (txs_hash / txs_hints - 1)*100, fill = op)) +
   geom_hline(yintercept = 0) +
   coord_cartesian(xlim = c(0.4, 4.6))
 
-save_as('hash-speedup', 30)
+save_as('hash-speedup', 25)
 
 { (
   config_pivot|>
