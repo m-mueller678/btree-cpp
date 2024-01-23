@@ -216,6 +216,7 @@ config_pivot|>
   coord_flip()
 
 {
+
   space_plot <- function(left) {
     data_filter <- if (left) { c('urls', 'wiki') }else { c('ints', 'sparse') }
     config_pivot|>
@@ -531,7 +532,7 @@ config_pivot|>
     axis.text.x = element_blank(),
     #axis.text.x = element_text(angle = 90,hjust=1,vjust=0.5),
     axis.text.y = element_text(size = 8),
-    axis.title.y = element_text(size = 8,hjust = 0.6),
+    axis.title.y = element_text(size = 8, hjust = 0.6),
     panel.spacing.x = unit(0.5, "mm"),
     axis.ticks.x = element_blank(),
     legend.position = 'bottom',
@@ -542,13 +543,13 @@ config_pivot|>
     legend.spacing.x = unit(0, "mm"),
     legend.spacing.y = unit(-5, "mm"),
     plot.margin = margin(0, 0, 0, 1),
-  )+
+  ) +
   scale_fill_brewer(palette = 'Dark2', labels = OP_LABELS) +
   scale_color_brewer(palette = 'Dark2', labels = OP_LABELS) +
   geom_point(aes(fill = op, col = op), x = 0, y = -1, size = 0) +
   labs(x = NULL, y = 'op/s Increase (%)', fill = 'Worload', col = 'Workload') +
   guides(col = guide_legend(override.aes = list(size = 3)), fill = 'none') +
-  geom_col(aes(x = op, y = (txs_hash / txs_hints - 1)*100, fill = op)) +
+  geom_col(aes(x = op, y = (txs_hash / txs_hints - 1) * 100, fill = op)) +
   geom_hline(yintercept = 0) +
   coord_cartesian(xlim = c(0.4, 4.6))
 
@@ -871,34 +872,40 @@ d|>
       filter(data_name %in% data_filter)|>
       ggplot() +
       theme_bw() +
-      facet_nested(op ~ data_name, scales = 'free', labeller = labeller(
+      facet_nested(. ~ data_name+op, scales = 'free', labeller = labeller(
         op = OP_LABELS,
         data_name = DATA_LABELS,
       )) +
       theme(
-        axis.text.x = element_blank(), axis.ticks.x = element_blank(),
-        strip.text = element_text(size = 9),
+        strip.text = element_text(size = 8, margin = margin(2, 1, 2, 1)),
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 8),,
+        #axis.text.x = element_text(angle = 90,hjust=1,vjust=0.5),
+        axis.text.y = element_text(size = 8),
+        panel.spacing.x = unit(0.5, "mm"),
+        #axis.ticks.x = element_blank(),
+        legend.position = 'bottom',
         legend.text = element_text(margin = margin(t = 0)),
         legend.title = element_blank(),
+        legend.margin = margin(-10, 0, 0, 0),
         legend.box.margin = margin(0),
-        legend.spacing.x = unit(1, "mm"),
-      ) +
-      (if (art) { theme() }else { theme(strip.background.y = element_blank(), strip.text.y = element_blank()) }) +
+        legend.spacing.x = unit(0, "mm"),
+        legend.spacing.y = unit(-5, "mm"),
+      )+
+      (if (art) { theme(axis.title.y = element_blank()) }else { theme(axis.title.y = element_text(size = 8)) }) +
       scale_fill_brewer(palette = 'Dark2', labels = CONFIG_LABELS) +
       scale_color_brewer(palette = 'Dark2', labels = CONFIG_LABELS) +
       geom_point(aes(fill = config_name, col = config_name), x = 0, y = -1, size = 0) +
-      labs(x = NULL, y = NULL, fill = 'Worload', col = 'Workload') +
-      guides(col = guide_legend(override.aes = list(size = 3), drop = FALSE), fill = 'none') +
-      geom_bar(aes(config_name, txs / 1e6, fill = config_name), stat = 'summary', fun = mean, position = 'dodge') +
+      labs(x = NULL, y = 'Throughput (Mops/s)', fill = 'Worload', col = 'Workload') +
+      guides(col = 'none', fill = 'none') +
+      geom_bar(aes(config_name, txs / 1e6, fill = config_name), stat = 'summary', fun = mean) +
       scale_y_continuous(breaks = (0:3) * if (art) { 3 }else { 1 }, expand = expansion(mult = c(0, 0.05))) +
-      scale_x_manual(values = c(0, 0, 0, 1, 1, 1)) +
-      coord_cartesian(xlim = c(0, 1))
+      scale_x_manual(values = (1:6),labels = c('Base','FP','Dense','ART','HOT','TLX')) +
+      coord_cartesian(xlim = c(1, 6))
 
-  (f(c('urls', 'wiki'), FALSE) | f(c('ints', 'sparse'), TRUE)) + plot_layout(guides = 'collect') &
-    theme(legend.position = 'bottom',
-          legend.margin = margin(-10, 0, 0, -20), plot.margin = margin(0, 2, 0, 2), legend.key.size = unit(4, 'mm'))
+  (f(c('urls', 'wiki'), FALSE) |plot_spacer()| f(c('ints', 'sparse'), TRUE)) + plot_layout(guides = 'collect',widths = c(1,0.05,1)) &
+    theme(legend.position = 'bottom',plot.margin = margin(0, 0, 0, 2))
 }
-save_as('mem-txs', 40)
+save_as('mem-txs', 35, w = 180)
 
 # adapt
 config_pivot|>
