@@ -867,7 +867,12 @@ d|>
 
 
 {
-
+  colors<-c(
+    brewer_pal(palette='RdBu')(8)[c(6,7,8)],
+    brewer_pal(palette='PuOr')(8)[2],
+    brewer_pal(palette='RdBu')(8)[2],
+    brewer_pal(palette='PRGn')(8)[2]
+  )
   f <- function(data_filter, art)
     d|>
       filter(config_name %in% c('baseline', 'hash', 'dense3', 'art', 'hot', 'tlx'), op %in% c('ycsb_c', 'insert90'))|>
@@ -894,8 +899,8 @@ d|>
         legend.spacing.y = unit(-5, "mm"),
       )+
       (if (art) { theme(axis.title.y = element_blank()) }else { theme(axis.title.y = element_text(size = 8)) }) +
-      scale_fill_brewer(palette = 'Dark2', labels = CONFIG_LABELS) +
-      scale_color_brewer(palette = 'Dark2', labels = CONFIG_LABELS) +
+      scale_color_manual(values=colors)+
+      scale_fill_manual(values=colors)+
       geom_point(aes(fill = config_name, col = config_name), x = 0, y = -1, size = 0) +
       labs(x = NULL, y = 'Mops/s', fill = 'Worload', col = 'Workload') +
       guides(col = 'none', fill = 'none') +
@@ -1134,7 +1139,7 @@ save_as('title', 30)
     pivot_longer(c(txs_adapt2, txs_baseline, txs_hot), names_prefix = 'txs_', values_to = 'txs')|>
     mutate(config_name = factor(name, levels = names(CONFIG_LABELS)))|>
     relabel()
-  hot_col <- brewer_pal(palette = 'Dark2')(3)[3]
+  hot_col <- brewer_pal(palette='RdBu')(8)[2]
   d|>
     filter(config_name %in% c('baseline', 'adapt2', 'hot'), op == 'ycsb_c', data_name %in% c('urls', 'ints', 'sparse'))|>
     #filter(data_name %in% c('wiki', 'ints', 'sparse'))|>
@@ -1157,8 +1162,8 @@ save_as('title', 30)
       legend.key.size = unit(4, 'mm'),
       panel.grid.major.x = element_blank(),
     ) +
-    scale_fill_brewer(palette = 'Dark2') +
-    scale_color_brewer(palette = 'Dark2') +
+    scale_color_manual(values=brewer_pal(palette='RdBu')(8)[c(6,8,2)])+
+    scale_fill_manual(values=brewer_pal(palette='RdBu')(8)[c(6,8,2)])+
     #geom_point(aes(fill = config_name, col = config_name), x = 0, y = -1, size = 0) +
     labs(x = NULL, y = 'Mlookup/s', fill = 'Worload', col = 'Workload') +
     guides(fill = 'none', #guide_legend(override.aes = list(size = 3),drop = FALSE)
