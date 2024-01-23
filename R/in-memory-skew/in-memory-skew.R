@@ -49,15 +49,15 @@ d|>
 
 cp|>
   #filter(reference=='x')|>
-  filter(metric %in% c('txs','L1_miss','node_count'))|>
+  filter(metric %in% c('txs', 'L1_miss', 'node_count'))|>
   #filter(round_size %in% c(37.5,300,1200))|>
   #filter(data_name=='ints')|>
   #filter(config_name!='art')|>
   filter(config_name %in% c('inner'))|>
   ggplot() +
-  facet_nested(reference+metric ~ round_size + data_name, scales = 'free_y') +
-  geom_point(aes(ycsb_zipf,value,col=config_name))+
-  geom_smooth(aes(ycsb_zipf, value, col = config_name),method = 'lm') +
+  facet_nested(reference + metric ~ round_size + data_name, scales = 'free_y') +
+  geom_point(aes(ycsb_zipf, value, col = config_name)) +
+  geom_smooth(aes(ycsb_zipf, value, col = config_name), method = 'lm') +
   scale_color_brewer(palette = 'Dark2')
 
 # with urls
@@ -282,53 +282,95 @@ cp|>
   summarize(vi = min(value), va = max(value))|>
   print(n = 50)
 cp|>
-  filter(metric == 'L1_miss', op == 'ycsb_c', reference == 'x', ycsb_zipf %in% c(0.5,1.5),config_name %in% c('art','hints','hot','tlx'))|>
-  select(config_name, data_name, value,ycsb_zipf)|>
-  pivot_wider(names_from = ycsb_zipf,values_from = 'value',names_prefix = 'z')|>
-  arrange(config_name,data_name)|>
-  mutate(r=1-z1.5/z0.5)|>
+  filter(metric == 'L1_miss', op == 'ycsb_c', reference == 'x', ycsb_zipf %in% c(0.5, 1.5), config_name %in% c('art', 'hints', 'hot', 'tlx'))|>
+  select(config_name, data_name, value, ycsb_zipf)|>
+  pivot_wider(names_from = ycsb_zipf, values_from = 'value', names_prefix = 'z')|>
+  arrange(config_name, data_name)|>
+  mutate(r = 1 - z1.5 / z0.5)|>
   group_by(config_name)|>
-  summarize(ri=min(r),ra=max(r))
+  summarize(ri = min(r), ra = max(r))
 
 # in-mem
 {
-  f <- function(datas)
-    cp|>
-      filter(data_name %in% datas)|>
-      filter(reference == 'rhh', metric == 'txs', config_name %in% c('art', 'hot', 'tlx'))|>
-      #filter(reference == 'rhh',metric=='txs',config_name %in% c('hash','dense3'))|>
-      ggplot(aes(x = ycsb_zipf, y = value, col = config_name)) +
-      theme_bw() +
-      facet_nested(. ~ data_name, scales = 'free',labeller = labeller(
-        op = OP_LABELS,
-        data_name = DATA_LABELS,
-      )) +
-      #geom_smooth(aes(x = ycsb_zipf, y = value, col = config_name),size=0.3) +
-      geom_point(aes(x = ycsb_zipf, y = value, col = config_name,fill=config_name),size=0.1) +
-      scale_color_brewer(palette = 'Dark2') +
-      scale_fill_brewer(palette = 'Dark2',labels = CONFIG_LABELS) +
-      scale_y_continuous(
-        # labels = label_percent(style_positive = "plus"),
-        #breaks = (0:100) * 0.5,
-        #limits = c(-0.3, 0.9),
-        expand = expansion(mult = c(0, 0.05)),
-        name = NULL) +
-      scale_x_continuous(
-        breaks = (1:2) * 0.5,
-        name = NULL,
-        expand = expansion(0),
-      ) +
-      expand_limits(y = c(0, 1.1))+
-      guides(fill = guide_legend(override.aes = list(shape = 21,size=5,stroke=0) ),col='none' )
+  data <- cp|>
+    filter(data_name %in% c('urls', 'sparse', 'ints'))|>
+    filter(reference == 'rhh', metric == 'txs', config_name %in% c('art', 'hot', 'tlx'))
 
-  (f(c('urls', 'wiki')) |plot_spacer()| f(c('ints', 'sparse'))|guide_area()) +
-    plot_layout(guides = 'collect',widths = c(1, 0.1,1,1))&
+  labels <- data|>
+    group_by(data_name, config_name)|>
+    filter(ycsb_zipf < 1.0)|>
+    summarize(
+      #up=config_name!='tlx',
+      max = max(value),
+      min = min(value),
+    )|>
+    mutate(
+      y = ifelse(config_name != 'tlx', max, min),
+      x = 0.5,
+      h = 0,
+      v = ifelse(config_name != 'tlx', -0.1, 1.1),
+      c = CONFIG_LABELS[config_name],
+      config_name,
+      .keep = 'none'
+    )|>
+    ungroup()|>
+    add_row(data_name = factor('data/urls-short', levels = names(DATA_MAP), labels = DATA_MAP), x = 1.5, y = 1, h = 1, v = -0.2, c = 'B-Tree', config_name = factor('baseline', levels = CONFIG_NAMES))|>
+    add_row(data_name = factor('rng4', levels = names(DATA_MAP), labels = DATA_MAP), x = 1.5, y = 1, h = 1, v = -0.2, c = 'B-Tree', config_name = factor('baseline', levels = CONFIG_NAMES))|>
+    add_row(data_name = factor('int', levels = names(DATA_MAP), labels = DATA_MAP), x = 1.5, y = 1, h = 1, v = -0.2, c = 'B-Tree', config_name = factor('baseline', levels = CONFIG_NAMES))
+
+
+  colors <- c(
+    brewer_pal(palette = 'RdBu')(8)[8],
+    brewer_pal(palette = 'PuOr')(8)[2],
+    brewer_pal(palette = 'RdBu')(8)[2],
+    brewer_pal(palette = 'PRGn')(8)[2]
+  );
+  data|>
+    #filter(reference == 'rhh',metric=='txs',config_name %in% c('hash','dense3'))|>
+    ggplot(aes(x = ycsb_zipf, y = value, col = config_name)) +
+    theme_bw() +
+    facet_nested(. ~ data_name, scales = 'free', independent = 'y', labeller = labeller(
+      op = OP_LABELS,
+      data_name = DATA_LABELS,
+    )) +
+    facetted_pos_scales(
+      y = list(
+        scale_y_continuous(expand = expansion(mult = c(0, 0.05)), limits = c(0, 1.5), breaks = c(0:10) * 0.5),
+        scale_y_continuous(expand = expansion(mult = c(0, 0.05)), limits = c(0, 3), breaks = c(0:10)),
+        scale_y_continuous(expand = expansion(mult = c(0, 0.05)), limits = c(0, 3), breaks = c(0:10))
+      )
+    ) +
+    #geom_smooth(aes(x = ycsb_zipf, y = value, col = config_name),size=0.3) +
+    geom_hline(yintercept = 1, col = brewer_pal(palette = 'RdBu')(8)[8]) +
+    geom_point(aes(x = ycsb_zipf, y = value, col = config_name, fill = config_name), size = 0.1) +
+    geom_text(data = labels, mapping = aes(x = x, y = y, col = config_name, hjust = h, vjust = v, label = c), size = 3) +
+    scale_color_manual(values = colors, breaks = factor(c('baseline', 'art', 'hot', 'tlx'), levels = CONFIG_NAMES)) +
+    #scale_fill_manual(values = colors) +
+    scale_x_continuous(
+      breaks = (1:3) * 0.5,
+      name = 'Zipf-Parameter',
+      expand = expansion(0),
+    ) +
+    expand_limits(y = c(0, 1.1)) +
+    guides(fill = 'none', col = 'none') +
     theme(
-    legend.margin = margin(0, 0, 0, -20),
-    legend.key = element_blank(),
-    strip.text = element_text(size=9,margin = margin(2,2,2,2)),
-    plot.margin = margin(0, 0, 0, 0),
-    legend.title=element_blank(),
-  )
+      strip.text = element_text(size = 8, margin = margin(2, 1, 2, 1)),
+      axis.text.x = element_text(size = 8), ,
+      #axis.text.x = element_text(angle = 90,hjust=1,vjust=0.5),
+      axis.text.y = element_text(size = 8),
+      axis.title.y = element_text(size = 8, hjust = 1),
+      axis.title.x = element_text(size = 8),
+      panel.spacing.x = unit(2, "mm"),
+      #axis.ticks.x = element_blank(),
+      legend.position = 'bottom',
+      legend.text = element_text(margin = margin(t = 0)),
+      legend.title = element_blank(),
+      legend.box.margin = margin(0),
+      legend.spacing.x = unit(0, "mm"),
+      legend.spacing.y = unit(-5, "mm"),
+      plot.margin = margin(0, 8, 0, 0),
+    ) +
+    labs(y = 'Normalized op/s')
+
 }
-save_as('zipf-in-mem', 20)
+save_as('zipf-in-mem', 30)
