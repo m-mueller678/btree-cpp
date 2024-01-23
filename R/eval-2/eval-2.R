@@ -295,11 +295,13 @@ save_as('heads-space', 14)
       axis.text.x = element_text(angle = 25, hjust = 1),
       axis.title.y = element_text(size = 8, hjust = 1),
       axis.title.x = element_text(size = 8),
-    )
+    )+
+    scale_x_discrete(labels= DATA_LABELS)
   relative <- space_base +
     scale_y_continuous(labels = label_percent(), expand = expansion(mult = c(0, .1)), breaks = (0:10) * 0.1) +
     labs(x = 'Key Set', y = 'Space Overhead') +
     geom_col(aes(x = data_name, y = node_count_heads / node_count_prefix - 1, fill = data_name))
+
   # absolute<-space_base+
   #   scale_y_continuous(labels = label_bytes(), expand = expansion(mult = c(0, .1)),position = 'right') +
   #   labs(x = NULL, y = NULL)+
@@ -895,7 +897,7 @@ d|>
       scale_fill_brewer(palette = 'Dark2', labels = CONFIG_LABELS) +
       scale_color_brewer(palette = 'Dark2', labels = CONFIG_LABELS) +
       geom_point(aes(fill = config_name, col = config_name), x = 0, y = -1, size = 0) +
-      labs(x = NULL, y = 'Throughput (Mops/s)', fill = 'Worload', col = 'Workload') +
+      labs(x = NULL, y = 'Mops/s', fill = 'Worload', col = 'Workload') +
       guides(col = 'none', fill = 'none') +
       geom_bar(aes(config_name, txs / 1e6, fill = config_name), stat = 'summary', fun = mean) +
       scale_y_continuous(breaks = (0:3) * if (art) { 3 }else { 1 }, expand = expansion(mult = c(0, 0.05))) +
