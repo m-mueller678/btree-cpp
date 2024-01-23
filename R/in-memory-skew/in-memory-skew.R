@@ -374,3 +374,88 @@ cp|>
 
 }
 save_as('zipf-in-mem', 30)
+
+
+# with all data sets
+{
+
+  hplot <- function(left) {
+    data_filter <- if (left) { c('urls', 'wiki') }else { c('sparse', 'ints') }
+
+    data <- cp|>
+      filter(data_name %in% data_filter)|>
+      filter(reference == 'rhh', metric == 'txs', config_name %in% c('art', 'hot', 'tlx'))
+
+    labels <- data|>
+      group_by(data_name, config_name)|>
+      filter(ycsb_zipf < 1.0)|>
+      summarize(
+        #up=config_name!='tlx',
+        max = max(value),
+        min = min(value),
+      )|>
+      mutate(
+        y = ifelse(config_name != 'tlx', max, min),
+        x = 0.5,
+        h = 0,
+        v = ifelse(config_name != 'tlx', -0.1, 1.1),
+        c = CONFIG_LABELS[config_name],
+        config_name,
+        .keep = 'none'
+      )|>
+      ungroup()|>
+      add_row(data_name = factor('data/wiki', levels = names(DATA_MAP), labels = DATA_MAP), x = 1.5, y = 1, h = 1, v = -0.2, c = 'B-Tree', config_name = factor('baseline', levels = CONFIG_NAMES))|>
+      add_row(data_name = factor('data/urls-short', levels = names(DATA_MAP), labels = DATA_MAP), x = 1.5, y = 1, h = 1, v = -0.2, c = 'B-Tree', config_name = factor('baseline', levels = CONFIG_NAMES))|>
+      add_row(data_name = factor('rng4', levels = names(DATA_MAP), labels = DATA_MAP), x = 1.5, y = 1, h = 1, v = -0.2, c = 'B-Tree', config_name = factor('baseline', levels = CONFIG_NAMES))|>
+      add_row(data_name = factor('int', levels = names(DATA_MAP), labels = DATA_MAP), x = 1.5, y = 1, h = 1, v = -0.2, c = 'B-Tree', config_name = factor('baseline', levels = CONFIG_NAMES))|>
+      filter(data_name %in% data_filter)
+
+
+    colors <- c(
+      brewer_pal(palette = 'RdBu')(8)[8],
+      brewer_pal(palette = 'PuOr')(8)[2],
+      brewer_pal(palette = 'RdBu')(8)[2],
+      brewer_pal(palette = 'PRGn')(8)[2]
+    );
+    data|>
+      #filter(reference == 'rhh',metric=='txs',config_name %in% c('hash','dense3'))|>
+      ggplot(aes(x = ycsb_zipf, y = value, col = config_name)) +
+      theme_bw() +
+      facet_nested(. ~ data_name, labeller = labeller(
+        op = OP_LABELS,
+        data_name = DATA_LABELS,
+      )) +
+      scale_y_continuous(expand = expansion(mult = c(0, 0.05)), limits = c(0, 3) * ifelse(left, 0.5, 1), breaks = c(0:10) * ifelse(left, 0.5, 1)) +
+      #geom_smooth(aes(x = ycsb_zipf, y = value, col = config_name),size=0.3) +
+      geom_hline(yintercept = 1, col = brewer_pal(palette = 'RdBu')(8)[8]) +
+      geom_point(aes(x = ycsb_zipf, y = value, col = config_name, fill = config_name), size = 0.1) +
+      geom_text(data = labels, mapping = aes(x = x, y = y, col = config_name, hjust = h, vjust = v, label = c), size = 3) +
+      scale_color_manual(values = colors, breaks = factor(c('baseline', 'art', 'hot', 'tlx'), levels = CONFIG_NAMES)) +
+      #scale_fill_manual(values = colors) +
+      scale_x_continuous(
+        breaks = c(0.75,1,1.25),
+        labels = label_percent(suffix = ''),
+        name = 'Zipf-Parameter',
+        expand = expansion(0),
+      ) +
+      expand_limits(y = c(0, 1.1)) +
+      guides(fill = 'none', col = 'none') +
+      labs(y = if(left){ 'Normalized op/s'}else{ NULL}) +
+      theme(
+        plot.margin = margin(0, 0, 0, 0),
+        axis.text.x = element_text(size = 8,angle=45,hjust=1), ,
+        #axis.text.x = element_text(angle = 90,hjust=1,vjust=0.5),
+        axis.text.y = element_text(size = 8),
+        axis.title.y = element_text(size = 8, hjust = 1),
+        axis.title.x = element_text(size = 8),
+        panel.spacing.x = unit(0, "mm"),
+        #axis.ticks.x = element_blank(),
+        strip.text = element_text(size = 8, margin = margin(2, 0, 2, 0)),
+      )
+  }
+
+  hplot(TRUE) | hplot(FALSE) & theme(
+    plot.margin = margin(0, 2, 0, 2),
+  )
+}
+save_as('zipf-in-mem', 30)
