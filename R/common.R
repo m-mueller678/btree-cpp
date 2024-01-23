@@ -66,35 +66,35 @@ extremesBy <- function(r, d) {
 VAL_COLS = c("time", "cycle", "instr", "L1_miss", "LLC_miss", "br_miss", "IPC", "CPU", "GHz", "task")
 frame_id_cols <- function(c) setdiff(colnames(c), VAL_COLS)
 
-DATA_MAP <- c('data/urls' = 'urls-full', 'data/urls-short' = 'urls', 'data/wiki' = 'wiki', 'int' = 'ints', 'rng4' = 'sparse','rng8'='sparse64', 'partitioned_id' = 'partitioned_id')
-DATA_LABELS <- c('urls-full' = 'urls-full', 'urls' = 'urls', 'wiki' = 'wiki', 'ints' = 'dense', 'sparse' = 'sparse','sparse64'='sparse64', 'partitioned_id' = 'partitioned_id')
+DATA_MAP <- c('data/urls' = 'urls-full', 'data/urls-short' = 'urls', 'data/wiki' = 'wiki', 'rng8' = 'sparse64', 'rng4' = 'sparse', 'partitioned_id' = 'partitioned_id', 'int' = 'ints')
+DATA_LABELS <- c('urls-full' = 'urls-full', 'urls' = 'urls', 'wiki' = 'wiki', 'sparse64' = 'sparse64', 'sparse' = 'sparse', 'partitioned_id' = 'partitioned_id', 'ints' = 'dense')
 
-BASIC_OPTS<-c('prefix','heads','hints')
-OP_LABELS <- c('ycsb_c' = 'lookup', 'ycsb_c_init' = 'insert0', 'ycsb_e_init' = 'ycsb_e_init','sorted_scan_init'='sorted_scan_init',  'sorted_insert' = 'sorted insert','insert90'='insert','sorted_scan' = 'warm scan','scan'='scan', 'ycsb_e' = 'YCSB-E')
-CONFIG_LABELS <- c('baseline'='baseline',
+BASIC_OPTS <- c('prefix', 'heads', 'hints')
+OP_LABELS <- c('ycsb_c' = 'lookup', 'ycsb_c_init' = 'insert0', 'ycsb_e_init' = 'ycsb_e_init', 'sorted_scan_init' = 'sorted_scan_init', 'sorted_insert' = 'sorted insert', 'insert90' = 'insert', 'sorted_scan' = 'warm scan', 'scan' = 'scan', 'ycsb_e' = 'YCSB-E')
+CONFIG_LABELS <- c('baseline' = 'baseline',
                    'prefix' = 'prefix truncation',
-                   'heads'='heads',
-                   'hints'='hints',
+                   'heads' = 'heads',
+                   'hints' = 'hints',
                    'inner' = 'integer separators',
                    'hash' = 'fingerprinting',
                    'dense1' = 'no split',
                    'dense2' = 'semi dense',
                    'dense3' = 'fully dense',
-                   'adapt'='ket-adaptive',
-                   'adapt2'='adaptive',
-                   'art'='ART',
-                   'hot'='HOT',
-                   'tlx'='TLX'
+                   'adapt' = 'ket-adaptive',
+                   'adapt2' = 'adaptive',
+                   'art' = 'ART',
+                   'hot' = 'HOT',
+                   'tlx' = 'TLX'
 )
 CONFIG_NAMES <- names(CONFIG_LABELS)
 
-config_reference<-function(d){
+config_reference <- function(d) {
   case_when(
-    d=='baseline'~NA,
-    d=='prefix'~'baseline',
-    d=='heads'~'prefix',
-    d=='hints'~'heads',
-    TRUE~'hints'
+    d == 'baseline' ~ NA,
+    d == 'prefix' ~ 'baseline',
+    d == 'heads' ~ 'prefix',
+    d == 'hints' ~ 'heads',
+    TRUE ~ 'hints'
   )
 }
 
@@ -158,7 +158,7 @@ read_broken_csv <- function(path) {
   tibble(data.frame(lapply(data, type.convert, as.is = TRUE)))
 }
 
-save_as<-function (name,h,w=85){
-  ggsave(path = '~/develop/btree-paper/fig/' ,device='svg',filename=paste0(name,'.svg'), width = w,units='mm', height = h)
+save_as <- function(name, h, w = 85) {
+  ggsave(path = '~/develop/btree-paper/fig/', device = 'svg', filename = paste0(name, '.svg'), width = w, units = 'mm', height = h)
   plot
 }

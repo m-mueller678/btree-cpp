@@ -1116,10 +1116,10 @@ save_as('title', 30)
                     'insert' = 'insert90'
     ),
     data_name = fct_recode(data_name,
-                           'urls' = 'urls',
-                           'Wiki titles' = 'wiki',
-                           'dense ints' = 'ints',
-                           'sparse ints' = 'sparse'
+                           'url' = 'urls',
+                           'Wiki title' = 'wiki',
+                           'sparse int' = 'sparse',
+                           'dense int' = 'ints',
     )
   )
 
@@ -1158,7 +1158,7 @@ save_as('title', 30)
     scale_fill_brewer(palette = 'Dark2') +
     scale_color_brewer(palette = 'Dark2') +
     #geom_point(aes(fill = config_name, col = config_name), x = 0, y = -1, size = 0) +
-    labs(x = NULL, y = 'Throughput (Mop/s)', fill = 'Worload', col = 'Workload') +
+    labs(x = NULL, y = 'Mlookup/s', fill = 'Worload', col = 'Workload') +
     guides(fill = 'none', #guide_legend(override.aes = list(size = 3),drop = FALSE)
            col = 'none', alpha = 'none') +
     geom_bar(aes(config_name, txs / 1e6, fill = config_name), stat = 'summary', fun = mean) +
