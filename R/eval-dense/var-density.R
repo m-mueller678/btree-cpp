@@ -180,28 +180,30 @@ d_var_density|>
   theme_bw() +
   scale_color_brewer(palette = 'Dark2', name = "Configuration", labels = CONFIG_LABELS) +
   scale_x_continuous(
-    name = NULL,
+    name ='Density (%)',
     limits = c(0, 1),
-    breaks = (0:3)*0.25,
-    labels = label_percent(),
+    breaks = (0:4)*0.25,
+    labels = label_percent(suffix=''),
     expand = expansion(add = 0)
   ) +
   guides(col = 'none')+
   expand_limits(y=0)+
   geom_line(aes(x = density, y = node_count * 4096 / 25e6, col = config_name),stat='summary',fun=mean) +
   geom_text(
-    aes(x = density, y = node_count * 4096 / 25e6 - 5, col = config_name,label=CONFIG_LABELS[config_name]),stat='summary',fun=mean,size=3,hjust='right',
+    aes(x = density, y = node_count * 4096 / 25e6 - 5, col = config_name,label=c('dense3'='fully d.','dense2'='semi d.','hints'='hints')[as.character(config_name)]),stat='summary',fun=mean,size=3,hjust='right',
   data=d_var_density|>
     filter(op=='ycsb_c',config_name!='dense1',density==c('hints'=0.96,'dense2'=0.52,'dense3'=0.98)[as.character(config_name)])
   )+
-  scale_y_continuous(name = NULL, labels = label_bytes())+
-  theme(legend.position = 'right',
-        legend.title = element_blank(),
-        plot.margin = margin(1,2,0,2),
-        legend.margin = margin(0,0,0,0),
-        axis.title = element_text(size=8)
+  scale_y_continuous(name = 'Space/Record', labels = label_bytes())+
+  theme(
+        axis.text.x = element_text(size = 8),
+        axis.text.y = element_text(size = 8),
+        axis.title.y = element_text(size = 8, hjust = 1),
+        axis.title.x = element_text(size = 8),
+        panel.spacing.x = unit(0.5, "mm"),
+        plot.margin = margin(1, 8, 0, 0),
   )
-save_as('dense-space', 20,w=40)
+save_as('dense-space', 20,w=34)
 
 
 

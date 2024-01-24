@@ -128,11 +128,11 @@ v1|>filter(op=='scan',config_name=='hash',!inner)|>
 # normalized txs / psv
 
 v1|>
-  filter(psv>=10,payload_size==64)|> #smaller than 1KiB is always worse
+  filter(psv>=10,payload_size==8)|> #smaller than 1KiB is always worse
   group_by(config_name,op,data_name,inner,psv)|>
   summarize(mean_txs = mean(txs),.groups = 'drop_last')|>
   mutate(
-    max_txs = max(mean_txs),.groups='drop',
+    max_txs = mean_txs[psv==12],.groups='drop',
     normalized_txs = mean_txs/max_txs,
     variation = paste0(CONFIG_LABELS[config_name],ifelse(inner,' (inner)',''))
   )|>
@@ -152,10 +152,10 @@ v1|>
                )
   )+
   geom_line(aes(psv,normalized_txs,col=data_name))+
-  scale_y_continuous(labels = label_percent(),name=NULL,breaks = (0:100)*0.1)+
+  scale_y_continuous(labels = label_percent(),name='op/s relative to 4KiB',breaks = (0:100)*0.2)+
   scale_x_continuous(breaks = (0:100)*2,name="Node Size (KiB)",
                      labels = function(x) 2^(x-10))+
-  scale_color_brewer(palette = 'Dark2')+
+  scale_color_brewer(palette = 'Dark2',labels = DATA_LABELS)+
   theme(legend.position =  'bottom',
         strip.text=element_text(size=7.5),
         plot.margin = margin(-30,0,0,0),
@@ -163,8 +163,8 @@ v1|>
         legend.margin = margin(0,0,0,0),
         legend.box.margin = margin(0,0,0,0),
   )+
-  coord_cartesian(ylim=c(0.8,1))
-save_as('node-size-64',70)
+  coord_cartesian(ylim=c(0.6,1.3))
+save_as('node-size-08',70)
 
 
 
