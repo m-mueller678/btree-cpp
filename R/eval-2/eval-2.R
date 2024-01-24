@@ -1065,8 +1065,19 @@ d|>
   )) +
   scale_x_discrete(labels = DATA_LABELS, name = NULL, limits = rev) +
   scale_y_continuous(name = NULL, labels = NULL) +
-  geom_bar(aes(x = data_name, y = value / leaf_count, fill = node_type), stat = 'summary', fun = mean) +
+  geom_bar_pattern(
+    aes(x = data_name, y = value / leaf_count, fill = node_type, pattern = node_type),
+    pattern_key_scale_factor = 0.3,
+    pattern_spacing = 0.2,
+    pattern_scale = 0.9,
+    pattern_size = 0.01,
+    pattern_fill = '#000000',
+    pattern_fill2 = '#000000',
+    stat = 'summary',
+    fun = mean
+  ) +
   scale_fill_manual(breaks = c('nodeCount_Hash', 'nodeCount_Leaf', 'nodeCount_Dense'), labels = c('Fingerprinting', 'Comparison', 'Dense'), values = brewer.pal(3, "Dark2")) +
+  scale_pattern_manual(breaks = c('nodeCount_Hash', 'nodeCount_Leaf', 'nodeCount_Dense'), labels = c('Fingerprinting', 'Comparison', 'Dense'), values = c('wave', 'none', 'stripe')) +
   coord_flip() +
   theme(legend.position = 'right', legend.title = element_blank(), legend.margin = margin(-15, 0, 0, -5), plot.margin = margin(0))
 save_as('adapt_leaf_ratios', 20)

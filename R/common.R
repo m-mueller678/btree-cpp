@@ -9,6 +9,7 @@ library(patchwork)
 library(forcats)
 library(readr)
 library(RColorBrewer)
+library(ggpattern)
 
 format_si <- function(...) {
   # https://stackoverflow.com/a/21089837
