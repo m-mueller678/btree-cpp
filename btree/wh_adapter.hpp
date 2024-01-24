@@ -4,10 +4,10 @@
 #include <functional>
 #include "tuple.hpp"
 
-struct Wh;
+struct wormhole;
 
 struct WhBTreeAdapter {
-   Wh* wh;
+   wormhole * wh;
 
    WhBTreeAdapter(bool isInt);
    uint8_t* lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut);

@@ -11,7 +11,7 @@ cxx_base=/usr/bin/clang++-15
 cc_base=/usr/bin/clang-15
 cxx=$(cxx_base) $(PAGE_SIZE_OVERRIDE_FLAG) -std=c++17 -o $@ -march=native -g
 
-zipfc_link_arg = -Lzipfc/target/release/ -lzipfc
+zipfc_link_arg = -Lzipfc/target/release/ -lzipfc -L. -lwh
 named_config_headers = $(shell ls named-configs)
 config_names = $(named_config_headers:%.hpp=%)
 named_tpcc_d3_builds = $(config_names:%=named-build/%-d3-tpcc)
@@ -60,39 +60,39 @@ zipfc/target/release/libzipfc.a: zipfc/Cargo.toml zipfc/Cargo.lock zipfc/src/lib
 
 #### named tpcc
 
-named-build/%-n3-tpcc: hot-n3.o $(sources)
+named-build/%-n3-tpcc: hot-n3.o libwh.so $(sources)
 	@mkdir -p named-build
 	$(cxx) $(tpcc_cpps) -O3  -DNDEBUG  -fnon-call-exceptions -fasynchronous-unwind-tables -ltbb $(named_args) hot-n3.o
 
-named-build/%-d3-tpcc: hot-d0.o $(sources)
+named-build/%-d3-tpcc: hot-d0.o libwh.so $(sources)
 	@mkdir -p named-build
 	$(cxx) $(tpcc_cpps) -O3 -fnon-call-exceptions -fasynchronous-unwind-tables -ltbb $(named_args) hot-d0.o
 
 #### named test
 
-named-build/%-d0-test: hot-d0.o $(sources)
+named-build/%-d0-test: hot-d0.o libwh.so $(sources)
 	@mkdir -p named-build
 	$(cxx) $(test_cpps) $(named_args) hot-d0.o
 
-named-build/%-d3-test: hot-d0.o $(sources)
+named-build/%-d3-test: hot-d0.o libwh.so $(sources)
 	@mkdir -p named-build
 	$(cxx) $(test_cpps) -O3 $(named_args) hot-d0.o
 
-named-build/%-n3-test: hot-n3.o $(sources)
+named-build/%-n3-test: hot-n3.o libwh.so $(sources)
 	@mkdir -p named-build
 	$(cxx) $(test_cpps) -O3 -DNDEBUG $(named_args) hot-n3.o
 
 #### named ycsb
-named-build/%-n3-ycsb: $(sources) hot-n3.o tlx_build_n3/libTlxWrapper.a zipfc/target/release/libzipfc.a
+named-build/%-n3-ycsb: $(sources) hot-n3.o tlx_build_n3/libTlxWrapper.a zipfc/target/release/libzipfc.a libwh.so
 	@mkdir -p named-build
 	$(cxx) $(ycsb_cpps) -O3 -DNDEBUG $(named_args) $(zipfc_link_arg) -Ltlx_build_n3/ -lTlxWrapper hot-n3.o
 
-named-build/%-d0-ycsb: $(sources) hot-d0.o tlx_build_d0/libTlxWrapper.a zipfc/target/release/libzipfc.a
+named-build/%-d0-ycsb: $(sources) hot-d0.o tlx_build_d0/libTlxWrapper.a zipfc/target/release/libzipfc.a libwh.so
 	@mkdir -p named-build
 	$(cxx) $(ycsb_cpps) $(named_args) $(zipfc_link_arg) -Ltlx_build_d0/ -lTlxWrapper hot-d0.o
 
 
-named-build/%-d3-ycsb: $(sources) hot-d0.o tlx_build_d0/libTlxWrapper.a zipfc/target/release/libzipfc.a
+named-build/%-d3-ycsb: $(sources) hot-d0.o tlx_build_d0/libTlxWrapper.a zipfc/target/release/libzipfc.a libwh.so
 	@mkdir -p named-build
 	$(cxx) $(ycsb_cpps) -O3 $(named_args) $(zipfc_link_arg) -Ltlx_build_d0/ -lTlxWrapper hot-d0.o
 
@@ -109,6 +109,10 @@ tlx_build_d0/libTlxWrapper.a: .FORCE
 tlx_build_n3/libTlxWrapper.a: .FORCE
 	mkdir -p tlx_build_n3
 	cd tlx_build_n3; cmake -DCMAKE_BUILD_TYPE=Release ../tlx_wrapper/; cmake --build . --config Release
+
+libwh.so:
+	cd in-memory-structures/wormhole; make libwh.so
+	cp in-memory-structures/wormhole/libwh.so .
 
 #### phony
 
