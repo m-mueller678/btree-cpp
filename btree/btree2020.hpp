@@ -18,6 +18,7 @@
 #include "../tlx_wrapper/TlxWrapper.h"
 #include "config.hpp"
 #include "hot_adapter.hpp"
+#include "wh_adapter.hpp"
 
 #ifndef NDEBUG
 #define CHECK_TREE_OPS
@@ -716,6 +717,8 @@ struct DataStructureWrapper {
    ArtBTreeAdapter impl;
 #elif defined(USE_STRUCTURE_HOT)
    HotBTreeAdapter impl;
+#elif defined(USE_STRUCTURE_WH)
+   WhBTreeAdapter impl;
 #elif defined(USE_STRUCTURE_TLX)
    TlxWrapper impl;
 #endif
