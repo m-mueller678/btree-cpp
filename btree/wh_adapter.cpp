@@ -23,13 +23,6 @@ kvmap_mm_out_peek(struct kv * const kv, struct kv * const out)
    return kv;
 }
 
-// copy-out
-struct kv *
-kvmap_mm_out_dup(struct kv * const kv, struct kv * const out)
-{
-   return kv_dup2(kv, out);
-}
-
 void
 kvmap_mm_free_free(struct kv * const kv, void * const priv)
 {
@@ -62,11 +55,43 @@ void WhBTreeAdapter::insertImpl(uint8_t* key, unsigned keyLength, uint8_t* paylo
    whunsafe_put(wh,newkv);
 }
 
+struct wormhole_iter {
+   struct wormref * ref; // safe-iter only
+   struct wormhole * map;
+   struct wormleaf * leaf;
+   u32 is;
+};
+
 bool WhBTreeAdapter::removeImpl(uint8_t* key, unsigned int keyLength) const{abort();}
+
 void WhBTreeAdapter::range_lookupImpl(uint8_t* key,
                       unsigned int keyLen,
                       uint8_t* keyOut,
-                      const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb){abort();}
+                      const std::function<bool(unsigned int, uint8_t*, unsigned int)>& found_record_cb){
+   struct wormhole_iter iter;
+   iter.ref = nullptr;
+   iter.map = wh;
+   iter.leaf = nullptr;
+   iter.is = 0;
+   struct kref kref;
+   kref_ref_hash32(&kref, key, keyLen);
+   whunsafe_iter_seek(&iter, &kref);
+//   .iter_valid = (void *)wormhole_iter_valid,
+//   .iter_peek = (void *)wormhole_iter_peek,
+//   .iter_kref = (void *)wormhole_iter_kref,
+//   .iter_kvref = (void *)wormhole_iter_kvref,
+   while(true){
+      struct kv * const kv = wormhole_iter_peek(&iter,nullptr);
+      if(!kv)
+         return;
+      memcpy(keyOut,kv->kv,kv->klen);
+      if (!found_record_cb(kv->klen,kv->kv+kv->klen,kv->vlen)){
+         return;
+      }
+      whunsafe_iter_skip1(&iter);
+   }
+
+}
 void WhBTreeAdapter::range_lookup_descImpl(uint8_t* key,
                            unsigned int keyLen,
                            uint8_t* keyOut,
