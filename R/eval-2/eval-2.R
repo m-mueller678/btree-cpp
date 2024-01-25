@@ -30,6 +30,9 @@ r <- bind_rows(
 
   #dense
   read_broken_csv('re-eval-dense.csv.gz')|>filter(config_name != 'dense1'),
+
+  # wormhole
+  read_broken_csv('eval-wh.csv.gz'),
 )
 
 r|>
@@ -803,10 +806,11 @@ in_mem_plot <- function(show_op, configs) {
 
 HOT_ART_CONFIGS <- c('baseline' = 2, 'dense3' = 2, 'hash' = 2, 'art' = 3, 'hot' = 3)
 TLX_CONFIGS <- c('baseline' = 2, 'dense3' = 2, 'hash' = 2, 'tlx' = 3)
-ALL_CONFIGS <- c(HOT_ART_CONFIGS, 'tlx' = 4)
+WH_CONFIGS <- c('baseline' = 2, 'dense3' = 2, 'hash' = 2, 'wh' = 3)
+ALL_CONFIGS <- c(HOT_ART_CONFIGS, 'wh'=4,'tlx' = 5)
 
-in_mem_plot(COMMON_OPS, ALL_CONFIGS)
-save_as('mem-trie', 90)
+in_mem_plot(COMMON_OPS, c('baseline' = 2, 'dense3' = 2, 'hash' = 2, 'art' = 3, 'hot' = 3,'wh'=1,tlx=4))
+save_as('tmp', 90)
 in_mem_plot('ycsb_c_init')
 in_mem_plot('ycsb_e')
 
@@ -832,9 +836,32 @@ config_pivot|>
   transmute(r = txs_baseline / pmax(txs_hot, txs_art) - 1, op, data_name)|>
   arrange(op, data_name)|>
   print(n = 50)
+
 config_pivot|>
   transmute(r1 = txs_baseline / txs_tlx, r2 = pmax(txs_baseline, txs_dense3, txs_hash) / txs_tlx, r3 = txs_baseline / txs_tlx - 1, op, data_name)|>
   arrange(data_name, op)
+
+config_pivot|>
+  transmute(r = txs_wh / pmax(txs_dense3, txs_hash) - 1, op, data_name)|>
+  arrange(op, data_name)|>
+  print(n = 50)
+
+config_pivot|>
+  transmute(r = pmax(txs_dense3, txs_hash)/txs_wh - 1, op, data_name)|>
+  arrange(op, data_name)|>
+  print(n = 50)
+
+config_pivot|>
+  transmute(r = txs_hash/txs_wh - 1, op, data_name)|>
+  arrange(op, data_name)|>
+  print(n = 50)
+
+config_pivot|>
+  transmute(r = txs_dense3/txs_wh - 1, op, data_name)|>
+  arrange(op, data_name)|>
+  print(n = 50)
+
+config_pivot|>filter(op=='insert90')|>select(txs_wh,data_name)|>pivot_wider(names_from = 'data_name',values_from = 'txs_wh')|>mutate(x=ints/sparse)
 
 d|>
   filter(config_name %in% c('baseline', 'art', 'hot', 'dense1', 'hash'), op %in% COMMON_OPS)|>
@@ -871,12 +898,13 @@ d|>
     brewer_pal(palette = 'RdBu')(8)[c(6, 7, 8)],
     brewer_pal(palette = 'PuOr')(8)[2],
     brewer_pal(palette = 'RdBu')(8)[2],
-    brewer_pal(palette = 'PRGn')(8)[2]
+    brewer_pal(palette = 'PRGn')(8)[2],
+    brewer_pal(palette = 'PiYG')(8)[7]
   )
 
   f <- function(data_filter, art)
     d|>
-      filter(config_name %in% c('baseline', 'hash', 'dense3', 'art', 'hot', 'tlx'), op %in% c('ycsb_c', 'insert90'))|>
+      filter(config_name %in% c('baseline', 'hash', 'dense3', 'art', 'hot', 'tlx','wh'), op %in% c('ycsb_c', 'insert90'))|>
       filter(data_name %in% data_filter)|>
       ggplot() +
       theme_bw() +
@@ -907,8 +935,8 @@ d|>
       guides(col = 'none', fill = 'none') +
       geom_bar(aes(config_name, txs / 1e6, fill = config_name), stat = 'summary', fun = mean) +
       scale_y_continuous(breaks = (0:3) * if (art) { 3 }else { 1 }, expand = expansion(mult = c(0, 0.05))) +
-      scale_x_manual(values = (1:6), labels = c('Base', 'FP', 'Dense', 'ART', 'HOT', 'TLX')) +
-      coord_cartesian(xlim = c(1, 6))
+      scale_x_manual(values = (1:7), labels = c('Base', 'FP', 'Dense', 'ART', 'HOT', 'TLX','WH')) +
+      coord_cartesian(xlim = c(1, 7))
 
   (f(c('urls', 'wiki'), FALSE) |
     plot_spacer() |
@@ -1213,11 +1241,12 @@ save_as('title', 30)
   relabel <- function(d) mutate(
     d,
     config_name = config_name|>
-      fct_relevel('baseline', 'adapt2', 'hot', 'art')|>
+      fct_relevel('baseline', 'adapt2', 'hot','wh', 'art')|>
       fct_recode(
         'B-Tree' = 'baseline',
         'ART' = 'art',
         'HOT' = 'hot',
+        'WH'='wh',
         'opt. B-Tree' = 'adapt2'
       ),
     op = fct_recode(op,
@@ -1233,18 +1262,19 @@ save_as('title', 30)
     )
   )
 
-  vs_hot <- config_pivot|>
+  vs_mem <- config_pivot|>
     filter(
       op == 'ycsb_c',
       data_name %in% c('urls', 'ints', 'sparse')
     )|>
-    mutate(op, data_name, txs_hot, txs_adapt2, txs_baseline, hot = txs_hot, .keep = 'none')|>
-    pivot_longer(c(txs_adapt2, txs_baseline, txs_hot), names_prefix = 'txs_', values_to = 'txs')|>
+    mutate(op, data_name, txs_wh, txs_adapt2, txs_baseline, mem = txs_wh, .keep = 'none')|>
+    pivot_longer(contains('txs_'), names_prefix = 'txs_', values_to = 'txs')|>
     mutate(config_name = factor(name, levels = names(CONFIG_LABELS)))|>
     relabel()
-  hot_col <- brewer_pal(palette = 'RdBu')(8)[2]
+  # mem_col <- brewer_pal(palette = 'RdBu')(8)[2] # HOT
+  mem_col <- brewer_pal(palette = 'PiYG')(8)[7] # WH
   d|>
-    filter(config_name %in% c('baseline', 'adapt2', 'hot'), op == 'ycsb_c', data_name %in% c('urls', 'ints', 'sparse'))|>
+    filter(config_name %in% c('baseline', 'adapt2','wh'), op == 'ycsb_c', data_name %in% c('urls', 'ints', 'sparse'))|>
     #filter(data_name %in% c('wiki', 'ints', 'sparse'))|>
     relabel()|>
     ggplot() +
@@ -1265,27 +1295,27 @@ save_as('title', 30)
       legend.key.size = unit(4, 'mm'),
       panel.grid.major.x = element_blank(),
     ) +
-    scale_color_manual(values = brewer_pal(palette = 'RdBu')(8)[c(6, 8, 2)]) +
-    scale_fill_manual(values = brewer_pal(palette = 'RdBu')(8)[c(6, 8, 2)]) +
+    scale_color_manual(values = c(brewer_pal(palette = 'RdBu')(8)[c(6, 8)],mem_col)) +
+    scale_fill_manual(values = c(brewer_pal(palette = 'RdBu')(8)[c(6, 8)],mem_col)) +
     #geom_point(aes(fill = config_name, col = config_name), x = 0, y = -1, size = 0) +
     labs(x = NULL, y = 'Mlookup/s', fill = 'Worload', col = 'Workload') +
     guides(fill = 'none', #guide_legend(override.aes = list(size = 3),drop = FALSE)
            col = 'none', alpha = 'none') +
     geom_bar(aes(config_name, txs / 1e6, fill = config_name), stat = 'summary', fun = mean) +
-    geom_hline(data = vs_hot, aes(yintercept = hot / 1e6), col = hot_col, linetype = 'dashed', size = 0.4) +
-    #geom_linerange(data=vs_hot,aes(x=data_name, ymin=pmin(txs,hot)/1e6, ymax=pmax(txs,hot)/1e6, group = config_name),position=position_dodge(width=0.9),col=brewer_pal(palette = 'Dark2')(3)[3],alpha=0.5,linetype='dashed')+
+    geom_hline(data = vs_mem, aes(yintercept = mem / 1e6), col = mem_col, linetype = 'dashed', size = 0.4) +
+    #geom_linerange(data=vs_mem,aes(x=data_name, ymin=pmin(txs,mem)/1e6, ymax=pmax(txs,mem)/1e6, group = config_name),position=position_dodge(width=0.9),col=brewer_pal(palette = 'Dark2')(3)[3],alpha=0.5,linetype='dashed')+
     geom_segment(
-      data = vs_hot,
-      aes(x = config_name, xend = config_name, y = hot / 1e6, yend = txs / 1e6, group = config_name, alpha = config_name),
-      col = hot_col,
+      data = vs_mem,
+      aes(x = config_name, xend = config_name, y = mem / 1e6, yend = txs / 1e6, group = config_name, alpha = config_name),
+      col = mem_col,
       arrow = arrow(angle = 30, ends = "last", type = "closed", length = unit(2, 'mm'))
     ) +
     geom_text(
-      data = vs_hot,
+      data = vs_mem,
       aes(
         config_name,
-        pmax(txs, hot) / 1e6,
-        label = label_percent(suffix = "%", accuracy = 1, style_positive = "plus")(txs / hot - 1),
+        pmax(txs, mem) / 1e6,
+        label = label_percent(suffix = "%", accuracy = 1, style_positive = "plus")(txs / mem - 1),
         alpha = config_name,
       ),
       position = position_dodge(width = 0.9),

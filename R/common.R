@@ -85,7 +85,8 @@ CONFIG_LABELS <- c('baseline' = 'baseline',
                    'adapt2' = 'adaptive',
                    'art' = 'ART',
                    'hot' = 'HOT',
-                   'tlx' = 'TLX'
+                   'tlx' = 'TLX',
+                   'wh' = 'WH'
 )
 CONFIG_NAMES <- names(CONFIG_LABELS)
 
