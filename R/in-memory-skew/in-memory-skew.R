@@ -26,7 +26,7 @@ d|>
 cp <- {
   cp <- d|>
     pivot_longer(any_of(OUTPUT_COLS), names_to = 'metric')|>
-    pivot_wider(id_cols = !any_of(c('bin_name', 'run_id', 'config_name')), names_from = 'config_name', values_from = 'value', values_fn = mean, names_prefix = 'x-')
+    pivot_wider(id_cols = !any_of(c('bin_name', 'run_id', 'config_name')), names_from = 'config_name', values_from = 'value', values_fn = median, names_prefix = 'x-')
   configs = unique(d$config_name)
   for (c in configs) {
     cr <- paste0('x-', config_reference(c))
@@ -39,13 +39,6 @@ cp <- {
     pivot_longer(contains("-"), names_sep = '-', names_to = c('reference', 'config_name'))|>
     mutate(config_name = factor(config_name, levels = CONFIG_NAMES))
 }
-
-d|>
-  pivot_longer(cols = c('txs', 'LLC_miss', 'L1_miss', 'br_miss', 'instr'), values_to = 'y', names_to = 'metric')|>
-  filter(data_size == 25e6)|>
-  ggplot() +
-  facet_nested(metric ~ data_name, scales = 'free_y') +
-  geom_line(aes(y = y, x = ycsb_zipf, col = config_name), stat = 'summary', fun = mean)
 
 cp|>
   #filter(reference=='x')|>
@@ -225,31 +218,6 @@ cp|>
   geom_text(aes(rank, reduction, label = config_name), position = position_stack(vjust = 1.0), angle = 90) +
   scale_color_hue()
 
-cp|>
-  filter(reference == 'x', metric == 'L1_miss')|>
-  #filter(data_name=='wiki',config_name=='prefix',round_size==75,ycsb_zipf==0.5)|>glimpse()
-  group_by(data_name, config_name, round_size)|>
-  arrange(ycsb_zipf, .by_group = TRUE)|>
-  summarize(min_miss = first(value), max_miss = last(value), .groups = 'drop')|>
-  mutate(reduction = min_miss / max_miss)|>
-  group_by(config_name)|>
-  summarize(reduction = mean(reduction, na.rm = TRUE))|>
-  arrange(reduction)
-
-d|>
-  pivot_wider(id_cols = !any_of(c(OUTPUT_COLS, 'bin_name', 'run_id', 'config_name')), names_from = 'config_name', values_from = 'txs', values_fn = mean)|>
-  mutate(
-    p2heads = heads / prefix,
-    p2hints = hints / prefix,
-    h2h = hints / heads,
-  )|>
-  pivot_longer(contains('2h'))|>
-  ggplot() +
-  facet_nested(data_name ~ round_size, scales = 'free_y') +
-  geom_point(aes(ycsb_zipf, value, col = name)) +
-  #geom_smooth(aes(ycsb_zipf,value,col=name),se=FALSE)+
-  scale_color_brewer(palette = 'Dark2')
-
 d|>
   filter(config_name %in% c('prefix', 'heads', 'hints'))|>
   ggplot() +
@@ -265,16 +233,6 @@ d|>
   facet_nested(. ~ data_name, scales = 'free_y') +
   geom_line(aes(y = txs, x = ycsb_zipf, col = config_name))
 
-d|>
-  filter(op == 'ycsb_c', data_name %in% c('ints', 'sparse'))|>
-  filter(ycsb_zipf > 0.5)|>
-  pivot_wider(id_cols = (!any_of(c(OUTPUT_COLS, 'bin_name', 'run_id'))), names_from = config_name, values_from = OUTPUT_COLS, values_fn = mean)|>
-  ggplot(aes(y = txs_art / txs_dense1, x = ycsb_zipf)) +
-  facet_nested(. ~ data_name, scales = 'free_y') +
-  geom_point() +
-  geom_smooth() +
-  labs(y = NULL, x = 'Zipf Parameter') +
-  theme_bw()
 
 cp|>
   filter(metric == 'txs', op == 'ycsb_c', reference == 'r')|>
