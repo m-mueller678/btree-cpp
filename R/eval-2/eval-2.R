@@ -809,23 +809,27 @@ config_pivot|>
   arrange(op, data_name)|>
   print(n = 25)
 config_pivot|>
-  transmute(r = txs_art / txs_hot, op, data_name)|>
+  transmute(r = txs_hot/txs_art, op, data_name)|>
   arrange(op, data_name)|>
   print(n = 25)
 config_pivot|>
-  transmute(r = txs_hash / txs_art, op, data_name)|>
+  transmute(r = txs_adapt2 / txs_art, op, data_name)|>
   arrange(op, data_name)
+
 config_pivot|>
-  transmute(r = txs_hash / txs_baseline, op, data_name)|>
-  arrange(op, data_name)|>
-  print(n = 50)
-config_pivot|>
-  transmute(r = txs_dense3 / pmax(txs_hot, txs_art) - 1, op, data_name)|>
+  filter(op=='scan')|>
+  transmute(r = txs_baseline / pmax(txs_art,txs_hot),r3=txs_adapt2/txs_baseline,r4=txs_adapt2/pmax(txs_art,txs_hot), op, data_name)|>
   arrange(op, data_name)
+
 config_pivot|>
-  transmute(r = txs_baseline / pmax(txs_hot, txs_art) - 1, op, data_name)|>
-  arrange(op, data_name)|>
-  print(n = 50)
+  filter(op%in% COMMON_OPS)|>
+  mutate(ra=txs_adapt2,rb=txs_baseline)|>
+  select(ra,rb,op,data_name,contains('txs_'))|>
+  pivot_longer(contains('txs_'),names_prefix = 'txs_')|>
+  filter(name %in% c('hot','art','tlx','wh','baseline'))|>
+  mutate(vb=value/rb-1,va=value/ra-1,rvb=rb/value-1,rva=ra/value-1,op,name,data_name,.keep='none')|>
+  arrange(name,op,data_name)|>View()
+
 
 config_pivot|>
   transmute(r1 = txs_baseline / txs_tlx, r2 = pmax(txs_baseline, txs_dense3, txs_hash) / txs_tlx, r3 = txs_baseline / txs_tlx - 1, op, data_name)|>
@@ -885,7 +889,7 @@ d|>
 
 {
   colors <- c(
-    brewer_pal(palette = 'RdBu')(8)[c(6, 7, 8)],
+    brewer_pal(palette = 'RdBu')(8)[c(6, 8)],
     brewer_pal(palette = 'PuOr')(8)[2],
     brewer_pal(palette = 'RdBu')(8)[2],
     brewer_pal(palette = 'PRGn')(8)[2],
@@ -894,8 +898,8 @@ d|>
 
   f <- function(data_filter, art)
     d|>
-      filter(run_id<5)
-      filter(config_name %in% c('baseline', 'hash', 'dense3', 'art', 'hot', 'tlx','wh'), op %in% c('ycsb_c', 'insert90'))|>
+      filter(run_id<5)|>
+      filter(config_name %in% c('baseline', 'adapt2', 'art', 'hot', 'tlx','wh'), op %in% c('ycsb_c', 'insert90','scan'))|>
       filter(data_name %in% data_filter)|>
       ggplot() +
       theme_bw() +
@@ -905,7 +909,7 @@ d|>
       )) +
       theme(
         strip.text = element_text(size = 8, margin = margin(2, 1, 2, 1)),
-        axis.text.x = element_text(angle = 45, hjust = 1, size = 8), ,
+        axis.text.x = element_text(angle = 90, hjust = 1, size = 7,vjust=0.5), ,
         #axis.text.x = element_text(angle = 90,hjust=1,vjust=0.5),
         axis.text.y = element_text(size = 8),
         panel.spacing.x = unit(0.5, "mm"),
@@ -925,13 +929,12 @@ d|>
       labs(x = NULL, y = 'Mops/s', fill = 'Worload', col = 'Workload') +
       guides(col = 'none', fill = 'none') +
       geom_bar(aes(config_name, txs / 1e6, fill = config_name), stat = 'summary', fun = median) +
-      scale_y_continuous(breaks = (0:3) * if (art) { 3 }else { 1 }, expand = expansion(mult = c(0, 0.05))) +
-      scale_x_manual(values = (1:7), labels = c('Base', 'FP', 'Dense', 'ART', 'HOT', 'TLX','WH')) +
-      coord_cartesian(xlim = c(1, 7))
+      scale_y_continuous(breaks = (0:10) * if (art) { 3 }else { 1 }, expand = expansion(mult = c(0, 0.05))) +
+      scale_x_manual(values = (1:7), labels = c('Base', 'Adapt', 'ART', 'HOT', 'TLX','WH')) +
+      coord_cartesian(xlim = c(1, 6))
 
-  (f(c('urls', 'wiki'), FALSE) |
-    plot_spacer() |
-    f(c('ints', 'sparse'), TRUE)) + plot_layout(guides = 'collect', widths = c(1, 0.05, 1)) &
+  (f(c('urls', 'wiki'), FALSE) | plot_spacer() | f(c('ints', 'sparse'), TRUE)) +
+    plot_layout(guides = 'collect', widths = c(1, 0.01, 1)) &
     theme(legend.position = 'bottom', plot.margin = margin(0, 0, 0, 2))
 }
 save_as('mem-txs', 35, w = 180)
