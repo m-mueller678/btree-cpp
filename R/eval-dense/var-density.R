@@ -196,8 +196,8 @@ grouped|>
   expand_limits(y=0)+
   geom_line(aes(x = density, y = node_count * 4096 / 25e6, col = config_name)) +
   geom_text(
-    aes(x = density, y = node_count * 4096 / 25e6 - 5, col = config_name,label=c('dense3'='fully d.','dense2'='semi d.','hints'='hints')[as.character(config_name)]),size=3,hjust='right',
-  data=d_var_density|>
+    aes(x = density, y = node_count * 4096 / 25e6 - 5, col = config_name,label=c('dense3'='fully dense','dense2'='semi dense','hints'='hints')[as.character(config_name)]),size=3,hjust='right',
+  data=grouped|>
     filter(op=='ycsb_c',config_name!='dense1',density==c('hints'=0.96,'dense2'=0.52,'dense3'=0.98)[as.character(config_name)])
   )+
   scale_y_continuous(name = 'Space/Record', labels = label_bytes())+
@@ -209,7 +209,7 @@ grouped|>
         panel.spacing.x = unit(0.5, "mm"),
         plot.margin = margin(1, 8, 0, 0),
   )
-save_as('dense-space', 20,w=34)
+save_as('dense-space', 20,w=45)
 
 
 
