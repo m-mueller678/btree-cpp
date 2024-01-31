@@ -7,8 +7,9 @@ source('../common.R')
 #r <- read_broken_csv('skew.csv')
 # python3 R/in-memory-skew/skew.py |parallel -j1 --joblog joblog --retries 3 -- {1}| tee R/in-memory-skew/skew2.csv
 # christmas run
-r <- read_broken_csv('skew3.csv')
-
+r <- bind_rows(
+  read_broken_csv('skew3b.csv.gz')
+)
 
 d <- r |>
   filter(op == 'ycsb_c')|>
@@ -17,18 +18,16 @@ d <- r |>
     round_size = cut(total_size, breaks = c(37e6, 38e6, 74e6, 76e6, 149e6, 151e6, 299e6, 301e6, 599e6, 601e6, 1199e6, 1201e6), labels = c(37.5, NA, 75, NA, 150, NA, 300, NA, 600, NA, 1200))
   )
 
-d|>group_by(data_name,config_name)|>filter(run_id<3)|>count()|>filter(n!=153)|>View()
+d|>group_by(data_name,config_name)|>count()|>filter(n!=255)|>View()
 
 cp <- {
   cp <- d|>
     pivot_longer(any_of(OUTPUT_COLS), names_to = 'metric')|>
+    pivot_wider(id_cols = !any_of(c('bin_name', 'run_id', 'config_name')), names_from = 'config_name', values_from = 'value', values_fn = mean, names_prefix = 'x-')
 
   configs = unique(d$config_name)
   for (c in configs) {
-    cr <- paste0('x-', config_reference(c))
     cb <- paste0('x-', c)
-    cp[paste0('r-', c)] <- ifelse(cr != 'x-NA', cp[cb] / cp[cr], NA)
-    cp[paste0('a-', c)] <- ifelse(cr != 'x-NA', cp[cb] - cp[cr], NA)
     cp[paste0('ra-', c)] <- ifelse(cr != 'x-NA', cp[cb] / cp['x-adapt2'], NA)
   }
   cp|>

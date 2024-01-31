@@ -132,7 +132,7 @@ d|>
       aes(x = data_size / ycsb_range_len, y = txs/1e6,  label = CONFIG_LABELS[config_name],col=config_name),
       size = 3, hjust = "right", vjust = "bottom",
     )+
-    scale_y_continuous(name = 'Mop/s')+
+    scale_y_continuous(name = 'Minsert/s')+
     theme(axis.title.y = element_text(size = 8,hjust=0.5),)
   space <- common(FALSE, FALSE) +
     geom_line(aes(x = data_size / ycsb_range_len, y = node_count * 4096 /1e7, col = config_name)) +

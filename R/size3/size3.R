@@ -30,7 +30,10 @@ d_psv|>group_by(op,data_name,config_name,inner,psv,payload_size)|>count()|>filte
 v4kb <- v|>
   group_by(op, data_name, inner, payload_size)|>
   mutate(
+    ref2_txs = txs[psv == 11],
     ref_txs = txs[psv == 12],
+    ref8_txs = txs[psv == 13],
+    ref16_txs = txs[psv == 14],
     normalized_txs = txs / ref_txs,
     dense_ratio = nodeCount_Dense_adapt2 / (nodeCount_Dense_adapt2 + nodeCount_Leaf_adapt2),
     .groups = 'drop'
@@ -52,8 +55,8 @@ size_plot <- function(pl)
                    data_name = DATA_LABELS,
                  )
     ) +
-    geom_point(aes(psv, 1/normalized_txs, col = op, shape = op, alpha = op), size = 1) +
-    geom_line(aes(psv, 1/normalized_txs, col = op, shape = op), linewidth = 0.3) +
+    geom_point(aes(psv, normalized_txs, col = op, shape = op, alpha = op), size = 1) +
+    geom_line(aes(psv, normalized_txs, col = op, shape = op), linewidth = 0.3) +
     scale_y_continuous(name = 'op/s relative to 4KiB', breaks = (0:100) * 0.2, expansion(c(0, 0))) +
     scale_x_continuous(breaks = (0:100) * 2, name = "Node Size (KiB)", labels = function(x) 2^(x - 10)) +
     scale_alpha_manual(values = c(0, 1, 1), labels = OP_LABELS) +
@@ -78,9 +81,8 @@ size_plot <- function(pl)
 size_plot(8)
 save_as('node-size-08', 50)
 size_plot(16)
-save_as('node-size-16', 50)
+size_plot(32)
 size_plot(64)
-save_as('node-size-64', 50)
 
 
 # with two dense
