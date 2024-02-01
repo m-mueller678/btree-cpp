@@ -9,7 +9,7 @@ Each binary is configured via a set of environment variables, which are processe
 
 # Variable Page size
 By default, all B-Trees use a node size of 4KiB.
-The script `(build_var_page_size.sh)` is used to build B-Tree configurations with different node sizes.
+The script `build_var_page_size.sh` is used to build B-Tree configurations with different node sizes.
 Examples can be found as comments in the script file.
 
 # R
