@@ -1132,7 +1132,7 @@ config_pivot|>
         'B-Tree' = 'baseline',
         'ART' = 'art',
         'HOT' = 'hot',
-        'WH'='wh',
+        'Wormhole'='wh',
         'opt. B-Tree' = 'adapt2'
       ),
     op = fct_recode(op,

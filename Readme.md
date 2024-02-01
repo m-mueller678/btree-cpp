@@ -9,7 +9,8 @@ Each binary is configured via a set of environment variables, which are processe
 
 # Variable Page size
 By default, all B-Trees use a node size of 4KiB.
-The 
+The script `(build_var_page_size.sh)` is used to build B-Tree configurations with different node sizes.
+Examples can be found as comments in the script file.
 
 # R
 Each subdirectory of the `R` directory contains python scripts to generate benchmarks, results of said benchmarks as csv files, and R code to analyze the results.
