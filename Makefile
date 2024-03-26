@@ -9,7 +9,7 @@ hot_sources=$(shell find in-memory-structures/hot/ -type f) btree/hot_adapter.*
 ycsb_cpps=ycsb2.cpp $(core_cpps)
 cxx_base=/usr/bin/clang++-15
 cc_base=/usr/bin/clang-15
-cxx=$(cxx_base) $(PAGE_SIZE_OVERRIDE_FLAG) -std=c++17 -o $@ -march=native -g
+cxx=$(cxx_base) $(PAGE_SIZE_OVERRIDE_FLAG) -std=c++17 -o $@ -march=native -g -laio
 
 zipfc_link_arg = -Lzipfc/target/release/ -lzipfc -L. -lwh
 named_config_headers = $(shell ls named-configs)
