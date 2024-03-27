@@ -4,7 +4,7 @@
 #include <cstring>
 #include <functional>
 
-BTreeNodeHeader::BTreeNodeHeader(bool isLeaf,RangeOpCounter roc) : TagAndDirty(isLeaf ? Tag::Leaf : Tag::Inner), rangeOpCounter(roc), dataOffset(isLeaf ? pageSizeLeaf : pageSizeInner) {}
+BTreeNodeHeader::BTreeNodeHeader(bool isLeaf,RangeOpCounter roc) : TagAndDirty(isLeaf ? Tag::Leaf : Tag::Inner,roc), dataOffset(isLeaf ? pageSizeLeaf : pageSizeInner) {}
 
 uint8_t* BTreeNode::ptr()
 {
