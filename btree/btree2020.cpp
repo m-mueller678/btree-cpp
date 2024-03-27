@@ -71,9 +71,9 @@ void BTreeNode::init(bool isLeaf,RangeOpCounter roc)
    *header= BTreeNodeHeader(isLeaf,roc);
 }
 
-AnyNode* BTreeNode::makeLeaf()
+AllocGuard<AnyNode> BTreeNode::makeLeaf()
 {
-   AnyNode* r = AnyNode::allocLeaf();
+   auto r = AnyNode::allocLeaf();
    r->_basic_node.init(true,RangeOpCounter{});
    return r;
 }
@@ -461,7 +461,7 @@ void BTreeNode::splitNode(AnyNode* parent, unsigned sepSlot, uint8_t* sepKey, un
       nodeLeft = &AnyNode::allocLeaf()->_basic_node;
       nodeLeft->init(true,rangeOpCounter);
    } else {
-      AnyNode* r = AnyNode::allocInner();
+      auto r = AnyNode::allocInner();
       r->_basic_node.init(false,rangeOpCounter);
       nodeLeft = r->basic();
    }
@@ -648,26 +648,36 @@ void BTreeNode::destroy()
 }
 
 // take isInt to have same interface as in memory structures, but ignore it.
-BTree::BTree(bool isInt) : root((enableHash && !enableHashAdapt) ? HashNode::makeRootLeaf() : BTreeNode::makeLeaf())
+BTree::BTree(bool isInt)
 {
+   auto root = (enableHash && !enableHashAdapt) ? HashNode::makeRootLeaf() : BTreeNode::makeLeaf();
+   metadata_pid = AllocGuard<MetaDataPage>{root.pid}.pid;
 #ifndef NDEBUG
    // prevent print from being optimized out. It is otherwise never called, but nice for debugging
-   if (getenv("oMEeHAobn4"))
+   if (getenv("oMEeHAobn4")){
       root->print();
+   }
 #endif
 }
 
 BTree::~BTree()
 {
-   root->destroy();
+   abort();
 }
 
 // point lookup
 uint8_t* BTree::lookupImpl(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut)
 {
+   GuardO<MetaDataPage> meta(metadata_pid);
+   GuardO<AnyNode> node(meta->root);
+
    AnyNode* node = root;
-   while (node->isAnyInner())
-      node = node->lookupInner(key, keyLength);
+   while (node->isAnyInner()){
+      PID child = node->lookupInner(key, keyLength);
+      node.checkVersionAndRestart();
+      node = GuardO{child};
+   }
+
    // COUNTER(is_basic_lookup,node->tag == Tag::Leaf,1<<20)
    switch (node->tag()) {
       case Tag::Leaf: {

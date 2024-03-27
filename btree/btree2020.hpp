@@ -20,6 +20,7 @@
 #include "hot_adapter.hpp"
 #include "wh_adapter.hpp"
 #include "tag.hpp"
+#include "vmcache.hpp"
 
 #ifndef NDEBUG
 #define CHECK_TREE_OPS
@@ -122,80 +123,15 @@ inline constexpr unsigned headNodeHintCount<uint64_t>(uint64_t)
 struct BTreeNode;
 union AnyNode;
 
-struct RangeOpCounter {
-   uint8_t count;
-   static constexpr uint8_t MAX_COUNT = 3;
-
-   static std::bernoulli_distribution range_dist;
-   static std::bernoulli_distribution point_dist;
-   static std::minstd_rand rng;
-
-   RangeOpCounter(uint8_t c = MAX_COUNT / 2) : count(c){};
-
-   void setGoodHeads()
-   {
-      if (!enableAdaptOp)
-         return;
-      count = 255;
-   }
-
-   void setBadHeads(uint8_t previous = MAX_COUNT / 2)
-   {
-      if (!enableAdaptOp)
-         return;
-      if (previous == 255) {
-         count = MAX_COUNT / 2;
-      } else {
-         count = previous;
-      }
-   }
-
-   static constexpr uint32_t RANGE_THRESHOLD = (rng.max() + 1) * 0.15;
-   static constexpr uint32_t POINT_THRESHOLD = (rng.max() + 1) * 0.05;
-
-   bool range_op()
-   {
-      if (!enableAdaptOp) {
-         return false;
-      }
-      if (count < MAX_COUNT) {
-         count += (rng() < RANGE_THRESHOLD);
-         return count == MAX_COUNT;
-      } else {
-         return false;
-      }
-   }
-
-   bool point_op()
-   {
-      if (!enableAdaptOp) {
-         return false;
-      }
-      if (int8_t(count) > 0) {
-         count -= (rng() < POINT_THRESHOLD);
-         return count == 0;
-      } else {
-         return false;
-      }
-   }
-
-   bool isLowRange()
-   {
-      if (!enableAdaptOp)
-         return true;
-      return count <= MAX_COUNT / 2;
-   }
+struct MetaDataPage:public TagAndDirty{
+   PID root;
+   MetaDataPage(PID root):root(root){}
 };
-
-constexpr unsigned TAG_END = unsigned(Tag::_last) + 1;
-const char* tag_name(Tag tag);
 
 struct BTreeNodeHeader:public TagAndDirty {
    static constexpr unsigned hintCount = basicHintCount;
    static constexpr unsigned underFullSizeLeaf = pageSizeLeaf / 4;    // merge nodes below this size
    static constexpr unsigned underFullSizeInner = pageSizeInner / 4;  // merge nodes below this size
-
-   RangeOpCounter rangeOpCounter;
 
    uint16_t count = 0;
    uint16_t spaceUsed = 0;
@@ -255,7 +191,7 @@ struct BTreeNode : public BTreeNodeHeader {
 
    bool requestSpaceFor(unsigned spaceNeeded);
 
-   static AnyNode* makeLeaf();
+   static AllocGuard<AnyNode> makeLeaf();
 
    uint8_t* getKey(unsigned slotId);
    uint8_t* getPayload(unsigned slotId);
@@ -627,8 +563,8 @@ union AnyNode {
    void destroy();
 
    void dealloc();
-   static AnyNode* allocLeaf();
-   static AnyNode* allocInner();
+   static AllocGuard<AnyNode> allocLeaf();
+   static AllocGuard<AnyNode> allocInner();
 
    bool isAnyInner();
 
@@ -656,7 +592,7 @@ struct BTree {
    BTree(bool isInt);
    ~BTree();
 
-   AnyNode* root;
+   PID metadata_pid;
    uint8_t* lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut);
    void insertImpl(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength);
    bool removeImpl(uint8_t* key, unsigned int keyLength) const;

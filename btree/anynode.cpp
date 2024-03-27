@@ -46,13 +46,14 @@ void AnyNode::dealloc()
    std::free(this);
 }
 
-AnyNode* AnyNode::allocLeaf()
+AllocGuard<AnyNode> AnyNode::allocLeaf()
 {
-   return reinterpret_cast<AnyNode*>(std::aligned_alloc(alignof(AnyNode), pageSizeLeaf));
+   return AllocGuard<AnyNode> g();
 }
-AnyNode* AnyNode::allocInner()
+
+AllocGuard<AnyNode> AnyNode::allocInner()
 {
-   return reinterpret_cast<AnyNode*>(std::aligned_alloc(alignof(AnyNode), pageSizeInner));
+   return AllocGuard<AnyNode> g();
 }
 
 bool AnyNode::isAnyInner()
