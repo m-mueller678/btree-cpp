@@ -553,8 +553,7 @@ struct HashNode : public HashNodeHeader {
    bool hasGoodHeads();
 } __attribute__((aligned(hashUseSimd ? hashSimdWidth : 2)));
 
-struct HeadNodeHead {
-   Tag _tag;
+struct HeadNodeHead:public TagAndDirty {
    uint16_t count;
    uint16_t keyCapacity;
    uint16_t lowerFenceLen;
@@ -613,7 +612,7 @@ typedef HeadNode<uint32_t> HeadNode4;
 typedef HeadNode<uint64_t> HeadNode8;
 
 union AnyNode {
-   Tag _tag;
+   TagAndDirty _tag_and_dirty;
    BTreeNode _basic_node;
    DenseNode _dense;
    HashNode _hash;

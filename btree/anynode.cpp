@@ -3,15 +3,15 @@
 
 Tag AnyNode::tag()
 {
-   ASSUME(_tag == Tag::Inner || _tag == Tag::Leaf || _tag == Tag::Dense || _tag == Tag::Hash || _tag == Tag::Head4 || _tag == Tag::Head8 ||
-          _tag == Tag::Dense2);
-   ASSUME(enableDense || _tag != Tag::Dense);
-   ASSUME((enableDense2 && !enableHash) || _tag != Tag::Dense2);
-   ASSUME(enableHash || _tag != Tag::Hash);
-   ASSUME(!enableHash || enableHashAdapt || _tag != Tag::Leaf);
-   ASSUME(enableHeadNode || _tag != Tag::Head4);
-   ASSUME(enableHeadNode || _tag != Tag::Head8);
-   return _tag;
+   Tag t=_tag_and_dirty.tag();
+   ASSUME(t == Tag::Inner || t == Tag::Leaf || t == Tag::Dense || t == Tag::Hash || t == Tag::Head4 || t == Tag::Head8 || t == Tag::Dense2);
+   ASSUME(enableDense || t != Tag::Dense);
+   ASSUME((enableDense2 && !enableHash) || t != Tag::Dense2);
+   ASSUME(enableHash || t != Tag::Hash);
+   ASSUME(!enableHash || enableHashAdapt || t != Tag::Leaf);
+   ASSUME(enableHeadNode || t != Tag::Head4);
+   ASSUME(enableHeadNode || t != Tag::Head8);
+   return t;
 }
 
 AnyNode::AnyNode(BTreeNode basic) : AnyNode()
@@ -72,31 +72,36 @@ bool AnyNode::isAnyInner()
 
 BTreeNode* AnyNode::basic()
 {
-   ASSUME(_tag == Tag::Leaf || _tag == Tag::Inner);
+   Tag t=_tag_and_dirty.tag();
+   ASSUME(t == Tag::Leaf || t == Tag::Inner);
    return reinterpret_cast<BTreeNode*>(this);
 }
 
 DenseNode* AnyNode::dense()
 {
-   ASSUME(_tag == Tag::Dense || _tag == Tag::Dense2);
+   Tag t=_tag_and_dirty.tag();
+   ASSUME(t == Tag::Dense || t == Tag::Dense2);
    return reinterpret_cast<DenseNode*>(this);
 }
 
 HashNode* AnyNode::hash()
 {
-   ASSUME(_tag == Tag::Hash);
+   Tag t=_tag_and_dirty.tag();
+   ASSUME(t == Tag::Hash);
    return reinterpret_cast<HashNode*>(this);
 }
 
 HeadNode<uint32_t>* AnyNode::head4()
 {
-   ASSUME(_tag == Tag::Head4);
+   Tag t=_tag_and_dirty.tag();
+   ASSUME(t == Tag::Head4);
    return reinterpret_cast<HeadNode<uint32_t>*>(this);
 }
 
 HeadNode<uint64_t>* AnyNode::head8()
 {
-   ASSUME(_tag == Tag::Head8);
+   Tag t=_tag_and_dirty.tag();
+   ASSUME(t == Tag::Head8);
    return reinterpret_cast<HeadNode<uint64_t>*>(this);
 }
 
@@ -295,7 +300,8 @@ unsigned AnyNode::innerKeyLen(unsigned index)
 
 bool AnyNode::splitNodeWithParent(AnyNode* parent, uint8_t* key, unsigned keyLength)
 {
-   switch (tag()) {
+   Tag tag=this->tag();
+   switch (tag) {
       case Tag::Leaf:
          if(enableDensifySplit){
             uint8_t sepBuffer[BTreeNode::maxKVSize];
@@ -327,7 +333,7 @@ bool AnyNode::splitNodeWithParent(AnyNode* parent, uint8_t* key, unsigned keyLen
       case Tag::Dense:
       case Tag::Dense2: {
          if (parent->innerRequestSpaceFor(dense()->fullKeyLen)) {  // is there enough space in the parent for the separator?
-            if (_tag == Tag::Dense)
+            if (tag == Tag::Dense)
                dense()->splitNode1(parent, key, keyLength);
             else
                dense()->splitNode2(parent, key, keyLength);

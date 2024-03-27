@@ -289,7 +289,7 @@ void HeadNode<T>::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upp
 {
    assert(enablePrefix);
    assert(sizeof(HeadNode<T>) == pageSizeInner);
-   _tag = sizeof(T) == 4 ? Tag::Head4 : Tag::Head8;
+   set_tag(sizeof(T) == 4 ? Tag::Head4 : Tag::Head8);
    count = 0;
    this->lowerFenceLen = lowerFenceLen;
    this->upperFenceLen = upperFenceLen;
