@@ -4,7 +4,7 @@
 #include <cstring>
 #include <functional>
 
-BTreeNodeHeader::BTreeNodeHeader(bool isLeaf,RangeOpCounter roc) : _tag(isLeaf ? Tag::Leaf : Tag::Inner), rangeOpCounter(roc), dataOffset(isLeaf ? pageSizeLeaf : pageSizeInner) {}
+BTreeNodeHeader::BTreeNodeHeader(bool isLeaf,RangeOpCounter roc) : TagAndDirty(isLeaf ? Tag::Leaf : Tag::Inner), rangeOpCounter(roc), dataOffset(isLeaf ? pageSizeLeaf : pageSizeInner) {}
 
 uint8_t* BTreeNode::ptr()
 {
@@ -12,7 +12,7 @@ uint8_t* BTreeNode::ptr()
 }
 bool BTreeNode::isInner()
 {
-   switch (_tag) {
+   switch (tag()) {
       case Tag::Inner:
          return true;
       case Tag::Leaf:
@@ -23,7 +23,7 @@ bool BTreeNode::isInner()
 }
 bool BTreeNode::isLeaf()
 {
-   switch (_tag) {
+   switch (tag()) {
       case Tag::Inner:
          return false;
       case Tag::Leaf:
@@ -199,8 +199,8 @@ bool BTreeNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsig
 {
    if (!requestSpaceFor(spaceNeeded(keyLength, payloadLength))) {
       AnyNode tmp;
-      bool densify1 = enableDense && _tag == Tag::Leaf && keyLength - prefixLength == slot[0].keyLen && payloadLength == slot[0].payloadLen;
-      bool densify2 = enableDense2 && _tag == Tag::Leaf && keyLength - prefixLength == slot[0].keyLen;
+      bool densify1 = enableDense && tag() == Tag::Leaf && keyLength - prefixLength == slot[0].keyLen && payloadLength == slot[0].payloadLen;
+      bool densify2 = enableDense2 && tag() == Tag::Leaf && keyLength - prefixLength == slot[0].keyLen;
       if ((densify1 || densify2) && tmp._dense.try_densify(this)) {
          memcpy(this, &tmp, pageSizeLeaf);
          return this->any()->dense()->insert(key, keyLength, payload, payloadLength);

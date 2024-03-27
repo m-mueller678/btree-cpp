@@ -8,6 +8,9 @@
 #include "btree/btree2020.hpp"
 #include <iostream>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
 using namespace std;
 
 extern "C" {
@@ -731,3 +734,5 @@ int main(int argc, char* argv[])
 
    return 0;
 }
+
+#pragma GCC diagnostic pop

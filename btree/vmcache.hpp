@@ -25,6 +25,9 @@
 #include <unistd.h>
 #include <immintrin.h>
 
+#include "tag.hpp"
+
+
 __thread uint16_t workerThreadId = 0;
 __thread int32_t tpcchistorycounter = 0;
 
@@ -39,7 +42,7 @@ typedef u64 PID; // page id type
 static const u64 pageSize = 4096;
 
 struct alignas(4096) Page {
-   bool dirty;
+   TagAndDirty dirty;
 };
 
 static const int16_t maxWorkerThreads = 128;
@@ -248,7 +251,7 @@ struct LibaioInterface {
       assert(pages.size() < maxIOs);
       for (u64 i=0; i<pages.size(); i++) {
          PID pid = pages[i];
-         virtMem[pid].dirty = false;
+         virtMem[pid].dirty.set_dirty(false);
          cbPtr[i] = &cb[i];
          io_prep_pwrite(cb+i, blockfd, &virtMem[pid], pageSize, pageSize*pid);
       }

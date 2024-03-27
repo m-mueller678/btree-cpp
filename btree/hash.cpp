@@ -155,7 +155,7 @@ void HashNode::updatePrefixLength()
 void HashNode::init(uint8_t* lowerFence, unsigned lowerFenceLen, uint8_t* upperFence, unsigned upperFenceLen, unsigned hashCapacity,RangeOpCounter roc)
 {
    assert(sizeof(HashNode) == pageSizeLeaf);
-   _tag = Tag::Hash;
+   set_tag(Tag::Hash);
    rangeOpCounter=roc;
    count = 0;
    sortedCount = 0;

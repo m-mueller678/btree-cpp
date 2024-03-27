@@ -66,7 +66,7 @@ Page* BufferManager::allocPage() {
    if (useExmap) {
      abort();
    }
-   virtMem[pid].dirty = true;
+   virtMem[pid].dirty.set_dirty(true);
 
    return virtMem + pid;
 }
@@ -154,7 +154,7 @@ void BufferManager::evict() {
          u64 v = ps.stateAndVersion;
          switch (PageState::getState(v)) {
             case PageState::Marked:
-               if (virtMem[pid].dirty) {
+               if (virtMem[pid].dirty.dirty()) {
                   if (ps.tryLockS(v))
                      toWrite.push_back(pid);
                } else {

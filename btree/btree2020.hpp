@@ -19,6 +19,7 @@
 #include "config.hpp"
 #include "hot_adapter.hpp"
 #include "wh_adapter.hpp"
+#include "tag.hpp"
 
 #ifndef NDEBUG
 #define CHECK_TREE_OPS
@@ -121,17 +122,6 @@ inline constexpr unsigned headNodeHintCount<uint64_t>(uint64_t)
 struct BTreeNode;
 union AnyNode;
 
-enum class Tag : uint8_t {
-   Leaf = 0,
-   Inner = 1,
-   Dense = 2,
-   Hash = 3,
-   Head4 = 4,
-   Head8 = 5,
-   Dense2 = 6,
-   _last = 6,
-};
-
 struct RangeOpCounter {
    uint8_t count;
    static constexpr uint8_t MAX_COUNT = 3;
@@ -200,12 +190,11 @@ struct RangeOpCounter {
 constexpr unsigned TAG_END = unsigned(Tag::_last) + 1;
 const char* tag_name(Tag tag);
 
-struct BTreeNodeHeader {
+struct BTreeNodeHeader:public TagAndDirty {
    static constexpr unsigned hintCount = basicHintCount;
    static constexpr unsigned underFullSizeLeaf = pageSizeLeaf / 4;    // merge nodes below this size
    static constexpr unsigned underFullSizeInner = pageSizeInner / 4;  // merge nodes below this size
 
-   Tag _tag;
    RangeOpCounter rangeOpCounter;
 
    uint16_t count = 0;
@@ -479,8 +468,7 @@ struct DenseNode {
    void print();
 };
 
-struct HashNodeHeader {
-   Tag _tag;
+struct HashNodeHeader:public TagAndDirty {
    RangeOpCounter rangeOpCounter;
    uint16_t count;
    uint16_t sortedCount;
