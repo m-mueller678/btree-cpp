@@ -710,7 +710,11 @@ int main(int argc, char** argv)
       keys[i] = i + 1;
    if (atoi(argv[2]) == 1)
       // dense, random
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
       std::random_shuffle(keys, keys + n);
+#pragma GCC diagnostic pop
    if (atoi(argv[2]) == 2)
       // "pseudo-sparse" (the most-significant leaf bit gets lost)
       for (uint64_t i = 0; i < n; i++)
@@ -925,7 +929,7 @@ bool scan(Node* n,
 
    throw;  // Unreachable
 }
-}  // namespace art
+}  // namespace artf
 
 ArtBTreeAdapter::ArtBTreeAdapter(bool isInt) : root(nullptr) {}
 
