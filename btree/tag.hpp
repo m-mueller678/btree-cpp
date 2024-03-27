@@ -16,8 +16,8 @@ struct TagAndDirty {
    uint8_t x;
 
   public:
-   TagAndDirty():x(0){}
-   TagAndDirty(Tag t) : x(0) { set_tag(t); }
+   TagAndDirty():x(255){}
+   TagAndDirty(Tag t) :TagAndDirty() { set_tag(t); }
    Tag tag() { return static_cast<Tag>(x & 127); }
    void set_tag(Tag t){x = static_cast<uint8_t>(t) | (x & 128);}
    void set_dirty(bool d) { x = x & 127 | static_cast<uint8_t>(d) << 7; }
