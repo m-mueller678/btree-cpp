@@ -3,8 +3,10 @@
 template <class T>
 void HeadNode<T>::destroy()
 {
-   for (unsigned i = 0; i < count + 1; i++)
-      loadUnaligned<AnyNode*>(children() + i)->destroy();
+   for (unsigned i = 0; i < count + 1; i++){
+      GuardX child_guard{loadUnaligned<PID>(children() + i)};
+      child_guard->destroy();
+   }
 }
 
 template <class T>
@@ -369,7 +371,7 @@ void HeadNode<T>::getSep(uint8_t* sepKeyOut, BTreeNode::SeparatorInfo info)
 }
 
 template <class T>
-AnyNode* HeadNode<T>::lookupInner(uint8_t* key, unsigned keyLength)
+PID HeadNode<T>::lookupInner(uint8_t* key, unsigned keyLength)
 {
    return loadUnaligned<AnyNode*>(children() + lookupInnerIndex(key, keyLength));
 }

@@ -106,7 +106,7 @@ HeadNode<uint64_t>* AnyNode::head8()
    return reinterpret_cast<HeadNode<uint64_t>*>(this);
 }
 
-bool AnyNode::insertChild(uint8_t* key, unsigned int keyLength, AnyNode* child)
+bool AnyNode::insertChild(uint8_t* key, unsigned int keyLength, PID child)
 {
    switch (tag()) {
       case Tag::Inner:
@@ -127,7 +127,7 @@ bool AnyNode::innerRequestSpaceFor(unsigned keyLen)
 {
    switch (tag()) {
       case Tag::Inner: {
-         bool succ = basic()->requestSpaceFor(basic()->spaceNeeded(keyLen, sizeof(AnyNode*)));
+         bool succ = basic()->requestSpaceFor(basic()->spaceNeeded(keyLen, sizeof(PID)));
          if (enableHeadNode && !succ) {
             return HeadNodeHead::requestChildConvertFromBasic(basic(), keyLen);
          }
@@ -145,7 +145,7 @@ bool AnyNode::innerRequestSpaceFor(unsigned keyLen)
    }
 }
 
-AnyNode* AnyNode::lookupInner(uint8_t* key, unsigned keyLength)
+PID AnyNode::lookupInner(uint8_t* key, unsigned keyLength)
 {
    switch (tag()) {
       case Tag::Inner:
@@ -162,17 +162,17 @@ AnyNode* AnyNode::lookupInner(uint8_t* key, unsigned keyLength)
    }
 }
 
-AnyNode* AnyNode::makeRoot(AnyNode* child)
+AllocGuard<AnyNode> AnyNode::makeRoot(PID child)
 {
-   AnyNode* ptr = AnyNode::allocInner();
+   AllocGuard<AnyNode> new_root;
    if (enableHeadNode) {
-      ptr->_head4.init(nullptr, 0, nullptr, 0);
-      storeUnaligned(ptr->head4()->children(), child);
-      return ptr;
+      new_root->_head4.init(nullptr, 0, nullptr, 0);
+      storeUnaligned(new_root->head4()->children(), child);
+      return new_root;
    } else {
-      ptr->_basic_node.init(false,RangeOpCounter{});
-      ptr->basic()->upper = child;
-      return ptr;
+      new_root->_basic_node.init(false,RangeOpCounter{});
+      new_root->basic()->upper = child;
+      return new_root;
    }
 }
 
@@ -228,7 +228,7 @@ unsigned AnyNode::innerCount()
    }
 }
 
-AnyNode* AnyNode::getChild(unsigned index)
+PID AnyNode::getChild(unsigned index)
 {
    switch (tag()) {
       case Tag::Inner: {
@@ -237,9 +237,9 @@ AnyNode* AnyNode::getChild(unsigned index)
          return basic()->getChild(index);
       }
       case Tag::Head4:
-         return loadUnaligned<AnyNode*>(head4()->children() + index);
+         return loadUnaligned<PID>(head4()->children() + index);
       case Tag::Head8:
-         return loadUnaligned<AnyNode*>(head8()->children() + index);
+         return loadUnaligned<PID>(head8()->children() + index);
       case Tag::Leaf:
       case Tag::Dense:
       case Tag::Dense2:

@@ -142,7 +142,7 @@ struct BTreeNodeHeader:public TagAndDirty {
       uint16_t length;
    };
 
-   AnyNode* upper = nullptr;  // only used in inner nodes
+   PID upper = 0;  // only used in inner nodes
 
    FenceKeySlot lowerFence = {0, 0};  // exclusive
    FenceKeySlot upperFence = {0, 0};  // inclusive
@@ -196,7 +196,7 @@ struct BTreeNode : public BTreeNodeHeader {
    uint8_t* getKey(unsigned slotId);
    uint8_t* getPayload(unsigned slotId);
 
-   AnyNode* getChild(unsigned slotId);
+   PID getChild(unsigned slotId);
 
    // How much space would inserting a new key of length "getKeyLength" require?
    unsigned spaceNeeded(unsigned keyLength, unsigned payloadLength);
@@ -249,13 +249,13 @@ struct BTreeNode : public BTreeNodeHeader {
 
    void getSep(uint8_t* sepKeyOut, SeparatorInfo info);
 
-   AnyNode* lookupInner(uint8_t* key, unsigned keyLength);
+   PID lookupInner(uint8_t* key, unsigned keyLength);
 
    void destroy();
 
    AnyNode* any() { return reinterpret_cast<AnyNode*>(this); }
    bool is_underfull();
-   bool insertChild(uint8_t* key, unsigned int keyLength, AnyNode* child);
+   bool insertChild(uint8_t* key, unsigned int keyLength, PID child);
    bool range_lookup(uint8_t* key,
                      unsigned int keyLen,
                      uint8_t* keyOut,
@@ -519,7 +519,7 @@ struct HeadNode : public HeadNodeHead {
    bool insertChild(uint8_t* key, unsigned int keyLength, AnyNode* child);
    bool requestSpaceFor(unsigned keyLen);
    void getSep(uint8_t* sepKeyOut, BTreeNode::SeparatorInfo info);
-   AnyNode* lookupInner(uint8_t* key, unsigned keyLength);
+   PID lookupInner(uint8_t* key, unsigned keyLength);
    static bool makeSepHead(uint8_t* key, unsigned int keyLen, T* out);
    static void makeNeedleHead(uint8_t* key, unsigned int keyLen, T* out);
    unsigned int lowerBound(T head, bool& foundOut);
@@ -575,12 +575,12 @@ union AnyNode {
    HeadNode<uint64_t>* head8();
    bool insertChild(uint8_t* key, unsigned int keyLength, AnyNode* child);
    bool innerRequestSpaceFor(unsigned keyLen);
-   AnyNode* lookupInner(uint8_t* key, unsigned keyLength);
-   static AnyNode* makeRoot(AnyNode* child);
+   PID lookupInner(uint8_t* key, unsigned keyLength);
+   static AllocGuard<AnyNode> makeRoot(PID child);
    void print();
    unsigned lookupInnerIndex(uint8_t* key, unsigned keyLength);
    unsigned innerCount();
-   AnyNode* getChild(unsigned index);
+   PID getChild(unsigned index);
    void innerRestoreKey(uint8_t* keyOut, unsigned len, unsigned index);
    void innerRemoveSlot(unsigned int slotId);
    unsigned innerKeyLen(unsigned index);
@@ -593,7 +593,7 @@ struct BTree {
    ~BTree();
 
    PID metadata_pid;
-   uint8_t* lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut);
+   bool lookupImpl(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut,uint8_t* payloadOut);
    void insertImpl(uint8_t* key, unsigned keyLength, uint8_t* payload, unsigned payloadLength);
    bool removeImpl(uint8_t* key, unsigned int keyLength) const;
    void range_lookupImpl(uint8_t* key,

@@ -87,10 +87,10 @@ uint8_t* BTreeNode::getPayload(unsigned slotId)
    return ptr() + slot[slotId].offset + slot[slotId].keyLen;
 }
 
-AnyNode* BTreeNode::getChild(unsigned slotId)
+PID BTreeNode::getChild(unsigned slotId)
 {
    assert(isInner());
-   return loadUnaligned<AnyNode*>(getPayload(slotId));
+   return loadUnaligned<PID>(getPayload(slotId));
 }
 
 // How much space would inserting a new key of length "getKeyLength" require?
@@ -190,7 +190,7 @@ unsigned BTreeNode::lowerBound(uint8_t* key, unsigned keyLength)
    return lowerBound(key, keyLength, ignore);
 }
 
-bool BTreeNode::insertChild(uint8_t* key, unsigned keyLength, AnyNode* child)
+bool BTreeNode::insertChild(uint8_t* key, unsigned keyLength, PID child)
 {
    return insert(key, keyLength, reinterpret_cast<uint8_t*>(&child), sizeof(AnyNode*));
 }
@@ -285,7 +285,8 @@ bool BTreeNode::mergeNodes(unsigned slotId, AnyNode* parent, BTreeNode* right)
       copyKeyValueRange(&tmp.node, 0, 0, count);
       uint8_t extraKey[extraKeyLength];
       parent->innerRestoreKey(extraKey, extraKeyLength, slotId);
-      AnyNode* child = parent->getChild(slotId);
+      // TODO I don't get this, why pull an extra child from parent?
+      PID child = parent->getChild(slotId);
       storeKeyValue(count, extraKey, extraKeyLength, reinterpret_cast<uint8_t*>(&child), sizeof(AnyNode*));
       count++;
       right->copyKeyValueRange(&tmp.node, count, 0, right->count);
@@ -628,7 +629,7 @@ void BTreeNode::getSep(uint8_t* sepKeyOut, SeparatorInfo info)
    restoreKey(sepKeyOut, info.length, info.slot + info.isTruncated);
 }
 
-AnyNode* BTreeNode::lookupInner(uint8_t* key, unsigned keyLength)
+PID BTreeNode::lookupInner(uint8_t* key, unsigned keyLength)
 {
    // validate_child_fences();
    unsigned pos = lowerBound(key, keyLength);
@@ -666,47 +667,63 @@ BTree::~BTree()
 }
 
 // point lookup
-uint8_t* BTree::lookupImpl(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut)
+bool BTree::lookupImpl(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut,uint8_t* payloadOut)
 {
-   GuardO<MetaDataPage> meta(metadata_pid);
-   GuardO<AnyNode> node(meta->root);
+   unsigned payloadSizeMax = payloadSizeOut;
+   while(true){
+      try{
+        // TODO copy to buffer?
+        GuardO<MetaDataPage> meta(metadata_pid);
+        GuardO<AnyNode> node(meta->root);
 
-   AnyNode* node = root;
-   while (node->isAnyInner()){
-      PID child = node->lookupInner(key, keyLength);
-      node.checkVersionAndRestart();
-      node = GuardO{child};
-   }
 
-   // COUNTER(is_basic_lookup,node->tag == Tag::Leaf,1<<20)
-   switch (node->tag()) {
-      case Tag::Leaf: {
-         BTreeNode* basicNode = node->basic();
-         if(basicNode->rangeOpCounter.point_op() && basicNode->tryConvertToHash()){
-            return node->hash()->lookup(key,keyLength,payloadSizeOut);
-         }
+        while (node->isAnyInner()){
+           PID child = node->lookupInner(key, keyLength);
+           node.checkVersionAndRestart();
+           node = GuardO{child};
+        }
 
-         bool found;
-         unsigned pos = basicNode->lowerBound(key, keyLength, found);
-         if (!found)
-            return nullptr;
+        uint8_t* val_ptr;
 
-         // key found, copy payload
-         assert(pos < basicNode->count);
-         payloadSizeOut = basicNode->slot[pos].payloadLen;
-         return basicNode->getPayload(pos);
+        // COUNTER(is_basic_lookup,node->tag == Tag::Leaf,1<<20)
+        switch (node->tag()) {
+           case Tag::Leaf: {
+              BTreeNode* basicNode = node->basic();
+              if(basicNode->rangeOpCounter.point_op() && basicNode->tryConvertToHash()){
+                  val_ptr = node->hash()->lookup(key,keyLength,payloadSizeOut);
+              }
+
+              bool found;
+              unsigned pos = basicNode->lowerBound(key, keyLength, found);
+              if (!found)
+                 return false;
+
+              // key found, copy payload
+              assert(pos < basicNode->count);
+              payloadSizeOut = basicNode->slot[pos].payloadLen;
+              val_ptr =basicNode->getPayload(pos);
+           }
+           case Tag::Dense:
+           case Tag::Dense2: {
+              val_ptr=node->dense()->lookup(key, keyLength, payloadSizeOut);
+           }
+           case Tag::Hash: {
+              val_ptr=node->hash()->lookup(key, keyLength, payloadSizeOut);
+           }
+           case Tag::Head4:
+           case Tag::Head8:
+           case Tag::Inner:
+              ASSUME(false);
+        }
+
+        if(payloadSizeOut>payloadSizeMax){
+           abort();
+        }
+        memcpy(payloadOut,val_ptr,payloadSizeOut);
+        return true;
+      }catch(OLCRestartException){
+         continue;
       }
-      case Tag::Dense:
-      case Tag::Dense2: {
-         return node->dense()->lookup(key, keyLength, payloadSizeOut);
-      }
-      case Tag::Hash: {
-         return node->hash()->lookup(key, keyLength, payloadSizeOut);
-      }
-      case Tag::Head4:
-      case Tag::Head8:
-      case Tag::Inner:
-         ASSUME(false);
    }
 }
 

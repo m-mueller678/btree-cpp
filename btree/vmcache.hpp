@@ -408,6 +408,7 @@ struct GuardO {
 
    // destructor
    ~GuardO() noexcept(false) {
+      //TODO unwinding check?
       checkVersionAndRestart();
    }
 
