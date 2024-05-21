@@ -1226,3 +1226,6 @@ config_pivot|>
   mutate(r3 = txs_dense3 / txs_hints,r2 = txs_dense2 / txs_hints, data_name, op, .keep = 'none')|>
   filter(!data_name %in% c('ints','partitioned_id'))|>
   print(n = 50)
+
+config_pivot|>select(op,data_name,txs_adapt2,data_size)|>filter(op %in% COMMON_OPS)
+d|>filter(config_name=='adapt2')|>filter(op =='scan')|>filter(run_id==1)|>arrange(data_name)|>glimpse()

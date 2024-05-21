@@ -210,6 +210,7 @@ bool BTreeNode::insert(uint8_t* key, unsigned keyLength, uint8_t* payload, unsig
    bool found;
    unsigned slotId = lowerBound(key, keyLength, found);
    if (found) {
+      abort(); // this does not update spaceUsed properly
       storeKeyValue(slotId, key, keyLength, payload, payloadLength);
    } else {
       memmove(slot + slotId + 1, slot + slotId, sizeof(Slot) * (count - slotId));
