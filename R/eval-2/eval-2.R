@@ -36,7 +36,7 @@ r <- bind_rows(
 )
 
 r|>
-  filter(run_id<5)|>
+  filter(run_id < 5)|>
   group_by(config_name, data_name, op)|>
   count()|>
   arrange(n)|>
@@ -47,7 +47,7 @@ COMMON_OPS <- c("ycsb_c", "insert90", "scan")
 
 d <- r |>
   filter(op != "ycsb_e_init")|>
-  filter(run_id<5)|>
+  filter(run_id < 5)|>
   augment()|>
   filter(scale > 0)
 
@@ -464,21 +464,12 @@ config_pivot|>
   mutate(config = factor(name, levels = names(CONFIG_LABELS)))|>
   ggplot() +
   theme_bw() +
-  facet_nested(~config + data_name, independent = 'y', scales = 'free', labeller = labeller(
+  facet_nested(~config + data_name, labeller = labeller(
     op = OP_LABELS,
     data_name = DATA_LABELS,
     config = CONFIG_LABELS,
   )) +
-  scale_y_continuous(expand = expansion(mult = 0.1), breaks = function(x) {
-    m <- max(x) / 100
-    case_when(
-      m > 0.5 ~ (-10:10) * 0.2,
-      m > 0.2 ~ (-10:10) * 0.1,
-      m > 0.1 ~ (-10:10) * 0.05,
-      m > 0.07 ~ (-10:10) * 0.03,
-      TRUE ~ (-10:10) * 0.02,
-    ) * 100
-  }) +
+  scale_y_continuous(expand = expansion(mult = 0),limits = c(-10,60), breaks = c(0,20,40,60)) +
   scale_x_discrete(labels = OP_LABELS, expand = expansion(add = 0.1)) +
   coord_cartesian(xlim = c(0.4, 3.6)) +
   theme(
@@ -487,9 +478,9 @@ config_pivot|>
     #axis.text.x = element_text(angle = 90,hjust=1,vjust=0.5),
     axis.text.y = element_text(size = 8),
     axis.title.y = element_text(size = 8),
-    panel.spacing.x = unit(0.5, "mm"),
+    panel.spacing.x = unit(1, "mm"),
     axis.ticks.x = element_blank(),
-    legend.position = 'bottom',
+    legend.position = 'right',
     legend.text = element_text(margin = margin(t = 0)),
     legend.title = element_blank(),
     legend.margin = margin(-10, 0, 0, 0),
@@ -515,11 +506,11 @@ config_pivot|>
   filter(op %in% c('ycsb_c', 'insert90', 'ycsb_e', 'sorted_scan'))|>
   ggplot() +
   theme_bw() +
-  facet_nested(. ~ data_name, independent = 'y', scales = 'free', labeller = labeller(
+  facet_nested(. ~ data_name, labeller = labeller(
     op = OP_LABELS,
     data_name = DATA_LABELS,
   )) +
-  scale_y_continuous(expand = expansion(mult = 0.1)) +
+  scale_y_continuous(expand = expansion(mult = 0),limits=c(-30,45)) +
   scale_x_discrete(labels = OP_LABELS, expand = expansion(add = 0.1)) +
   coord_cartesian(xlim = c(0.4, 3.6)) +
   theme(
@@ -527,13 +518,13 @@ config_pivot|>
     axis.text.x = element_blank(),
     #axis.text.x = element_text(angle = 90,hjust=1,vjust=0.5),
     axis.text.y = element_text(size = 8),
-    axis.title.y = element_text(size = 8, hjust = 0.6),
-    panel.spacing.x = unit(0.5, "mm"),
+    axis.title.y = element_text(size = 8),
+    panel.spacing.x = unit(1, "mm"),
     axis.ticks.x = element_blank(),
-    legend.position = 'bottom',
+    legend.position = 'right',
     legend.text = element_text(margin = margin(t = 0)),
     legend.title = element_blank(),
-    legend.margin = margin(-10, 0, 0, 0),
+    legend.margin = margin(0, 0, 0, 0),
     legend.box.margin = margin(0),
     legend.spacing.x = unit(0, "mm"),
     legend.spacing.y = unit(-5, "mm"),
@@ -547,7 +538,6 @@ config_pivot|>
   geom_col(aes(x = op, y = (txs_hash / txs_hints - 1) * 100, fill = op)) +
   geom_hline(yintercept = 0) +
   coord_cartesian(xlim = c(0.4, 4.6))
-
 save_as('hash-speedup', 25)
 
 { (
@@ -797,9 +787,9 @@ in_mem_plot <- function(show_op, configs) {
 HOT_ART_CONFIGS <- c('baseline' = 2, 'dense3' = 2, 'hash' = 2, 'art' = 3, 'hot' = 3)
 TLX_CONFIGS <- c('baseline' = 2, 'dense3' = 2, 'hash' = 2, 'tlx' = 3)
 WH_CONFIGS <- c('baseline' = 2, 'dense3' = 2, 'hash' = 2, 'wh' = 3)
-ALL_CONFIGS <- c(HOT_ART_CONFIGS, 'wh'=4,'tlx' = 5)
+ALL_CONFIGS <- c(HOT_ART_CONFIGS, 'wh' = 4, 'tlx' = 5)
 
-in_mem_plot(COMMON_OPS, c('baseline' = 2, 'dense3' = 2, 'hash' = 2, 'art' = 3, 'hot' = 3,'wh'=1,tlx=4))
+in_mem_plot(COMMON_OPS, c('baseline' = 2, 'dense3' = 2, 'hash' = 2, 'art' = 3, 'hot' = 3, 'wh' = 1, tlx = 4))
 save_as('tmp', 90)
 in_mem_plot('ycsb_c_init')
 in_mem_plot('ycsb_e')
@@ -809,7 +799,7 @@ config_pivot|>
   arrange(op, data_name)|>
   print(n = 25)
 config_pivot|>
-  transmute(r = txs_hot/txs_art, op, data_name)|>
+  transmute(r = txs_hot / txs_art, op, data_name)|>
   arrange(op, data_name)|>
   print(n = 25)
 config_pivot|>
@@ -817,18 +807,19 @@ config_pivot|>
   arrange(op, data_name)
 
 config_pivot|>
-  filter(op=='scan')|>
-  transmute(r = txs_baseline / pmax(txs_art,txs_hot),r3=txs_adapt2/txs_baseline,r4=txs_adapt2/pmax(txs_art,txs_hot), op, data_name)|>
+  filter(op == 'scan')|>
+  transmute(r = txs_baseline / pmax(txs_art, txs_hot), r3 = txs_adapt2 / txs_baseline, r4 = txs_adapt2 / pmax(txs_art, txs_hot), op, data_name)|>
   arrange(op, data_name)
 
 config_pivot|>
-  filter(op%in% COMMON_OPS)|>
-  mutate(ra=txs_adapt2,rb=txs_baseline)|>
-  select(ra,rb,op,data_name,contains('txs_'))|>
-  pivot_longer(contains('txs_'),names_prefix = 'txs_')|>
-  filter(name %in% c('hot','art','tlx','wh','baseline'))|>
-  mutate(vb=value/rb-1,va=value/ra-1,rvb=rb/value-1,rva=ra/value-1,op,name,data_name,.keep='none')|>
-  arrange(name,op,data_name)|>View()
+  filter(op %in% COMMON_OPS)|>
+  mutate(ra = txs_adapt2, rb = txs_baseline)|>
+  select(ra, rb, op, data_name, contains('txs_'))|>
+  pivot_longer(contains('txs_'), names_prefix = 'txs_')|>
+  filter(name %in% c('hot', 'art', 'tlx', 'wh', 'baseline'))|>
+  mutate(vb = value / rb - 1, va = value / ra - 1, rvb = rb / value - 1, rva = ra / value - 1, op, name, data_name, .keep = 'none')|>
+  arrange(name, op, data_name)|>
+  View()
 
 
 config_pivot|>
@@ -841,21 +832,25 @@ config_pivot|>
   print(n = 50)
 
 config_pivot|>
-  transmute(r = pmax(txs_dense3, txs_hash)/txs_wh - 1, op, data_name)|>
+  transmute(r = pmax(txs_dense3, txs_hash) / txs_wh - 1, op, data_name)|>
   arrange(op, data_name)|>
   print(n = 50)
 
 config_pivot|>
-  transmute(r = txs_hash/txs_wh - 1, op, data_name)|>
+  transmute(r = txs_hash / txs_wh - 1, op, data_name)|>
   arrange(op, data_name)|>
   print(n = 50)
 
 config_pivot|>
-  transmute(r = txs_dense3/txs_wh - 1, op, data_name)|>
+  transmute(r = txs_dense3 / txs_wh - 1, op, data_name)|>
   arrange(op, data_name)|>
   print(n = 50)
 
-config_pivot|>filter(op=='insert90')|>select(txs_wh,data_name)|>pivot_wider(names_from = 'data_name',values_from = 'txs_wh')|>mutate(x=ints/sparse)
+config_pivot|>
+  filter(op == 'insert90')|>
+  select(txs_wh, data_name)|>
+  pivot_wider(names_from = 'data_name', values_from = 'txs_wh')|>
+  mutate(x = ints / sparse)
 
 d|>
   filter(config_name %in% c('baseline', 'art', 'hot', 'dense1', 'hash'), op %in% COMMON_OPS)|>
@@ -898,8 +893,8 @@ d|>
 
   f <- function(data_filter, art)
     d|>
-      filter(run_id<5)|>
-      filter(config_name %in% c('baseline', 'adapt2', 'art', 'hot', 'tlx','wh'), op %in% c('ycsb_c', 'insert90','scan'))|>
+      filter(run_id < 5)|>
+      filter(config_name %in% c('baseline', 'adapt2', 'art', 'hot', 'tlx', 'wh'), op %in% c('ycsb_c', 'insert90', 'scan'))|>
       filter(data_name %in% data_filter)|>
       ggplot() +
       theme_bw() +
@@ -909,7 +904,7 @@ d|>
       )) +
       theme(
         strip.text = element_text(size = 8, margin = margin(2, 1, 2, 1)),
-        axis.text.x = element_text(angle = 90, hjust = 1, size = 7,vjust=0.5), ,
+        axis.text.x = element_text(angle = 90, hjust = 1, size = 7, vjust = 0.5), ,
         #axis.text.x = element_text(angle = 90,hjust=1,vjust=0.5),
         axis.text.y = element_text(size = 8),
         panel.spacing.x = unit(0.5, "mm"),
@@ -930,10 +925,12 @@ d|>
       guides(col = 'none', fill = 'none') +
       geom_bar(aes(config_name, txs / 1e6, fill = config_name), stat = 'summary', fun = median) +
       scale_y_continuous(breaks = (0:10) * if (art) { 3 }else { 1 }, expand = expansion(mult = c(0, 0.05))) +
-      scale_x_manual(values = (1:7), labels = c('Base', 'Adapt', 'ART', 'HOT', 'TLX','WH')) +
+      scale_x_manual(values = (1:7), labels = c('Base', 'Adapt', 'ART', 'HOT', 'TLX', 'WH')) +
       coord_cartesian(xlim = c(1, 6))
 
-  (f(c('urls', 'wiki'), FALSE) | plot_spacer() | f(c('ints', 'sparse'), TRUE)) +
+  (f(c('urls', 'wiki'), FALSE) |
+    plot_spacer() |
+    f(c('ints', 'sparse'), TRUE)) +
     plot_layout(guides = 'collect', widths = c(1, 0.01, 1)) &
     theme(legend.position = 'bottom', plot.margin = margin(0, 0, 0, 2))
 }
@@ -1073,7 +1070,7 @@ config_pivot|>
 save_as('adapt-perf', 50)
 
 d|>
-  filter(run_id<5)|>
+  filter(run_id < 5)|>
   filter(config_name == 'adapt2')|>
   filter(op %in% c('ycsb_c', 'scan'))|>
   pivot_longer(contains('nodeCount_'), names_to = 'node_type')|>
@@ -1108,7 +1105,7 @@ save_as('adapt_leaf_ratios', 20)
 config_pivot|>
   filter(op %in% COMMON_OPS)|>
   group_by(op, data_name)|>
-  mutate(op, data_name, r = txs_adapt2 / pmax(txs_hash, txs_dense3) -1, .keep = 'used')|>
+  mutate(op, data_name, r = txs_adapt2 / pmax(txs_hash, txs_dense3) - 1, .keep = 'used')|>
   arrange(r)
 
 d|>
@@ -1127,12 +1124,12 @@ config_pivot|>
   relabel <- function(d) mutate(
     d,
     config_name = config_name|>
-      fct_relevel('baseline', 'adapt2', 'hot','wh', 'art')|>
+      fct_relevel('baseline', 'adapt2', 'hot', 'wh', 'art')|>
       fct_recode(
         'B-Tree' = 'baseline',
         'ART' = 'art',
         'HOT' = 'hot',
-        'Wormhole'='wh',
+        'Wormhole' = 'wh',
         'opt. B-Tree' = 'adapt2'
       ),
     op = fct_recode(op,
@@ -1178,8 +1175,8 @@ config_pivot|>
       legend.key.size = unit(4, 'mm'),
       panel.grid.major.x = element_blank(),
     ) +
-    scale_color_manual(values = c(brewer_pal(palette = 'RdBu')(8)[c(6, 8)],mem_col)) +
-    scale_fill_manual(values = c(brewer_pal(palette = 'RdBu')(8)[c(6, 8)],mem_col)) +
+    scale_color_manual(values = c(brewer_pal(palette = 'RdBu')(8)[c(6, 8)], mem_col)) +
+    scale_fill_manual(values = c(brewer_pal(palette = 'RdBu')(8)[c(6, 8)], mem_col)) +
     #geom_point(aes(fill = config_name, col = config_name), x = 0, y = -1, size = 0) +
     labs(x = NULL, y = 'Mlookup/s', fill = 'Worload', col = 'Workload') +
     guides(fill = 'none', #guide_legend(override.aes = list(size = 3),drop = FALSE)
@@ -1223,9 +1220,27 @@ config_pivot|>
 
 # dense
 config_pivot|>
-  mutate(r3 = txs_dense3 / txs_hints,r2 = txs_dense2 / txs_hints, data_name, op, .keep = 'none')|>
-  filter(!data_name %in% c('ints','partitioned_id'))|>
+  mutate(r3 = txs_dense3 / txs_hints, r2 = txs_dense2 / txs_hints, data_name, op, .keep = 'none')|>
+  filter(!data_name %in% c('ints', 'partitioned_id'))|>
   print(n = 50)
 
-config_pivot|>select(op,data_name,txs_adapt2,data_size)|>filter(op %in% COMMON_OPS)
-d|>filter(config_name=='adapt2')|>filter(op =='scan')|>filter(run_id==1)|>arrange(data_name)|>glimpse()
+config_pivot|>
+  select(op, data_name, txs_adapt2, data_size)|>
+  filter(op %in% COMMON_OPS)
+d|>
+  filter(config_name == 'adapt2')|>
+  filter(op == 'scan')|>
+  filter(run_id == 1)|>
+  arrange(data_name)|>
+  glimpse()
+
+#adaptive paramter tuning
+adapt <-
+  d|>
+    filter(config_name %in% c('hash', 'hints'), data_name %in% c('wiki', 'urls'), op %in% c('ycsb_c', 'ycsb_e'))|>
+    group_by(config_name, data_name, op)|>
+    summarize(rtx = median(time / scale))|>
+    pivot_wider(names_from = 'config_name', values_from = rtx)|>
+    mutate(hash_advantage = hints - hash, .keep = 'unused')|>
+    pivot_wider(names_from = 'op',values_from = 'hash_advantage')|>
+    mutate(ratio = -ycsb_e/ycsb_c)
