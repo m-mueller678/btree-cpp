@@ -952,7 +952,7 @@ config_pivot|>
   #transmute(op,data_name,r=txs_adapt2/reference_value-1,reference_name)|>arrange(reference_name,op,r)|>View()
   ggplot() +
   theme_bw() +
-  facet_nested(reference_name ~ data_name, scales = 'free', independent = 'y', labeller = labeller(
+  facet_nested(reference_name ~ data_name, scales = 'free', labeller = labeller(
     op = OP_LABELS,
     data_name = DATA_LABELS,
     reference_name = c('dense3' = 'vs Dense', 'hash' = 'vs FP'),
@@ -961,14 +961,15 @@ config_pivot|>
   scale_x_discrete(labels = OP_LABELS, expand = expansion(add = 0.1)) +
   coord_cartesian(xlim = c(0.4, 3.6)) +
   theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.margin = margin(0, 0, 0, 0),
     strip.text = element_text(size = 8, margin = margin(2, 1, 2, 1)),
-    axis.text.x = element_text(size = 8, angle = 45, hjust = 1), ,
     #axis.text.x = element_text(angle = 90,hjust=1,vjust=0.5),
     axis.text.y = element_text(size = 8),
     axis.title.y = element_text(size = 8, hjust = 0.5),
     axis.title.x = element_text(size = 8),
-    panel.spacing.x = unit(0.5, "mm"),
-    #axis.ticks.x = element_blank(),
+    panel.spacing.x = unit(1, "mm"),
     legend.position = 'bottom',
     legend.text = element_text(margin = margin(t = 0)),
     legend.title = element_blank(),
@@ -981,7 +982,7 @@ config_pivot|>
   scale_color_brewer(palette = 'Dark2', labels = OP_LABELS) +
   geom_point(aes(fill = op, col = op), x = 0, y = -1, size = 0) +
   labs(x = NULL, y = 'op/s Advantage of Adaptive (%)', fill = 'Worload', col = 'Workload') +
-  guides(col = 'none', fill = 'none') +
+  guides(col = guide_legend(override.aes = list(size = 3)), fill = 'none') +
   geom_col(aes(x = op, fill = op, y = txs_adapt2 / reference_value - 1)) +
   geom_hline(yintercept = 0) +
   expand_limits(y = 0.06)
