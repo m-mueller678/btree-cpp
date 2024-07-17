@@ -24,6 +24,7 @@ r <- bind_rows(
   #  filter(!(config_name == 'hot' & (data_name %in% c('int', 'rng4')))),
   # parallel -j1 --joblog joblog -- env -S {3} YCSB_VARIANT={2} SCAN_LENGTH=100 RUN_ID={1} OP_COUNT=1e7 PAYLOAD_SIZE=8 ZIPF=0.99 DENSITY=1 {4} ::: $(seq 1 30) ::: 3 5 :::  'DATA=data/urls-short KEY_COUNT=4273260' 'DATA=data/wiki KEY_COUNT=9818360' 'DATA=int KEY_COUNT=25000000' 'DATA=rng4 KEY_COUNT=25000000' ::: named-build/adapt2-n3-ycsb | tee R/eval-2/adapt2-fed65b81398dc6b.csv
   #read_broken_csv('adapt2-fed65b81398dc6b.csv.gz')
+  #read_broken_csv('adapt2-fed65b81398dc6b.csv.gz')
 
   #christmas run
   read_broken_csv('re-eval.csv.gz'),
@@ -221,7 +222,7 @@ save_as('prefix-speedup', h = 30)
       geom_col(aes(x = data_name, y = 1 - node_count_prefix / node_count_baseline, fill = data_name)) +
       scale_fill_manual(palette = function(x) brewer_pal(palette = 'Dark2')(4)[(3:4) - left * 2]) +
       guides(fill = 'none') +
-      scale_y_continuous(labels = label_percent(), expand = expansion(mult = c(0, .1)),) +
+      scale_y_continuous(labels = label_percent(), expand = expansion(mult = 0),limits = c(0,0.7)) +
       scale_x_discrete(limits = {
         l <- rev(levels(config_pivot$data_name))
         l[l %in% unique((config_pivot|>filter(!is.na(txs_prefix)))$data_name) & l %in% data_filter]
@@ -254,7 +255,7 @@ save_as('prefix-space', 14)
       geom_col(aes(x = data_name, y = node_count_heads / node_count_prefix - 1, fill = data_name)) +
       scale_fill_manual(palette = function(x) brewer_pal(palette = 'Dark2')(4)[(3:4) - left * 2]) +
       guides(fill = 'none') +
-      scale_y_continuous(labels = label_percent(), expand = expansion(mult = c(0, .1)), breaks = if (left) { (0:10) * 0.05 }else { (0:10) * 0.1 }) +
+      scale_y_continuous(labels = label_percent(), expand = expansion(mult = 0),limits = c(0,0.25), breaks = (0:10) * 0.1) +
       scale_x_discrete(limits = {
         l <- rev(levels(config_pivot$data_name))
         l[l %in% unique((config_pivot|>filter(!is.na(txs_prefix)))$data_name) & l %in% data_filter]
@@ -824,7 +825,7 @@ config_pivot|>
 
 config_pivot|>
   transmute(r1 = txs_baseline / txs_tlx, r2 = pmax(txs_baseline, txs_dense3, txs_hash) / txs_tlx, r3 = txs_baseline / txs_tlx - 1, op, data_name)|>
-  arrange(data_name, op)
+  arrange(data_name, op)|>View()
 
 config_pivot|>
   transmute(r = txs_wh / pmax(txs_dense3, txs_hash) - 1, op, data_name)|>
