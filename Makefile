@@ -1,11 +1,12 @@
 hot_includes=$(shell find in-memory-structures/hot/ -type d -name include | sed 's/^/-I/')
 zipf_sources = $(zipfc/Cargo.toml zipfc/Cargo.lock zipfc/src/lib.rs)
-core_cpps=$(shell find btree -type f|grep cpp|grep -v hot) in-memory-structures/ART/ART.cpp
+core_cpps=$(shell find btree -type f|grep cpp|grep -v hot|grep -v lits) in-memory-structures/ART/ART.cpp
 cpp_sources=$(core_cpps) tpcc/*.?pp tpcc/tpcc/*.?pp named-configs/*.hpp test.cpp ycsb2.cpp
 sources= $(cpp_sources) $(zipf_sources)
 test_cpps=test.cpp $(core_cpps)
 tpcc_cpps=tpcc/newbm.cpp $(core_cpps)
 hot_sources=$(shell find in-memory-structures/hot/ -type f) btree/hot_adapter.*
+lits_sources=$(shell find in-memory-structures/lits/ -type f) btree/lits_adapter.*
 ycsb_cpps=ycsb2.cpp $(core_cpps)
 cxx_base=/usr/bin/clang++-15
 cc_base=/usr/bin/clang-15
@@ -60,47 +61,53 @@ zipfc/target/release/libzipfc.a: zipfc/Cargo.toml zipfc/Cargo.lock zipfc/src/lib
 
 #### named tpcc
 
-named-build/%-n3-tpcc: hot-n3.o libwh.so $(sources)
+named-build/%-n3-tpcc: hot-n3.o lits-n3.o libwh.so $(sources)
 	@mkdir -p named-build
-	$(cxx) $(tpcc_cpps) -O3  -DNDEBUG  -fnon-call-exceptions -fasynchronous-unwind-tables -ltbb $(named_args) hot-n3.o
+	$(cxx) $(tpcc_cpps) -O3  -DNDEBUG  -fnon-call-exceptions -fasynchronous-unwind-tables -ltbb $(named_args) hot-n3.o lits-n3.o
 
-named-build/%-d3-tpcc: hot-d0.o libwh.so $(sources)
+named-build/%-d3-tpcc: hot-d0.o lits-d0.o libwh.so $(sources)
 	@mkdir -p named-build
-	$(cxx) $(tpcc_cpps) -O3 -fnon-call-exceptions -fasynchronous-unwind-tables -ltbb $(named_args) hot-d0.o
+	$(cxx) $(tpcc_cpps) -O3 -fnon-call-exceptions -fasynchronous-unwind-tables -ltbb $(named_args) hot-d0.o lits-d0.o
 
 #### named test
 
-named-build/%-d0-test: hot-d0.o libwh.so $(sources)
+named-build/%-d0-test: hot-d0.o lits-d0.o libwh.so $(sources)
 	@mkdir -p named-build
-	$(cxx) $(test_cpps) $(named_args) hot-d0.o
+	$(cxx) $(test_cpps) $(named_args) hot-d0.o lits-d0.o
 
-named-build/%-d3-test: hot-d0.o libwh.so $(sources)
+named-build/%-d3-test: hot-d0.o lits-d0.o libwh.so $(sources)
 	@mkdir -p named-build
-	$(cxx) $(test_cpps) -O3 $(named_args) hot-d0.o
+	$(cxx) $(test_cpps) -O3 $(named_args) hot-d0.o lits-d0.o
 
-named-build/%-n3-test: hot-n3.o libwh.so $(sources)
+named-build/%-n3-test: hot-n3.o lits-n3.o libwh.so $(sources)
 	@mkdir -p named-build
-	$(cxx) $(test_cpps) -O3 -DNDEBUG $(named_args) hot-n3.o
+	$(cxx) $(test_cpps) -O3 -DNDEBUG $(named_args) hot-n3.o lits-n3.o
 
 #### named ycsb
-named-build/%-n3-ycsb: $(sources) hot-n3.o tlx_build_n3/libTlxWrapper.a zipfc/target/release/libzipfc.a libwh.so
+named-build/%-n3-ycsb: $(sources) hot-n3.o lits-n3.o tlx_build_n3/libTlxWrapper.a zipfc/target/release/libzipfc.a libwh.so
 	@mkdir -p named-build
-	$(cxx) $(ycsb_cpps) -O3 -DNDEBUG $(named_args) $(zipfc_link_arg) -Ltlx_build_n3/ -lTlxWrapper hot-n3.o
+	$(cxx) $(ycsb_cpps) -O3 -DNDEBUG $(named_args) $(zipfc_link_arg) -Ltlx_build_n3/ -lTlxWrapper hot-n3.o lits-n3.o
 
-named-build/%-d0-ycsb: $(sources) hot-d0.o tlx_build_d0/libTlxWrapper.a zipfc/target/release/libzipfc.a libwh.so
+named-build/%-d0-ycsb: $(sources) hot-d0.o lits-d0.o tlx_build_d0/libTlxWrapper.a zipfc/target/release/libzipfc.a libwh.so
 	@mkdir -p named-build
-	$(cxx) $(ycsb_cpps) $(named_args) $(zipfc_link_arg) -Ltlx_build_d0/ -lTlxWrapper hot-d0.o
+	$(cxx) $(ycsb_cpps) $(named_args) $(zipfc_link_arg) -Ltlx_build_d0/ -lTlxWrapper hot-d0.o lits-d0.o
 
 
-named-build/%-d3-ycsb: $(sources) hot-d0.o tlx_build_d0/libTlxWrapper.a zipfc/target/release/libzipfc.a libwh.so
+named-build/%-d3-ycsb: $(sources) hot-d0.o lits-d0.o tlx_build_d0/libTlxWrapper.a zipfc/target/release/libzipfc.a libwh.so
 	@mkdir -p named-build
-	$(cxx) $(ycsb_cpps) -O3 $(named_args) $(zipfc_link_arg) -Ltlx_build_d0/ -lTlxWrapper hot-d0.o
+	$(cxx) $(ycsb_cpps) -O3 $(named_args) $(zipfc_link_arg) -Ltlx_build_d0/ -lTlxWrapper hot-d0.o lits-d0.o
 
 hot-d0.o: $(hot_sources)
 	g++-11 -c btree/hot_adapter.cpp -std=c++17 -o $@ -march=native -g $(hot_includes)
 
 hot-n3.o: $(hot_sources)
 	g++-11 -c  -DNDEBUG -O3 btree/hot_adapter.cpp -std=c++17 -o $@ -march=native -g $(hot_includes)
+
+lits-d0.o: $(lits_sources)
+	g++-11 -c btree/lits_adapter.cpp -std=c++17 -o $@ -march=native -g
+
+lits-n3.o: $(lits_sources)
+	g++-11 -c  -DNDEBUG -O3 btree/lits_adapter.cpp -std=c++17 -o $@ -march=native -g
 
 tlx_build_d0/libTlxWrapper.a: .FORCE
 	mkdir -p tlx_build_d0

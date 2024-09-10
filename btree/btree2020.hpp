@@ -19,6 +19,7 @@
 #include "config.hpp"
 #include "hot_adapter.hpp"
 #include "wh_adapter.hpp"
+#include "lits_adapter.hpp"
 
 #ifndef NDEBUG
 #define CHECK_TREE_OPS
@@ -721,6 +722,8 @@ struct DataStructureWrapper {
    WhBTreeAdapter impl;
 #elif defined(USE_STRUCTURE_TLX)
    TlxWrapper impl;
+#elif defined(USE_STRUCTURE_LITS)
+   LitsBTreeAdapter impl;
 #endif
 
    uint8_t* lookup(uint8_t* key, unsigned keyLength, unsigned& payloadSizeOut);

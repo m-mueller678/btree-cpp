@@ -8,6 +8,9 @@
 #include "btree/btree2020.hpp"
 #include <iostream>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
 using namespace std;
 
 extern "C" {
@@ -117,6 +120,9 @@ void runMulti(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
    uint8_t* payload = makePayload(payloadSize);
 
    DataStructureWrapper t(isDataInt(e));
+#ifdef USE_STRUCTURE_LITS
+   t.impl.bulkInsert(data);
+#endif
    unsigned preInsertCount = keyCount - keyCount/10;
    if (!dryRun)
       for (uint64_t i = 0; i < preInsertCount; i++) {
@@ -731,3 +737,5 @@ int main(int argc, char* argv[])
 
    return 0;
 }
+
+#pragma GCC diagnostic pop
