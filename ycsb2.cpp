@@ -533,6 +533,31 @@ unsigned workloadGenCount(unsigned keyCount,unsigned opCount,unsigned ycsbVarian
    }
 }
 
+std::string int_to_key(uint32_t x){
+#ifdef USE_STRUCTURE_LITS
+   constexpr bool escape_zeroes=true;
+#else
+   constexpr bool escape_zeroes=true;
+#endif
+   std::string s;
+   s.resize(4);
+   if(escape_zeroes){
+      for(int i=0;i<4;++i){
+         uint8_t byte = x>>(24-i*8);
+         if(byte<2){
+            s.push_back(1);
+            s.push_back(1+byte);
+         }else{
+            s.push_back(byte);
+         }
+      }
+   }else{
+      x=__builtin_bswap32(x);
+      memcpy(s.data(),&x,4);
+   }
+   return s;
+}
+
 int main(int argc, char* argv[])
 {
    bool dryRun = getenv("DRYRUN");
@@ -585,14 +610,9 @@ int main(int argc, char* argv[])
       if (dryRun) {
          data.resize(genCount);
       } else {
-         for (uint32_t i = 0; v.size() < genCount; i++)
-            v.push_back(i);
-         string s;
-         s.resize(4);
-         for (auto x : v) {
-            *(uint32_t*)(s.data()) = __builtin_bswap32(x);
-            data.push_back(s);
-         }
+         data.reserve(genCount);
+         for (uint32_t i = 0; data.size() < genCount; i++)
+            data.push_back(int_to_key(i));
       }
    } else if (keySet == "rng4") {
       unsigned genCount = workloadGenCount(keyCount,opCount,envu64("YCSB_VARIANT"));
@@ -602,12 +622,9 @@ int main(int argc, char* argv[])
          vector<uint32_t> v;
          v.resize(genCount);
          generate_rng4(std::rand(),genCount,v.data());
-         string s;
-         s.resize(4);
          data.reserve(genCount);
          for (auto x : v) {
-            *(uint32_t*)(s.data()) = __builtin_bswap32(x);
-            data.push_back(s);
+            data.push_back(int_to_key(x));
          }
       }
    } else if (keySet == "rng8") {
