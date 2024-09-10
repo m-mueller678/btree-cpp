@@ -64,7 +64,12 @@ void LitsBTreeAdapter::bulkInsert(std::vector<std::string>& keys)
    std::sort(insertKeys.begin(), insertKeys.end(), [](char* a, char* b) {
       return lits::ustrcmp(a, b) < 0;
    });
-   bool success = lits->bulkload((const char**)insertKeys.data(),insertVals.data(),insertKeyCount);
+   auto unique_it = std::unique(insertKeys.begin(), insertKeys.end(), [](char* a, char* b) {
+      return std::strcmp(a, b) == 0;
+   });
+   // Erase the remaining duplicates after std::unique
+   insertKeys.erase(unique_it, insertKeys.end());
+   bool success = lits->bulkload((const char**)insertKeys.data(),insertVals.data(),insertKeys.size());
    if(!success)
       abort();
 }

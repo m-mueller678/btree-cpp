@@ -540,8 +540,8 @@ std::string int_to_key(uint32_t x){
    constexpr bool escape_zeroes=true;
 #endif
    std::string s;
-   s.resize(4);
    if(escape_zeroes){
+      s.reserve(8);
       for(int i=0;i<4;++i){
          uint8_t byte = x>>(24-i*8);
          if(byte<2){
@@ -551,7 +551,9 @@ std::string int_to_key(uint32_t x){
             s.push_back(byte);
          }
       }
+      s.shrink_to_fit();
    }else{
+      s.resize(4);
       x=__builtin_bswap32(x);
       memcpy(s.data(),&x,4);
    }
