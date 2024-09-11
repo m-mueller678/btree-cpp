@@ -556,7 +556,7 @@ std::string int_to_key(uint32_t x){
 #ifdef USE_STRUCTURE_LITS
    constexpr bool escape_zeroes=true;
 #else
-   constexpr bool escape_zeroes=true;
+   constexpr bool escape_zeroes=false;
 #endif
    std::string s;
    if(escape_zeroes){
