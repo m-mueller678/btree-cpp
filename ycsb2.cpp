@@ -7,6 +7,7 @@
 #include "btree/BtreeCppPerfEvent.hpp"
 #include "btree/btree2020.hpp"
 #include <iostream>
+#include <malloc.h>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -17,6 +18,19 @@ extern "C" {
 void zipf_generate(uint32_t, double, uint32_t*, uint32_t, bool);
 void generate_rng4(uint64_t seed, uint32_t count, uint32_t* out);
 void generate_rng8(uint64_t seed, uint32_t count, uint64_t* out);
+}
+
+uint64_t read_mem_size(){
+   std::ifstream statm_file("/proc/self/statm");
+   if (!statm_file.is_open()) {
+      std::cerr << "Failed to open /proc/self/statm" << std::endl;
+      return -1;
+   }
+   uint64_t total_pages;
+   statm_file >> total_pages;
+   statm_file.close();
+   uint64_t page_size = sysconf(_SC_PAGESIZE);
+   return total_pages * page_size;
 }
 
 // zipfParameter is assumed to not change between invocations.
@@ -119,6 +133,7 @@ void runMulti(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
 
    uint8_t* payload = makePayload(payloadSize);
 
+   uint64_t mem_size_1=read_mem_size();
    DataStructureWrapper t(isDataInt(e));
 #ifdef USE_STRUCTURE_LITS
    t.impl.bulkInsert(data);
@@ -182,6 +197,10 @@ void runMulti(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
             };
             t.range_lookup(key, keyLen, keyBuffer, callback);
          }
+   }
+   uint64_t mem_size_2=read_mem_size();
+   if(getenv("MEM_SIZE")){
+      std::cout<<"__mem_size_79fbae263695,"<<configName<<","<<mem_size_1<<","<<mem_size_2<<","<<int64_t(mem_size_2)-int64_t(mem_size_1)<<std::endl;
    }
 
    data.clear();
@@ -559,7 +578,6 @@ std::string int_to_key(uint32_t x){
    }
    return s;
 }
-
 int main(int argc, char* argv[])
 {
    bool dryRun = getenv("DRYRUN");
