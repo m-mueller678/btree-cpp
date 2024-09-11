@@ -200,7 +200,7 @@ void runMulti(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
    }
    uint64_t mem_size_2=read_mem_size();
    if(getenv("MEM_SIZE")){
-      std::cout<<"__mem_size_79fbae263695,"<<configName<<","<<mem_size_1<<","<<mem_size_2<<","<<int64_t(mem_size_2)-int64_t(mem_size_1)<<std::endl;
+      std::cout<<"__mem_size_79fbae263695,"<<configName<<","<<e.params["data_name"]<<","<<mem_size_1<<","<<mem_size_2<<","<<int64_t(mem_size_2)-int64_t(mem_size_1)<<std::endl;
    }
 
    data.clear();

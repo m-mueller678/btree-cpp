@@ -23,6 +23,15 @@ struct Tuple {
       return reinterpret_cast<uintptr_t>(tuple);
    }
 
+   static uintptr_t makeLitsTuple(unsigned keyLength, uint8_t* payload, unsigned payloadLength)
+   {
+      Tuple* tuple = reinterpret_cast<Tuple*>(malloc(sizeof(Tuple) + payloadLength));
+      tuple->keyLen = keyLength;
+      tuple->payloadLen = payloadLength;
+      memcpy(tuple->data, payload, payloadLength);
+      return reinterpret_cast<uintptr_t>(tuple);
+   }
+
    static uint8_t* tuplePayloadPtr(uintptr_t tuple) { return reinterpret_cast<Tuple*>(tuple)->payload(); }
 
    static uint8_t* tupleKeyPtr(uintptr_t tuple) { return reinterpret_cast<Tuple*>(tuple)->data; }

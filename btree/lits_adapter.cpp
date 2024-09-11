@@ -8,9 +8,8 @@ LitsBTreeAdapter::LitsBTreeAdapter(bool isInt){
 
 void LitsBTreeAdapter::insertImpl(uint8_t* key, unsigned int keyLength, uint8_t* payload, unsigned int payloadLength)
 {
-   uintptr_t tuple = Tuple::makeTuple(key, keyLength+1, payload, payloadLength);
-   Tuple::tupleKeyPtr(tuple)[keyLength]=0;
-   lits->upsert((char*)Tuple::tupleKeyPtr(tuple),tuple);
+   uintptr_t tuple = Tuple::makeLitsTuple(keyLength+1, payload, payloadLength);
+   lits->upsert((char*)key,tuple);
 }
 
 uint8_t* LitsBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut)
@@ -20,7 +19,8 @@ uint8_t* LitsBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsi
       return nullptr;
    auto tuple= found->v;
    payloadSizeOut = Tuple::tuplePayloadLen(tuple);
-   return Tuple::tuplePayloadPtr(tuple);
+   // tuple does not contain key, payload is where key would usually be.
+   return Tuple::tupleKeyPtr(tuple);
 }
 
 bool LitsBTreeAdapter::removeImpl(uint8_t* key, unsigned int keyLength) const
@@ -33,8 +33,8 @@ void LitsBTreeAdapter::range_lookupImpl(uint8_t* key, unsigned int keyLen, uint8
    auto it = lits->find((const char *)(key));
    while (it.not_finish()) {
       Tuple* tuple= reinterpret_cast<Tuple*>(it.getKV()->v);
-      memcpy(keyOut, tuple->data, tuple->keyLen-1);
-      if (!found_record_cb(tuple->keyLen-1, tuple->payload(), tuple->payloadLen)) {
+      memcpy(keyOut, it.getKV()->k,tuple->keyLen);
+      if (!found_record_cb(tuple->keyLen, tuple->data, tuple->payloadLen)) {
          break;
       }
       it.next();
