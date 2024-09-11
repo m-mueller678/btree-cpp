@@ -34,23 +34,20 @@ r <- bind_rows(
 
   # wormhole
   read_broken_csv('eval-wh.csv.gz'),
+  #lits
+  read_broken_csv('lits.csv.gz'),
 )
-
-r|>
-  filter(run_id < 5)|>
-  group_by(config_name, data_name, op)|>
-  count()|>
-  arrange(n)|>
-  filter(n != 5)|>
-  View()
 
 COMMON_OPS <- c("ycsb_c", "insert90", "scan")
 
 d <- r |>
   filter(op != "ycsb_e_init")|>
-  filter(run_id < 5)|>
+  # lits crashes sometimes, we select the first run ids that exist
+  group_by(op,config_name,data_name)|>arrange(run_id)|>slice_head(n=5)|>ungroup()|>
   augment()|>
   filter(scale > 0)
+
+d|>filter(config_name=='lits',op=='ycsb_c')|>View()
 
 d|>
   filter(data_name == 'urls')|>
@@ -882,6 +879,10 @@ d|>
   labs(x = NULL, fill = 'Configuration') +
   theme(axis.text.x = element_blank())
 
+d|>
+  filter(config_name %in% c('adapt2','lits'), op %in% c('ycsb_c'))|>
+  filter(data_name == 'urls')|>
+  select(config_name,run_id,time,scale,txs)
 
 {
   colors <- c(
@@ -889,13 +890,13 @@ d|>
     brewer_pal(palette = 'PuOr')(8)[2],
     brewer_pal(palette = 'RdBu')(8)[2],
     brewer_pal(palette = 'PRGn')(8)[2],
-    brewer_pal(palette = 'PiYG')(8)[7]
+    brewer_pal(palette = 'PiYG')(8)[7],
+    brewer_pal(palette = 'bRbG')(8)[7]
   )
 
   f <- function(data_filter, art)
     d|>
-      filter(run_id < 5)|>
-      filter(config_name %in% c('baseline', 'adapt2', 'art', 'hot', 'tlx', 'wh'), op %in% c('ycsb_c', 'insert90', 'scan'))|>
+      filter(config_name %in% c('baseline', 'adapt2', 'art', 'hot', 'tlx', 'wh','lits'), op %in% c('ycsb_c', 'insert90', 'scan'))|>
       filter(data_name %in% data_filter)|>
       ggplot() +
       theme_bw() +
@@ -926,8 +927,8 @@ d|>
       guides(col = 'none', fill = 'none') +
       geom_bar(aes(config_name, txs / 1e6, fill = config_name), stat = 'summary', fun = median) +
       scale_y_continuous(breaks = (0:10) * if (art) { 3 }else { 1 }, expand = expansion(mult = c(0, 0.05))) +
-      scale_x_manual(values = (1:7), labels = c('Base', 'Adapt', 'ART', 'HOT', 'TLX', 'WH')) +
-      coord_cartesian(xlim = c(1, 6))
+      scale_x_manual(values = (1:8), labels = c('Base', 'Adapt', 'ART', 'HOT', 'TLX', 'WH','LITS')) +
+      coord_cartesian(xlim = c(1, 7))
 
   (f(c('urls', 'wiki'), FALSE) |
     plot_spacer() |
