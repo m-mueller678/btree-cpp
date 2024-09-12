@@ -1,13 +1,13 @@
+#include <malloc.h>
 #include <algorithm>
 #include <csignal>
 #include <fstream>
+#include <iostream>
 #include <random>
 #include <set>
 #include <string>
 #include "btree/BtreeCppPerfEvent.hpp"
 #include "btree/btree2020.hpp"
-#include <iostream>
-#include <malloc.h>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -20,7 +20,8 @@ void generate_rng4(uint64_t seed, uint32_t count, uint32_t* out);
 void generate_rng8(uint64_t seed, uint32_t count, uint64_t* out);
 }
 
-uint64_t read_mem_size(){
+uint64_t read_mem_size()
+{
    std::ifstream statm_file("/proc/self/statm");
    if (!statm_file.is_open()) {
       std::cerr << "Failed to open /proc/self/statm" << std::endl;
@@ -111,17 +112,25 @@ bool isDataInt(BTreeCppPerfEvent& e)
    return name == "int" || name == "rng4";
 }
 
-bool keySizeAcceptable(unsigned maxPayload,vector<string>& data){
-   for(auto& k:data){
-      if(k.size()+maxPayload>BTreeNode::maxKVSize)
+bool keySizeAcceptable(unsigned maxPayload, vector<string>& data)
+{
+   for (auto& k : data) {
+      if (k.size() + maxPayload > BTreeNode::maxKVSize)
          return false;
    }
    return true;
 }
 
-void runMulti(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsigned payloadSize, unsigned opCount, double zipfParameter,unsigned maxScanLength, bool dryRun)
+void runMulti(BTreeCppPerfEvent e,
+              vector<string>& data,
+              unsigned keyCount,
+              unsigned payloadSize,
+              unsigned opCount,
+              double zipfParameter,
+              unsigned maxScanLength,
+              bool dryRun)
 {
-   if (keyCount <= data.size() && keySizeAcceptable(payloadSize,data)) {
+   if (keyCount <= data.size() && keySizeAcceptable(payloadSize, data)) {
       if (!dryRun)
          random_shuffle(data.begin(), data.end());
       data.resize(keyCount);
@@ -133,12 +142,12 @@ void runMulti(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
 
    uint8_t* payload = makePayload(payloadSize);
 
-   uint64_t mem_size_1=read_mem_size();
+   uint64_t mem_size_1 = read_mem_size();
    DataStructureWrapper t(isDataInt(e));
 #ifdef USE_STRUCTURE_LITS
    t.impl.bulkInsert(data);
 #endif
-   unsigned preInsertCount = keyCount - keyCount/10;
+   unsigned preInsertCount = keyCount - keyCount / 10;
    if (!dryRun)
       for (uint64_t i = 0; i < preInsertCount; i++) {
          uint8_t* key = (uint8_t*)data[i].data();
@@ -149,7 +158,7 @@ void runMulti(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
    {
       // insert
       e.setParam("op", "insert90");
-      BTreeCppPerfEventBlock b(e, t, keyCount-preInsertCount);
+      BTreeCppPerfEventBlock b(e, t, keyCount - preInsertCount);
       for (uint64_t i = preInsertCount; i < keyCount; i++) {
          uint8_t* key = (uint8_t*)data[i].data();
          unsigned int length = data[i].size();
@@ -187,7 +196,7 @@ void runMulti(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
             assert(keyIndex < data.size());
             uint8_t* key = (uint8_t*)data[keyIndex].data();
             unsigned long keyLen = data[keyIndex].size();
-            unsigned foundIndex=0;
+            unsigned foundIndex = 0;
             auto callback = [&](unsigned keyLen, uint8_t* payload, unsigned loadedPayloadLen) {
                if (payloadSize != loadedPayloadLen) {
                   throw;
@@ -198,18 +207,18 @@ void runMulti(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
             t.range_lookup(key, keyLen, keyBuffer, callback);
          }
    }
-   uint64_t mem_size_2=read_mem_size();
-   if(getenv("MEM_SIZE")){
-      std::cout<<"__mem_size_79fbae263695,"<<configName<<","<<e.params["data_name"]<<","<<mem_size_1<<","<<mem_size_2<<","<<int64_t(mem_size_2)-int64_t(mem_size_1)<<std::endl;
+   uint64_t mem_size_2 = read_mem_size();
+   if (getenv("MEM_SIZE")) {
+      std::cout << "__mem_size_79fbae263695," << configName << "," << e.params["data_name"] << "," << mem_size_1 << "," << mem_size_2 << ","
+                << int64_t(mem_size_2) - int64_t(mem_size_1) << std::endl;
    }
 
    data.clear();
 }
 
-
 void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsigned payloadSize, unsigned opCount, double zipfParameter, bool dryRun)
 {
-   if (keyCount <= data.size() && keySizeAcceptable(payloadSize,data)) {
+   if (keyCount <= data.size() && keySizeAcceptable(payloadSize, data)) {
       if (!dryRun)
          random_shuffle(data.begin(), data.end());
       data.resize(keyCount);
@@ -253,10 +262,9 @@ void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
    data.clear();
 }
 
-
 void runSortedInsert(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsigned payloadSize, bool dryRun, bool doSort = true)
 {
-   if (keyCount <= data.size() && keySizeAcceptable(payloadSize,data)) {
+   if (keyCount <= data.size() && keySizeAcceptable(payloadSize, data)) {
       data.resize(keyCount);
       if (!dryRun && doSort) {
          std::sort(data.begin(), data.end());
@@ -316,7 +324,7 @@ void runYcsbD(BTreeCppPerfEvent e,
 {
    unsigned initialKeyCount = 0;
    unsigned reasonableMaxKeys = 0;
-   if (!computeInitialKeyCount(avgKeyCount, data.size(), opCount, initialKeyCount, reasonableMaxKeys) || ! keySizeAcceptable(payloadSize,data)) {
+   if (!computeInitialKeyCount(avgKeyCount, data.size(), opCount, initialKeyCount, reasonableMaxKeys) || !keySizeAcceptable(payloadSize, data)) {
       opCount = 0;
       initialKeyCount = 0;
       data.resize(0);
@@ -379,7 +387,7 @@ void runYcsbE(BTreeCppPerfEvent e,
 {
    unsigned initialKeyCount = 0;
    unsigned reasonableMaxKeys = 0;
-   if (!computeInitialKeyCount(avgKeyCount, data.size(), opCount, initialKeyCount, reasonableMaxKeys) || ! keySizeAcceptable(payloadSize,data)) {
+   if (!computeInitialKeyCount(avgKeyCount, data.size(), opCount, initialKeyCount, reasonableMaxKeys) || !keySizeAcceptable(payloadSize, data)) {
       opCount = 0;
       initialKeyCount = 0;
       data.resize(0);
@@ -420,7 +428,7 @@ void runYcsbE(BTreeCppPerfEvent e,
       if (!dryRun)
          for (uint64_t completedOps = 0; completedOps < opCount; ++completedOps, ++sampleIndex) {
             if (op_next(e)) {
-               //printf("insert :%lu\n",completedOps);
+               // printf("insert :%lu\n",completedOps);
                if (insertedCount == reasonableMaxKeys) {
                   std::cerr << "exhausted keys for insertion" << std::endl;
                   abort();
@@ -430,7 +438,7 @@ void runYcsbE(BTreeCppPerfEvent e,
                t.insert(key, length, payload, payloadSize);
                ++insertedCount;
             } else {
-               //printf("range :%lu\n",completedOps);
+               // printf("range :%lu\n",completedOps);
                unsigned scanLength = scanLengthDistribution(generator);
                while (true) {
                   // num_keys for zipf distribution must remain constant to not mess with shuffling permutation.
@@ -522,7 +530,8 @@ void runSortedScan(BTreeCppPerfEvent e,
    }
 }
 
-unsigned workloadGenCount(unsigned keyCount,unsigned opCount,unsigned ycsbVariant){
+unsigned workloadGenCount(unsigned keyCount, unsigned opCount, unsigned ycsbVariant)
+{
    switch (envu64("YCSB_VARIANT")) {
       case 3: {
          return keyCount;
@@ -537,12 +546,12 @@ unsigned workloadGenCount(unsigned keyCount,unsigned opCount,unsigned ycsbVarian
          return keyCount;
       }
       case 5: {
-         return keyCount+opCount;
+         return keyCount + opCount;
       }
       case 501: {
          return keyCount;
       }
-      case 6:{
+      case 6: {
          return keyCount;
       }
       default: {
@@ -552,32 +561,42 @@ unsigned workloadGenCount(unsigned keyCount,unsigned opCount,unsigned ycsbVarian
    }
 }
 
-std::string int_to_key(uint32_t x){
-#ifdef USE_STRUCTURE_LITS
-   constexpr bool escape_zeroes=true;
-#else
-   constexpr bool escape_zeroes=false;
-#endif
+std::string int_to_key(uint32_t x)
+{
    std::string s;
-   if(escape_zeroes){
-      s.reserve(8);
-      for(int i=0;i<4;++i){
-         uint8_t byte = x>>(24-i*8);
-         if(byte<2){
-            s.push_back(1);
-            s.push_back(1+byte);
-         }else{
-            s.push_back(byte);
-         }
-      }
-      s.shrink_to_fit();
-   }else{
-      s.resize(4);
-      x=__builtin_bswap32(x);
-      memcpy(s.data(),&x,4);
-   }
+   s.resize(4);
+   x = __builtin_bswap32(x);
+   memcpy(s.data(), &x, 4);
    return s;
 }
+
+void lits_escape_strings(std::vector<std::string>& data)
+{
+   for (std::string& s : data) {
+      for (int i = 0; i < s.size(); ++i) {
+         uint8_t c = s[i];
+         if (c < 2) {
+            s[i] = 1;
+            s.insert(i + 1, 1,(char)(c + 1));
+            i += 1;
+         } else if (c >= 126) {
+            c -= 126;
+            if (c < 64) {
+               c -= 64;
+               s[i] = 126;
+            } else {
+               s[i] = 127;
+            }
+            s.insert(i + 1, 1,(char)(c + 1));
+            i += 1;
+         }
+      }
+      if (s.size() > 255) {
+         s.resize(255);
+      }
+   }
+}
+
 int main(int argc, char* argv[])
 {
    bool dryRun = getenv("DRYRUN");
@@ -625,7 +644,7 @@ int main(int argc, char* argv[])
 
       // Generate a random boolean value
       bool result = dist(gen);
-      unsigned genCount = workloadGenCount(keyCount,opCount,envu64("YCSB_VARIANT")) / intDensity;
+      unsigned genCount = workloadGenCount(keyCount, opCount, envu64("YCSB_VARIANT")) / intDensity;
       vector<uint32_t> v;
       if (dryRun) {
          data.resize(genCount);
@@ -635,26 +654,26 @@ int main(int argc, char* argv[])
             data.push_back(int_to_key(i));
       }
    } else if (keySet == "rng4") {
-      unsigned genCount = workloadGenCount(keyCount,opCount,envu64("YCSB_VARIANT"));
+      unsigned genCount = workloadGenCount(keyCount, opCount, envu64("YCSB_VARIANT"));
       if (dryRun) {
          data.resize(genCount);
       } else {
          vector<uint32_t> v;
          v.resize(genCount);
-         generate_rng4(std::rand(),genCount,v.data());
+         generate_rng4(std::rand(), genCount, v.data());
          data.reserve(genCount);
          for (auto x : v) {
             data.push_back(int_to_key(x));
          }
       }
    } else if (keySet == "rng8") {
-      unsigned genCount = workloadGenCount(keyCount,opCount,envu64("YCSB_VARIANT"));
+      unsigned genCount = workloadGenCount(keyCount, opCount, envu64("YCSB_VARIANT"));
       if (dryRun) {
          data.resize(genCount);
       } else {
          vector<uint64_t> v;
          v.resize(genCount);
-         generate_rng8(std::rand(),genCount,v.data());
+         generate_rng8(std::rand(), genCount, v.data());
          string s;
          s.resize(8);
          data.reserve(genCount);
@@ -684,7 +703,7 @@ int main(int argc, char* argv[])
          next_id.push_back(0);
 
       std::mt19937 gen(rand_seed);
-      std::uniform_int_distribution dist(uint32_t(0), uint32_t(partitionCount-1));
+      std::uniform_int_distribution dist(uint32_t(0), uint32_t(partitionCount - 1));
 
       data.reserve(keyCount);
       for (uint32_t i = 0; i < keyCount; i++) {
@@ -727,6 +746,10 @@ int main(int argc, char* argv[])
       }
    }
 
+#ifdef USE_STRUCTURE_LITS
+   lits_escape_strings(data);
+#endif
+
    for (unsigned i = 0; i < data.size(); ++i) {
       if (data[i].size() + payloadSize > BTreeNode::maxKVSize) {
          std::cerr << "key too long for page size" << std::endl;
@@ -762,7 +785,7 @@ int main(int argc, char* argv[])
          runSortedScan(e, data, keyCount, payloadSize, opCount, maxScanLength, zipfParameter, dryRun);
          break;
       }
-      case 6:{
+      case 6: {
          runMulti(e, data, keyCount, payloadSize, opCount, zipfParameter, maxScanLength, dryRun);
          break;
       }
