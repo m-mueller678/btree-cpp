@@ -8,7 +8,7 @@ LitsBTreeAdapter::LitsBTreeAdapter(bool isInt){
 
 void LitsBTreeAdapter::insertImpl(uint8_t* key, unsigned int keyLength, uint8_t* payload, unsigned int payloadLength)
 {
-   uintptr_t tuple = Tuple::makeLitsTuple(keyLength+1, payload, payloadLength);
+   uintptr_t tuple = Tuple::makeLitsTuple(keyLength, payload, payloadLength);
    lits->upsert((char*)key,tuple);
 }
 
