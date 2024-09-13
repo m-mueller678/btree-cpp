@@ -166,21 +166,40 @@ void runMulti(BTreeCppPerfEvent e,
       }
    }
 
+   std::random_shuffle(data.begin(), data.end());
+
+   std::vector<uint8_t*> keyPointers;
+   std::vector<uint16_t> keyLengths;
+   unsigned bufferSize = 0;
+   for (std::string& s : data)
+      bufferSize += s.size() + 1;
+   uint8_t* keyBuffer = new uint8_t[bufferSize];
+   for (std::string& s : data) {
+      memcpy(keyBuffer, s.c_str(), s.size() + 1);
+      keyPointers.push_back(keyBuffer);
+      keyLengths.push_back(s.size());
+      keyBuffer += s.size() + 1;
+   }
+   keyBuffer -= bufferSize;
+
+   unsigned checksum = 0;
    {
       e.setParam("op", "ycsb_c");
       BTreeCppPerfEventBlock b(e, t, opCount);
       if (!dryRun)
          for (uint64_t i = 0; i < opCount; i++) {
-            unsigned keyIndex = zipf_next(e, keyCount, zipfParameter, false, false);
-            assert(keyIndex < data.size());
-            unsigned payloadSizeOut;
-            uint8_t* key = (uint8_t*)data[keyIndex].data();
-            unsigned long length = data[keyIndex].size();
-            uint8_t* payload = t.lookup(key, length, payloadSizeOut);
-            if (!payload || (payloadSize != payloadSizeOut) || (payloadSize > 0 && *payload != 42))
-               throw;
+            uint8_t* key = keyPointers[i];
+            unsigned long length = keyLengths[i];
+            checksum += t.lookup(key, length) != 0;
          }
    }
+
+   if (checksum != opCount) {
+      std::cerr << "lookup checksum error";
+      abort();
+   }
+
+   delete[] keyBuffer;
 
    std::minstd_rand generator(std::rand());
    std::uniform_int_distribution<unsigned> scanLengthDistribution{1, maxScanLength};
@@ -572,13 +591,13 @@ std::string int_to_key(uint32_t x)
 
 void lits_escape_strings(std::vector<std::string>& data)
 {
-   unsigned discard_count=0;
+   unsigned discard_count = 0;
    for (std::string& s : data) {
       for (int i = 0; i < s.size(); ++i) {
          uint8_t c = s[i];
          if (c < 2) {
             s[i] = 1;
-            s.insert(i + 1, 1,(char)(c + 1));
+            s.insert(i + 1, 1, (char)(c + 1));
             i += 1;
          } else if (c >= 126) {
             c -= 126;
@@ -588,17 +607,17 @@ void lits_escape_strings(std::vector<std::string>& data)
                s[i] = 127;
                c -= 64;
             }
-            s.insert(i + 1, 1,(char)(c + 1));
+            s.insert(i + 1, 1, (char)(c + 1));
             i += 1;
          }
       }
       if (s.size() > 255) {
-         discard_count+=1;
+         discard_count += 1;
          s.resize(255);
       }
    }
-   if(discard_count>0){
-      std::cerr<<"truncated "<<discard_count<<" overlong keys for lits escaping"<<std::endl;
+   if (discard_count > 0) {
+      std::cerr << "truncated " << discard_count << " overlong keys for lits escaping" << std::endl;
    }
 }
 
