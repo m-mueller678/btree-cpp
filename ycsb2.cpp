@@ -572,6 +572,7 @@ std::string int_to_key(uint32_t x)
 
 void lits_escape_strings(std::vector<std::string>& data)
 {
+   unsigned discard_count=0;
    for (std::string& s : data) {
       for (int i = 0; i < s.size(); ++i) {
          uint8_t c = s[i];
@@ -592,8 +593,12 @@ void lits_escape_strings(std::vector<std::string>& data)
          }
       }
       if (s.size() > 255) {
+         discard_count+=1;
          s.resize(255);
       }
+   }
+   if(discard_count>0){
+      std::cerr<<"truncated "<<discard_count<<" overlong keys for lits escaping"<<std::endl;
    }
 }
 
