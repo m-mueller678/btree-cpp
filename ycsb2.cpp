@@ -583,10 +583,10 @@ void lits_escape_strings(std::vector<std::string>& data)
          } else if (c >= 126) {
             c -= 126;
             if (c < 64) {
-               c -= 64;
                s[i] = 126;
             } else {
                s[i] = 127;
+               c -= 64;
             }
             s.insert(i + 1, 1,(char)(c + 1));
             i += 1;
