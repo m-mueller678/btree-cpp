@@ -930,10 +930,14 @@ void DataStructureWrapper::range_lookup(uint8_t* key,
    impl.range_lookupImpl(key, keyLen, keyOut, [&](unsigned keyLen, uint8_t* payload, unsigned payloadLen) {
       assert(shouldContinue);
       assert(std_iterator != std_map.end());
-      assert(std_iterator->first.size() == keyLen);
-      assert(memcmp(std_iterator->first.data(), keyOut, keyLen) == 0);
-      assert(std_iterator->second.size() == payloadLen);
-      assert(memcmp(std_iterator->second.data(), payload, payloadLen) == 0);
+      uint64_t std_size =std_iterator->first.size();
+      const unsigned char* std_key=std_iterator->first.data();
+      uint64_t std_v_size = std_iterator->second.size();
+      const unsigned char* std_val = std_iterator->second.data();
+      assert(std_size == keyLen);
+      assert(memcmp(std_key, keyOut, keyLen) == 0);
+      assert(std_v_size == payloadLen);
+      assert(memcmp(std_val, payload, payloadLen) == 0);
       shouldContinue = found_record_cb(keyLen, payload, payloadLen);
       ++std_iterator;
       return shouldContinue;
