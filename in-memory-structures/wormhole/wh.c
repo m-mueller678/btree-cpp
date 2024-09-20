@@ -405,6 +405,7 @@ wormhole_alloc_akey(const size_t klen)
   if (alloc_fail())
     return NULL;
 #endif
+     printf("a %lu\n",sizeof(struct kv) + klen);
   return malloc(sizeof(struct kv) + klen);
 }
 
@@ -421,6 +422,7 @@ wormhole_alloc_mkey(const size_t klen)
   if (alloc_fail())
     return NULL;
 #endif
+     printf("a %lu\n",sizeof(struct kv) + klen);
   return malloc(sizeof(struct kv) + klen);
 }
 
@@ -920,6 +922,7 @@ wormhmap_expand(struct wormhmap * const hmap)
   const u64 psize = nr1 * sizeof(hmap->pmap[0]);
   u64 msize = wsize + psize;
   u8 * mem = pages_alloc_best(msize, true, &msize);
+  printf("hmap %lu\n",msize);
   if (mem == NULL) {
     // We are at a very deep call stack from wormhole_put().
     // Gracefully handling the failure requires lots of changes.
