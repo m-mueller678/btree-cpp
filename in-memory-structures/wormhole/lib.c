@@ -2481,6 +2481,7 @@ slab_reserve_unsafe(struct slab * const slab, const u64 nr)
   void *
 slab_alloc_unsafe(struct slab * const slab)
 {
+     printf("unsafe %lu\n",slab->obj_size);
   void * ret = astk_pop_unsafe(&slab->magic);
   if (ret == NULL) {
     if (!slab_expand(slab, false))
@@ -2495,6 +2496,7 @@ slab_alloc_unsafe(struct slab * const slab)
   void *
 slab_alloc_safe(struct slab * const slab)
 {
+   printf("safe %lu\n",slab->obj_size);
   void * ret = astk_pop_safe(&slab->magic);
   if (ret)
     return ret;

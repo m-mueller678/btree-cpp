@@ -172,6 +172,7 @@ kv_kref(const struct kv * const key)
 kv_create(const void * const key, const u32 klen, const void * const value, const u32 vlen)
 {
   struct kv * const kv = malloc(sizeof(*kv) + klen + vlen);
+  printf("t %lu\n",sizeof(*kv) + klen + vlen);
   if (kv)
     kv_refill(kv, key, klen, value, vlen);
   return kv;
