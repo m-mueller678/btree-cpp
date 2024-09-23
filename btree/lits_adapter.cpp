@@ -9,11 +9,13 @@ LitsBTreeAdapter::LitsBTreeAdapter(bool isInt)
 
 void LitsBTreeAdapter::insertImpl(uint8_t* key, unsigned int keyLength, uint8_t* payload, unsigned int payloadLength)
 {
+   if(key[keyLength]!=0)
+      abort();
    if (payloadLength != 8)
       abort();
    uint64_t payload_copy;
    memcpy(&payload_copy, payload, 8);
-   lits->upsert((char*)key, payload_copy);
+   lits->upsert((char*)key , payload_copy);
 }
 
 uint8_t* LitsBTreeAdapter::lookupImpl(uint8_t* key, unsigned int keyLength, unsigned int& payloadSizeOut)
@@ -39,7 +41,7 @@ void LitsBTreeAdapter::range_lookupImpl(uint8_t* key,
    while (it.not_finish()) {
       unsigned len = strlen(it.getKV()->k);
       memcpy(keyOut, it.getKV()->k, len);
-      if (!found_record_cb(keyLen, reinterpret_cast<uint8_t*>(&it.getKV()->v), 8)) {
+      if (!found_record_cb(len, reinterpret_cast<uint8_t*>(&it.getKV()->v), 8)) {
          break;
       }
       it.next();
