@@ -35,7 +35,7 @@ r <- bind_rows(
   # wormhole
   read_broken_csv('eval-wh.csv.gz'),
   #lits
-  read_broken_csv('lits.csv.gz'),
+  read_broken_csv('lits-inline.csv.gz'),
 )
 
 COMMON_OPS <- c("ycsb_c", "insert90", "scan")
