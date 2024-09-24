@@ -35,7 +35,8 @@ r <- bind_rows(
   # wormhole
   read_broken_csv('eval-wh.csv.gz'),
   #lits
-  read_broken_csv('lits-inline.csv.gz'),
+  read_broken_csv('lits-train5.csv.gz'),
+  read_broken_csv('lits-inline.csv.gz')|>mutate(config_name='lits2'),
 )
 
 COMMON_OPS <- c("ycsb_c", "insert90", "scan")
@@ -1247,3 +1248,11 @@ adapt <-
     mutate(hash_advantage = hints - hash, .keep = 'unused')|>
     pivot_wider(names_from = 'op',values_from = 'hash_advantage')|>
     mutate(ratio = -ycsb_e/ycsb_c)
+
+d|>
+  filter(config_name %in% c('lits','lits2'))|>
+  group_by(op,config_name,data_name)|>
+  summarize(txs=median(txs))|>
+  pivot_wider(names_from = 'config_name',values_from = 'txs')|>
+  mutate(change = lits2/lits-1)|>
+  arrange(change)
