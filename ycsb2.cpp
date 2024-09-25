@@ -231,6 +231,10 @@ void runYcsbC(BTreeCppPerfEvent e, vector<string>& data, unsigned keyCount, unsi
    uint8_t* payload = makePayload(payloadSize);
 
    DataStructureWrapper t(isDataInt(e));
+
+#ifdef USE_STRUCTURE_LITS
+   t.impl.bulkInsert(data);
+#endif
    {
       // insert
       e.setParam("op", "ycsb_c_init");

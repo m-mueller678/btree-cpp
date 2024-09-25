@@ -35,8 +35,8 @@ r <- bind_rows(
   # wormhole
   read_broken_csv('eval-wh.csv.gz'),
   #lits
-  read_broken_csv('lits-train5.csv.gz'),
-  read_broken_csv('lits-inline.csv.gz')|>mutate(config_name='lits2'),
+  read_broken_csv('lits-train5.csv.gz')|>mutate(config_name='lits2'),
+  read_broken_csv('lits-inline.csv.gz'),
 )
 
 COMMON_OPS <- c("ycsb_c", "insert90", "scan")
@@ -846,53 +846,21 @@ config_pivot|>
   print(n = 50)
 
 config_pivot|>
+  transmute(r = txs_adapt2/txs_lits - 1, op, data_name)|>
+  arrange(op, data_name)|>
+  print(n = 50)
+
+
+config_pivot|>
   filter(op == 'insert90')|>
   select(txs_wh, data_name)|>
   pivot_wider(names_from = 'data_name', values_from = 'txs_wh')|>
   mutate(x = ints / sparse)
 
-d|>
-  filter(config_name %in% c('baseline', 'art', 'hot', 'dense1', 'hash'), op %in% COMMON_OPS)|>
-  ggplot() +
-  facet_nested(op ~ data_name, scales = 'free', independent = 'y') +
-  geom_bar(aes(x = config_name, y = txs, fill = config_name), stat = 'summary', fun = mean) +
-  scale_x_discrete(labels = CONFIG_LABELS) +
-  scale_y_continuous(
-    expand = expansion(mult = c(0, .1)),
-    labels = label_number(scale_cut = cut_si('tx/s'))
-  ) +
-  scale_fill_brewer(palette = "Dark2") +
-  labs(x = NULL, y = "Throughput", fill = 'Configuration') +
-  theme_bw() +
-  theme(axis.text.x = element_blank(), legend.position = "bottom", legend.justification = "center")
-
-d|>
-  filter(config_name %in% c('baseline', 'art', 'hot', 'dense3', 'hash'), op %in% COMMON_OPS)|>
-  ggplot() +
-  facet_wrap(~op + data_name, scales = 'free') +
-  geom_bar(aes(x = config_name, y = L1_miss, fill = config_name), stat = 'summary', fun = mean) +
-  scale_x_discrete(labels = CONFIG_LABELS) +
-  scale_y_continuous(
-    expand = expansion(mult = c(0, .1)),
-    labels = label_number(scale_cut = cut_si('tx/s'))
-  ) +
-  scale_fill_brewer(palette = "Dark2") +
-  labs(x = NULL, fill = 'Configuration') +
-  theme(axis.text.x = element_blank())
-
-d|>
-  filter(config_name %in% c('adapt2','lits'), op %in% c('ycsb_c'))|>
-  filter(data_name == 'urls')|>
-  select(config_name,run_id,time,scale,txs)
-
 {
   colors <- c(
     brewer_pal(palette = 'RdBu')(8)[c(6, 8)],
-    brewer_pal(palette = 'PuOr')(8)[2],
-    brewer_pal(palette = 'RdBu')(8)[2],
-    brewer_pal(palette = 'PRGn')(8)[2],
-    brewer_pal(palette = 'PiYG')(8)[7],
-    brewer_pal(palette = 'bRbG')(8)[7]
+    brewer_pal(palette = 'Dark2')(6)[c(2,4,6,5,1)]
   )
 
   f <- function(data_filter, art)
@@ -1249,10 +1217,20 @@ adapt <-
     pivot_wider(names_from = 'op',values_from = 'hash_advantage')|>
     mutate(ratio = -ycsb_e/ycsb_c)
 
-d|>
-  filter(config_name %in% c('lits','lits2'))|>
-  group_by(op,config_name,data_name)|>
-  summarize(txs=median(txs))|>
-  pivot_wider(names_from = 'config_name',values_from = 'txs')|>
-  mutate(change = lits2/lits-1)|>
-  arrange(change)
+{
+  lits_train_size <-d|>
+    filter(config_name %in% c('lits','lits2'))|>
+    group_by(op,config_name,data_name)|>
+    summarize(txs=median(txs))|>
+    pivot_wider(names_from = 'config_name',values_from = 'txs')
+
+  lits_train_size|>mutate(change = lits2/lits-1)|>
+    arrange(change)
+
+  lits_train_size|>transmute(ratio = lits2/lits)|>pull()|>log()|>mean()|>exp()-1
+
+  lits_train_size|>transmute(ratio = lits2/lits)|>pull()|>reciprocal()|>mean()|>reciprocal()
+}
+
+
+

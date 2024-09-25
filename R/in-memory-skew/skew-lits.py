@@ -1,5 +1,5 @@
-for run_id in range(5):
-    for config in ["baseline","adapt2","art", "hot", "tlx","wh"]:
+for run_id in range(20):
+    for config in ["lits"]:
         for d in [['int',25_000_000],['rng4',25_000_000],['data/urls-short',4273260],['data/wiki',9818360]]:
             for zipf in range(50,151,2):
                 kc = int(d[1])
