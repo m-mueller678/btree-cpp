@@ -1,14 +1,15 @@
 source('../common.R')
 
-r<-read_csv("in-mem-size.csv.gz",col_names = c('tag','config_name','data_name','before','after','diff'))
+COL_NAMES = c('tag','config_name','data_name','before','after','diff')
+
+r<-bind_rows(
+  read_csv("in-mem-size.csv.gz",col_names=COL_NAMES)|>filter(config_name!='lits'),
+  read_csv("lits.csv.gz",col_names=COL_NAMES)
+)
 
 colors <- c(
   brewer_pal(palette = 'RdBu')(8)[c(6, 8)],
-  brewer_pal(palette = 'PuOr')(8)[2],
-  brewer_pal(palette = 'RdBu')(8)[2],
-  brewer_pal(palette = 'PRGn')(8)[2],
-  brewer_pal(palette = 'PiYG')(8)[7],
-  brewer_pal(palette = 'bRbG')(8)[7]
+  brewer_pal(palette = 'Dark2')(6)[c(2,4,6,5,1)]
 )
 
 r|>
