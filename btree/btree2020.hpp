@@ -663,6 +663,7 @@ union AnyNode {
    unsigned innerKeyLen(unsigned index);
    bool splitNodeWithParent(AnyNode* parent, uint8_t* key, unsigned keyLength);
    void nodeCount(unsigned counts[TAG_END]);
+   unsigned getHeight(unsigned acc);
 };
 
 struct BTree {

@@ -220,14 +220,17 @@ struct BTreeCppPerfEventBlock {
    BTreeCppPerfEventBlock(BTreeCppPerfEvent& e,DataStructureWrapper& ds, uint64_t scale = 1) : e(e), scale(scale),data_strcuture_wrapper(&ds) { e.startCounters(); }
 
    void pushNodeCounts(){
-      unsigned counts[TAG_END+1]={};
+      unsigned counts[TAG_END + 1] = {};
+      unsigned tree_height = 0;
 #if defined(USE_STRUCTURE_BTREE)
       data_strcuture_wrapper->impl.root->nodeCount(counts);
+      tree_height = data_strcuture_wrapper->impl.root->getHeight(0);
 #endif
-      for(int i=0;i<TAG_END;++i){
-         push(std::string{"nodeCount_"} + tag_name(Tag(i)),std::to_string(counts[i]));
+      for (int i = 0; i < TAG_END; ++i) {
+         push(std::string{"nodeCount_"} + tag_name(Tag(i)), std::to_string(counts[i]));
       }
-      push("counted_final_key_count",std::to_string(counts[TAG_END]));
+      push("counted_final_key_count", std::to_string(counts[TAG_END]));
+      push("tree_height", std::to_string(tree_height));
    }
 
    void push(std::string k,std::string v){

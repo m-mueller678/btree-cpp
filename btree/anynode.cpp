@@ -413,6 +413,16 @@ void AnyNode::nodeCount(unsigned counts[int(Tag::_last) + 2])
    }
 }
 
+unsigned AnyNode::getHeight(unsigned acc)
+{
+   switch (tag()) {
+      case Tag::Inner:
+         return basic()->getChild(0)->getHeight(acc + 1);
+      default:
+         return acc + 1;
+   }
+}
+
 const char* tag_name(Tag tag)
 {
    switch (tag) {
