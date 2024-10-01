@@ -1246,3 +1246,13 @@ adapt <-
     mutate(hash_advantage = hints - hash, .keep = 'unused')|>
     pivot_wider(names_from = 'op',values_from = 'hash_advantage')|>
     mutate(ratio = -ycsb_e/ycsb_c)
+
+# fan-out
+d|>filter(op=='ycsb_c')|>
+  transmute(avg_fanout = (node_count-1)/inner_count,data_name,config_name,leaf_count)|>
+  group_by(config_name,data_name)|>
+  summarize(avg_fanout = mean(avg_fanout),leaf_count=median(leaf_count))|>View()
+  ggplot()+
+  geom_boxplot(aes(x=config_name,y=avg_fanout,col=data_name),position = 'dodge')+
+  expand_limits(y=0)+
+  scale_y_continuous(breaks = 5*(0:200))
