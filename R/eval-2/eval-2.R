@@ -938,7 +938,7 @@ config_pivot|>
     axis.text.x = element_blank(),
     axis.ticks.x = element_blank(),
     legend.margin = margin(0, 0, 0, 0),
-    strip.text = element_text(size = 8, margin = margin(2, 1, 2, 1)),
+    strip.text = element_text(size = 7.5, margin = margin(2, 1, 2, 1)),
     #axis.text.x = element_text(angle = 90,hjust=1,vjust=0.5),
     axis.text.y = element_text(size = 8),
     axis.title.y = element_text(size = 8, hjust = 0.5),
