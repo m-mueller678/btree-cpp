@@ -949,9 +949,7 @@ config_pivot|>
     legend.text = element_text(margin = margin(t = 0)),
     legend.title = element_blank(),
     legend.box.margin = margin(0,0,0,0),
-    legend.spacing.x = unit(0, "mm"),
-    legend.spacing.y = unit(-5, "mm"),
-    plot.margin = margin(0, 0, 0, 0),
+    plot.margin = margin(0, 1, 0, 1),
   ) +
   scale_fill_brewer(palette = 'Dark2', labels = OP_LABELS) +
   scale_color_brewer(palette = 'Dark2', labels = OP_LABELS) +
