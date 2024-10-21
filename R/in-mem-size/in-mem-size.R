@@ -41,7 +41,7 @@ r|>
   scale_color_manual(values = colors) +
   scale_fill_manual(values = colors) +
   geom_point(aes(fill = config_name, col = config_name), x = 0, y = -1, size = 0) +
-  labs(x = NULL, y = 'Size [GB]', fill = 'Worload', col = 'Workload') +
+  labs(x = NULL, y = 'Size (GB)', fill = 'Worload', col = 'Workload') +
   guides(col = 'none', fill = 'none') +
   geom_col(aes(config_name, diff/1e9, fill = config_name)) +
   scale_y_continuous(breaks = (0:10)*0.5, expand = expansion(mult = c(0, 0.05))) +
