@@ -130,7 +130,7 @@ d|>
     geom_text(
       data = label_data(300,1000),
       aes(x = data_size / ycsb_range_len, y = txs/1e6,  label = CONFIG_LABELS[config_name],col=config_name),
-      size = 3, hjust = "right", vjust = "bottom",
+      size = 3, hjust = 1.3, vjust = 0.1,
     )+
     scale_y_continuous(name = 'Minsert/s')+
     theme(axis.title.y = element_text(size = 8,hjust=0.5),)

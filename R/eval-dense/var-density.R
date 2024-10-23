@@ -121,7 +121,7 @@ dense_joined|>
     op = OP_LABELS,
   ))+
   geom_line(aes(density,txs.x/txs.y-1,col=config_name.x))+
-  geom_text(aes(x,y,col=config_name,label=c('dense2'='semi d.','dense3'='fully d.')[as.character(config_name)]),
+  geom_text(aes(x,y,col=config_name,label=c('dense2'='SDLs','dense3'='FDLs')[as.character(config_name)]),
             data = data.frame(
               op=factor(c('ycsb_c','insert90','scan'),levels=names(OP_LABELS)),
               config_name=factor(c(rep('dense3',3),rep('dense2',3)),levels=names(CONFIG_LABELS)),
@@ -196,7 +196,7 @@ grouped|>
   expand_limits(y=0)+
   geom_line(aes(x = density, y = node_count * 4096 / 25e6, col = config_name)) +
   geom_text(
-    aes(x = density, y = node_count * 4096 / 25e6 - 5, col = config_name,label=c('dense3'='fully dense','dense2'='semi dense','hints'='hints')[as.character(config_name)]),size=3,hjust='right',
+    aes(x = density, y = node_count * 4096 / 25e6 - 5, col = config_name,label=c('dense3'='FDLs','dense2'='SDLs','hints'='hints')[as.character(config_name)]),size=3,hjust='right',
   data=grouped|>
     filter(op=='ycsb_c',config_name!='dense1',density==c('hints'=0.96,'dense2'=0.52,'dense3'=0.98)[as.character(config_name)])
   )+
