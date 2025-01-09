@@ -1,4 +1,6 @@
-This repository contains various data structure implementations, benchmarking code, and benchmarking results.
+This repository contains suplementary data for our paper "B-Trees Are Back: Engineering Fast and Pageable Node Layouts".
+The B-Tree implementation contained is to help others reproduce our findings.
+It is not suitable for production use.
 
 # Benchmarking Binaries
 The main artifacts produced are benchmarking binaries produced from the makefile target `ycsb-all`.
