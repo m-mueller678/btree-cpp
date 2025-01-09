@@ -150,6 +150,56 @@ dense_joined|>
   )
 save_as('var-density-txs', 25)
 
+
+dense_joined|>
+  filter(config_name.x!='dense1')|>
+  filter(op!='ycsb_e_init')|>
+  ggplot() +
+  theme_bw() +
+  scale_color_brewer(palette = 'Dark2', name = NULL, labels = CONFIG_LABELS) +
+  scale_x_continuous(
+    name='Density (%)',
+    limits = c(0, 1),
+    breaks = (0:2)*0.5,
+    labels = label_percent(suffix = ''),
+    expand = expansion(add = 0)
+  ) +
+  scale_y_continuous(labels = label_percent(suffix = ''), expand = expansion(mult = c(.05, .05)),name='op/s Increase (%)') +
+  guides(col = 'none')+
+  expand_limits(y=0)+
+  facet_nested(op~.,scales = 'free_y',independent = 'y', labeller = labeller(
+    op = OP_LABELS,
+  ))+
+  geom_line(aes(density,txs.x/txs.y-1,col=config_name.x))+
+  geom_text(aes(x,y,col=config_name,label=c('dense2'='SDLs','dense3'='FDLs')[as.character(config_name)]),
+            data = data.frame(
+              op=factor(c('ycsb_c','insert90','scan'),levels=names(OP_LABELS)),
+              config_name=factor(c(rep('dense3',3),rep('dense2',3)),levels=names(CONFIG_LABELS)),
+              x=c(0.75,0.85,0.8,0.6,0.65,1),
+              y=c(0.55,1.7,0.8,0.35,0.9,0.18)
+            ),
+            vjust='bottom',hjust='right',size=3
+  )+
+  theme(
+    strip.text = element_text(size = 8, margin = margin(2, 1, 2, 1)),
+    #axis.text.x = element_blank(),
+    #axis.text.x = element_text(angle = 90,hjust=1,vjust=0.5),
+    axis.text.y = element_text(size = 8),
+    axis.title.y = element_text(size = 8,hjust=0.7),
+    axis.title.x = element_text(size = 8),
+    panel.spacing.x = unit(0.5, "mm"),
+    #axis.ticks.x = element_blank(),
+    legend.position = 'bottom',
+    legend.text = element_text(margin = margin(t = 0)),
+    legend.title = element_blank(),
+    legend.margin = margin(-10, 0, 0, 0),
+    legend.box.margin = margin(0),
+    legend.spacing.x = unit(0, "mm"),
+    legend.spacing.y = unit(-5, "mm"),
+    plot.margin = margin(0, 10, 0, 2),
+  )
+save_as('var-density-txs-tall', 50,30)
+
 # space
 {
   common <- function(op_filter, has_x) d_var_density|>

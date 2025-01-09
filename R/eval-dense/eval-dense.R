@@ -162,6 +162,65 @@ d|>
 }
 save_as('dense-partition', 25)
 
+
+{
+  label_data<-function(x_hints,x_dense)
+    grouped|>filter(data_name=='partitioned_id', config_name=='dense3'& ycsb_range_len<x_dense |  config_name=='hints' & ycsb_range_len<x_hints )|>
+      group_by(config_name,data_size,ycsb_range_len)|>
+      summarize(txs=median(txs),space=median(node_count * 4096 /1e7),.groups = 'drop_last')|>
+      slice_max(ycsb_range_len)
+  common <- function(dense_only, has_x) grouped|>
+    filter(!dense_only | config_name == 'dense3')|>
+    filter(data_name == 'partitioned_id')|>
+    ggplot() +
+    theme_bw() +
+    scale_color_brewer(palette = 'Dark2', name = "Configuration", labels = CONFIG_LABELS) +
+    scale_x_log10(
+      name = if (has_x) { 'records per range' }else { NULL },
+      limits = c(10, 1e5),
+      breaks = c(10, 1e2,1e3, 1e4,1e5),
+      labels = label_number(scale_cut = cut_si('')),
+      expand = expansion(add=0)
+    ) +
+    expand_limits(y = 0)+
+    guides(col = 'none')
+
+  tx <- common(FALSE, FALSE) +
+    geom_line(aes(x = data_size / ycsb_range_len, y = txs/1e6, col = config_name)) +
+    geom_text(
+      data = label_data(300,1000),
+      aes(x = data_size / ycsb_range_len, y = txs/1e6,  label = CONFIG_LABELS[config_name],col=config_name),
+      size = 3, hjust = 1.3, vjust = 0.1,
+    )+
+    scale_y_continuous(name = 'Minsert/s')+
+    theme(axis.title.y = element_text(size = 6.5,hjust=1), axis.text.x = element_blank(),axis.ticks.x = element_blank())
+  space <- common(FALSE, FALSE) +
+    geom_line(aes(x = data_size / ycsb_range_len, y = node_count * 4096 /1e7, col = config_name)) +
+    scale_y_continuous(name = 'Space/Record', labels = label_bytes(),breaks = 20*(0:5)) +
+    geom_text(
+      data = label_data(300,1000),
+      aes(x = data_size / ycsb_range_len, y = space - ifelse(config_name=='hints',5,0), label = CONFIG_LABELS[config_name],col=config_name),
+      size = 3, hjust = "right", vjust = "top"
+    )+theme(axis.title.y = element_text(size = 6.5,hjust=0),axis.text.x = element_text(angle = 45, hjust = 1, size = 8))
+  (tx/space)+plot_annotation(caption = "Records/Partition")+plot_layout(widths = c(1,0.05,1))&theme(
+    strip.text = element_text(size = 8, margin = margin(2, 1, 2, 1)),
+    #axis.text.x = element_text(angle = 90,hjust=1,vjust=0.5),
+    axis.text.y = element_text(size = 8),
+    panel.spacing.x = unit(0.5, "mm"),
+    #axis.ticks.x = element_blank(),
+    legend.position = 'bottom',
+    legend.text = element_text(margin = margin(t = 0)),
+    legend.title = element_blank(),
+    legend.margin = margin(-10, 0, 0, 0),
+    legend.box.margin = margin(0),
+    legend.spacing.x = unit(0, "mm"),
+    legend.spacing.y = unit(-5, "mm"),
+    plot.margin = margin(0, 2, 0, 2),
+    plot.caption = element_text(size = 6.5,hjust=0.5),
+  )
+}
+save_as('dense-partition-tall', 40,30)
+
 # tx ratio
 config_pivot|>
   filter(data_name == 'partitioned_id')|>
